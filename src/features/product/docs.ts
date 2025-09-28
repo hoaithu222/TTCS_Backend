@@ -104,7 +104,7 @@
  *       200:
  *         description: Thành công
  *   post:
- *     summary: Tạo sản phẩm (admin)
+ *     summary: Tạo sản phẩm (admin, shop)
  *     tags: [Products]
  *     requestBody:
  *       required: true

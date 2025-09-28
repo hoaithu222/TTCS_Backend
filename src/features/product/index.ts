@@ -18,7 +18,7 @@ productRouter.get("/:id", getProductController);
 productRouter.post(
   "/",
   authenticateToken,
-  authorize(["admin"]),
+  authorize(["admin", "shop"]),
   createProductController
 );
 productRouter.put(
