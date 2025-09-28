@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # My Love Server
 
 A modern Node.js API server built with TypeScript, Express, and Socket.io.
@@ -247,3 +248,6 @@ If you have any questions or need help, please open an issue on GitHub.
 ## 🔄 Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
+=======
+# TTCS_Backend
+>>>>>>> e7edd913659a413ee8d2f6dfd88ff6bdfdfda238
