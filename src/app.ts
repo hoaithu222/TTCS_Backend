@@ -66,7 +66,7 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan("combined"));
 }
 
-// Swagger Documentation (use CDN assets to avoid MIME/CSP issues on some hosts)
+// Swagger Documentation (serve local swagger-ui-dist assets to satisfy CSP/MIME)
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
 
 // Rate limiting
