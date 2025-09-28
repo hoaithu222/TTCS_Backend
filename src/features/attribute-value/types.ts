@@ -12,3 +12,4 @@ export interface ListAttributeValueQuery {
   attributeTypeId?: string;
   search?: string;
 }
+

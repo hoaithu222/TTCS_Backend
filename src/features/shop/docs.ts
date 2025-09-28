@@ -97,3 +97,64 @@
  *         required: true
  *         schema: { type: string }
  */
+
+/**
+ * @swagger
+ * /shops/{id}/follow:
+ *   post:
+ *     summary: Theo dõi cửa hàng (yêu cầu đăng nhập)
+ *     tags: [Shops]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Theo dõi thành công hoặc đã theo dõi }
+ *   delete:
+ *     summary: Hủy theo dõi cửa hàng (yêu cầu đăng nhập)
+ *     tags: [Shops]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Hủy theo dõi thành công }
+ */
+
+/**
+ * @swagger
+ * /shops/{id}/following:
+ *   get:
+ *     summary: Kiểm tra người dùng hiện tại có đang theo dõi cửa hàng
+ *     tags: [Shops]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Trạng thái theo dõi }
+ */
+
+/**
+ * @swagger
+ * /shops/{id}/followers/count:
+ *   get:
+ *     summary: Lấy số lượng người theo dõi cửa hàng
+ *     tags: [Shops]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Thành công }
+ */

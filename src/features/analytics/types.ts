@@ -3,3 +3,4 @@ export interface RevenueQuery {
   to?: string; // ISO date string
   shopId?: string; // admin can filter by shop, shop user ignored
 }
+

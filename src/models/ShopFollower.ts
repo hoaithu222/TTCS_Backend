@@ -15,3 +15,9 @@ export const shopFollowerSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Prevent duplicate follow per user per shop
+shopFollowerSchema.index({ shopId: 1, userId: 1 }, { unique: true });
+
+const ShopFollowerModel = mongoose.model("ShopFollower", shopFollowerSchema);
+export default ShopFollowerModel;

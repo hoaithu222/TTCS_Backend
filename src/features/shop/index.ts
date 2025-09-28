@@ -5,6 +5,10 @@ import {
   updateShopController,
   deleteShopController,
   listShopController,
+  followShopController,
+  unfollowShopController,
+  isFollowingShopController,
+  followersCountController,
 } from "./shop.controller";
 import {
   authenticateToken,
@@ -33,5 +37,11 @@ shopRouter.delete(
   authorize(["admin"]),
   deleteShopController
 );
+
+// Follow / Unfollow shop
+shopRouter.post("/:id/follow", authenticateToken, followShopController);
+shopRouter.delete("/:id/follow", authenticateToken, unfollowShopController);
+shopRouter.get("/:id/following", authenticateToken, isFollowingShopController);
+shopRouter.get("/:id/followers/count", followersCountController);
 
 export default shopRouter;

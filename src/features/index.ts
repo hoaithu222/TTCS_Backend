@@ -19,6 +19,36 @@ import addressRoutes from "./address";
 import reviewsRoutes from "./reviews";
 const router = Router();
 
+/**
+ * @swagger
+ * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Health
+ *   - name: Auth
+ *   - name: Categories
+ *   - name: Sub Categories
+ *   - name: Products
+ *   - name: Product Attributes
+ *   - name: Attribute Types
+ *   - name: Attribute Values
+ *   - name: Images
+ *   - name: Shops
+ *   - name: Analytics
+ *   - name: Orders
+ *   - name: Cart
+ *   - name: Addresses
+ *   - name: Reviews
+ */
+
 // Mount feature routes
 router.use("/health", healthRoutes);
 router.use("/", authRoutes);

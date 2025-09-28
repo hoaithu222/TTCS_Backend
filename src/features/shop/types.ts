@@ -18,3 +18,4 @@ export interface ListShopQuery {
   search?: string; // by name
   status?: "pending" | "active" | "blocked";
 }
+

@@ -10,3 +10,4 @@ export interface ListImageQuery {
   limit?: number;
   search?: string; // by url
 }
+

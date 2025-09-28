@@ -1,4 +1,5 @@
 import ShopModel from "../../models/ShopModel";
+import ShopFollowerModel from "../../models/ShopFollower";
 import { CreateShopRequest, UpdateShopRequest, ListShopQuery } from "./types";
 
 export default class ShopService {
@@ -65,5 +66,49 @@ export default class ShopService {
         message: (error as Error).message,
       };
     }
+  }
+
+  static async follow(shopId: string, userId: string) {
+    const shop = await ShopModel.findById(shopId).select("_id followCount");
+    if (!shop)
+      return { ok: false as const, status: 404, message: "Shop không tồn tại" };
+    try {
+      await ShopFollowerModel.create({ shopId, userId } as any);
+      await ShopModel.findByIdAndUpdate(shopId, { $inc: { followCount: 1 } });
+      return { ok: true as const };
+    } catch (error) {
+      // Duplicate follows should be idempotent
+      if ((error as any).code === 11000) {
+        return { ok: true as const };
+      }
+      return {
+        ok: false as const,
+        status: 400,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  static async unfollow(shopId: string, userId: string) {
+    const shop = await ShopModel.findById(shopId).select("_id followCount");
+    if (!shop)
+      return { ok: false as const, status: 404, message: "Shop không tồn tại" };
+    const res = await ShopFollowerModel.findOneAndDelete({ shopId, userId });
+    if (res) {
+      await ShopModel.findByIdAndUpdate(shopId, { $inc: { followCount: -1 } });
+    }
+    return { ok: true as const };
+  }
+
+  static async isFollowing(shopId: string, userId: string) {
+    const doc = await ShopFollowerModel.findOne({ shopId, userId }).select(
+      "_id"
+    );
+    return { ok: true as const, following: !!doc };
+  }
+
+  static async followersCount(shopId: string) {
+    const count = await ShopFollowerModel.countDocuments({ shopId });
+    return { ok: true as const, count };
   }
 }

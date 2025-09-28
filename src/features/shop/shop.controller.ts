@@ -46,3 +46,40 @@ export const listShopController = async (req: Request, res: Response) => {
     totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
   });
 };
+
+export const followShopController = async (req: Request, res: Response) => {
+  const { id } = req.params; // shopId
+  const currentUser = (req as any).user as { userId: string } | undefined;
+  if (!currentUser) return ResponseUtil.error(res, "Unauthorized", 401);
+  const result = await ShopService.follow(id, currentUser.userId);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, { followed: true });
+};
+
+export const unfollowShopController = async (req: Request, res: Response) => {
+  const { id } = req.params; // shopId
+  const currentUser = (req as any).user as { userId: string } | undefined;
+  if (!currentUser) return ResponseUtil.error(res, "Unauthorized", 401);
+  const result = await ShopService.unfollow(id, currentUser.userId);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, { followed: false });
+};
+
+export const isFollowingShopController = async (
+  req: Request,
+  res: Response
+) => {
+  const { id } = req.params; // shopId
+  const currentUser = (req as any).user as { userId: string } | undefined;
+  if (!currentUser) return ResponseUtil.error(res, "Unauthorized", 401);
+  const result = await ShopService.isFollowing(id, currentUser.userId);
+  if (!result.ok) return ResponseUtil.error(res, "Error", 400);
+  return ResponseUtil.success(res, { following: result.following });
+};
+
+export const followersCountController = async (req: Request, res: Response) => {
+  const { id } = req.params; // shopId
+  const result = await ShopService.followersCount(id);
+  if (!result.ok) return ResponseUtil.error(res, "Error", 400);
+  return ResponseUtil.success(res, { count: result.count });
+};
