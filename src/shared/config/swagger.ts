@@ -59,4 +59,18 @@ const options = {
 
 const specs = swaggerJsdoc(options);
 
+// Use CDN assets to avoid MIME/CSP issues on some hosts (e.g., Vercel)
+export const swaggerUiOptions = {
+  explorer: true,
+  customSiteTitle: "BTL API Docs",
+  customCssUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui.min.css",
+  customfavIcon:
+    "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/favicon-32x32.png",
+  customJs: [
+    "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-standalone-preset.min.js",
+  ],
+};
+
 export { swaggerUi, specs };

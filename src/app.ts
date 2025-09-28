@@ -13,7 +13,7 @@ import {
   handleUnhandledRejection,
   handleUncaughtException,
 } from "./shared/middlewares/error.middleware";
-import { swaggerUi, specs } from "./shared/config/swagger";
+import { swaggerUi, specs, swaggerUiOptions } from "./shared/config/swagger";
 import { rateLimit } from "./shared/middlewares/rateLimit.middleware";
 
 // Load environment variables
@@ -66,8 +66,8 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan("combined"));
 }
 
-// Swagger Documentation
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
+// Swagger Documentation (use CDN assets to avoid MIME/CSP issues on some hosts)
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
 
 // Rate limiting
 app.use(rateLimit(100, 15 * 60 * 1000)); // 100 requests per 15 minutes
