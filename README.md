@@ -1,253 +1,156 @@
-<<<<<<< HEAD
-# My Love Server
+# TTCS Backend (Express + TypeScript)
 
-A modern Node.js API server built with TypeScript, Express, and Socket.io.
+API server cho hệ thống Ecommerce, viết bằng TypeScript/Express, tích hợp Swagger, JWT, MongoDB, Cloudinary, và các tính năng thương mại điện tử cốt lõi.
 
-## 🚀 Features
+## 🔧 Công nghệ chính
 
-- **TypeScript** - Full type safety and modern JavaScript features
-- **Express.js** - Fast, unopinionated web framework
-- **Socket.io** - Real-time bidirectional communication
-- **JWT Authentication** - Secure token-based authentication
-- **Rate Limiting** - Protection against abuse
-- **CORS** - Cross-origin resource sharing
-- **Helmet** - Security headers
-- **Winston Logger** - Structured logging
-- **Swagger/OpenAPI** - API documentation
-- **Docker** - Containerization
-- **Testing** - Jest with coverage
-- **ESLint & Prettier** - Code quality and formatting
-- **Husky** - Git hooks for code quality
+- TypeScript + Express
+- MongoDB (Mongoose)
+- JWT Authentication
+- Helmet, CORS, Rate Limiting, Morgan
+- Swagger/OpenAPI
+- Socket.io (sẵn sàng, nếu cần)
+- Cloudinary (upload ảnh)
 
-## 📋 Prerequisites
+## 📁 Cấu trúc thư mục (rút gọn)
 
-- Node.js >= 18.0.0
-- npm >= 8.0.0
+```
+src/
+├── app.ts                  # Cấu hình Express app (middleware, swagger, routes)
+├── server.ts               # Khởi chạy server
+├── routes/                 # Mount router tập trung
+├── shared/
+│   ├── config/             # Cấu hình (env, swagger, db, cloudinary)
+│   ├── middlewares/        # Middlewares dùng chung (auth, error, rate limit)
+│   └── utils/              # Tiện ích (response util, mailer, jwt,...)
+├── features/               # Từng module nghiệp vụ
+│   ├── auth/               # Đăng nhập/đăng ký, quên mật khẩu, refresh token, social
+│   ├── users/              # Quản lý người dùng
+│   ├── category/           # Danh mục
+│   ├── sub-category/       # Danh mục con
+│   ├── product/            # Sản phẩm
+│   ├── product-attribute/  # Thuộc tính/biến thể sản phẩm
+│   ├── attribute-type/     # Loại thuộc tính
+│   ├── attribute-value/    # Giá trị thuộc tính
+│   ├── image/              # Media & upload Cloudinary
+│   ├── shop/               # Cửa hàng
+│   ├── orders/             # Đơn hàng
+│   ├── cart/               # Giỏ hàng
+│   ├── address/            # Địa chỉ người dùng
+│   ├── reviews/            # Đánh giá
+│   ├── analytics/          # Thống kê (doanh thu)
+│   ├── otp/                # OTP (yêu cầu/xác thực)
+│   └── health/             # Kiểm tra tình trạng server
+└── models/                 # Schema Mongoose
+```
 
-## 🛠️ Installation
+## 🛠️ Cài đặt & chạy
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd my-love-server
-   ```
+1. Cài dependencies
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` file with your configuration:
-   ```env
-   NODE_ENV=development
-   PORT=5000
-   CLIENT_URL=http://localhost:3000
-   JWT_SECRET=your-super-secret-jwt-key-change-in-production
-   JWT_EXPIRES_IN=7d
-   DATABASE_URL=your-database-url
-   REDIS_URL=your-redis-url
-   CORS_ORIGIN=http://localhost:3000
-   RATE_LIMIT_WINDOW_MS=900000
-   RATE_LIMIT_MAX_REQUESTS=100
-   LOG_LEVEL=info
-   API_PREFIX=/api/v1
-   ```
+2. Tạo file `.env` (tham khảo mẫu dưới) và khởi động lại server sau khi cập nhật:
 
-## 🚀 Development
+```env
+# Môi trường chạy: development | production
+NODE_ENV=development
 
-### Start development server
+# Cổng server
+PORT=5000
+
+# Tiền tố API
+API_PREFIX=/api/v1
+
+# CORS (nguồn frontend)
+CORS_ORIGIN=http://localhost:3000
+
+# JWT
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+JWT_EXPIRES_IN=7d
+
+# Swagger base URL (tùy chọn)
+SWAGGER_BASE_URL=
+
+###########################
+# Cloudinary (Upload ảnh) #
+###########################
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_FOLDER=mylove
+
+#############
+# MongoDB   #
+#############
+MONGODB_URI=mongodb://localhost:27017/mylove
+
+#############
+# Redis (*) #
+#############
+# REDIS_URL=redis://localhost:6379
+
+############################
+# Social OAuth (tùy chọn)  #
+############################
+PORT_URL=http://localhost:5000
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+FACEBOOK_CLIENT_ID=
+FACEBOOK_CLIENT_SECRET=
+```
+
+3. Chạy ở môi trường dev
+
 ```bash
 npm run dev
 ```
 
-### Build for production
+Build & chạy production
+
 ```bash
 npm run build
-```
-
-### Start production server
-```bash
 npm start
 ```
 
-## 🧪 Testing
+## 📚 Tài liệu API
 
-### Run tests
-```bash
-npm test
-```
-
-### Run tests with coverage
-```bash
-npm run test:coverage
-```
-
-### Run tests in watch mode
-```bash
-npm run test:watch
-```
-
-## 🔧 Code Quality
-
-### Lint code
-```bash
-npm run lint
-```
-
-### Fix linting issues
-```bash
-npm run lint:fix
-```
-
-### Format code
-```bash
-npm run format
-```
-
-### Check code formatting
-```bash
-npm run format:check
-```
-
-### Type checking
-```bash
-npm run type-check
-```
-
-## 🐳 Docker
-
-### Build Docker image
-```bash
-docker build -t my-love-server .
-```
-
-### Run with Docker Compose
-```bash
-docker-compose up -d
-```
-
-### Run in development mode
-```bash
-docker-compose -f docker-compose.dev.yml up -d
-```
-
-## 📁 Project Structure
-
-```
-src/
-├── app.ts                 # Express app configuration
-├── server.ts              # Server entry point
-├── config/                # Configuration files
-├── features/              # Feature modules
-│   ├── auth/             # Authentication feature
-│   ├── users/            # Users feature
-│   └── chat/             # Chat feature
-├── middlewares/           # Express middlewares
-├── models/               # Data models
-├── routes/               # Route definitions
-├── shared/               # Shared utilities
-│   ├── config/           # Shared configuration
-│   ├── middlewares/      # Shared middlewares
-│   ├── types/            # Shared types
-│   └── utils/            # Shared utilities
-├── sockets/              # Socket.io handlers
-├── types/                # Global types
-├── utils/                # Global utilities
-└── validations/          # Validation schemas
-```
-
-## 🔌 API Endpoints
-
-### Authentication
-- `POST /api/v1/auth/register` - Register new user
-- `POST /api/v1/auth/login` - Login user
-- `POST /api/v1/auth/logout` - Logout user
-- `POST /api/v1/auth/refresh` - Refresh token
-
-### Users
-- `GET /api/v1/users/profile` - Get user profile
-- `PUT /api/v1/users/profile` - Update user profile
-- `DELETE /api/v1/users/profile` - Delete user account
-
-### Chat
-- `GET /api/v1/chat/messages` - Get chat messages
-- `POST /api/v1/chat/messages` - Send message
-
-## 📚 API Documentation
-
-When the server is running, you can access the API documentation at:
 - Swagger UI: `http://localhost:5000/api-docs`
 
-## 🔒 Security Features
+## 🔌 Các nhóm API chính
 
-- **JWT Authentication** - Secure token-based authentication
-- **Rate Limiting** - Protection against brute force attacks
-- **CORS** - Controlled cross-origin requests
-- **Helmet** - Security headers
-- **Input Validation** - Request validation
-- **Error Handling** - Centralized error handling
+- Auth: `/auth/*` (đăng ký/đăng nhập/quên mật khẩu/refresh/logout, social)
+- Users: `/users/*`
+- Categories/Sub-categories: `/category`, `/sub-category`
+- Products + Attributes: `/products`, `/product-attributes`, `/attribute-types`, `/attribute-values`
+- Images (upload): `/images`, `/images/upload`
+- Shops: `/shops/*`
+- Cart: `/cart/*`
+- Orders: `/orders/*`
+- Addresses: `/addresses/*`
+- Reviews: `/reviews/*`
+- Analytics: `/analytics/*`
+- OTP: `/otp/*`
+- Health: `/health`
 
-## 📊 Monitoring & Logging
+Chi tiết endpoint, request/response, type và status code đã được mô tả trong Swagger (đã cập nhật đầy đủ docs cho từng feature).
 
-- **Winston Logger** - Structured logging with different levels
-- **Morgan** - HTTP request logging
-- **Error Tracking** - Centralized error handling
+## 🛡️ Bảo mật & Middleware
 
-## 🚀 Deployment
+- Helmet, CORS, Rate Limiting
+- JWT Authentication (bearer token)
+- Xử lý lỗi tập trung, trả chuẩn `ApiSuccess/ApiError`
 
-### Environment Variables
+## 🖼️ Upload ảnh (Cloudinary)
 
-Make sure to set the following environment variables in production:
+- Endpoint: `POST /images/upload` (multipart/form-data, key `file`)
+- Trả về: `{ url: string }`
+- Yêu cầu: Bearer token hợp lệ
 
-```env
-NODE_ENV=production
-JWT_SECRET=your-very-secure-jwt-secret
-DATABASE_URL=your-production-database-url
-REDIS_URL=your-production-redis-url
-```
+## Góp ý / Hỗ trợ
 
-### Docker Deployment
-
-1. Build the image:
-   ```bash
-   docker build -t my-love-server .
-   ```
-
-2. Run the container:
-   ```bash
-   docker run -p 5000:5000 --env-file .env my-love-server
-   ```
-
-### Docker Compose Deployment
-
-```bash
-docker-compose up -d
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-If you have any questions or need help, please open an issue on GitHub.
-
-## 🔄 Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
-=======
-# TTCS_Backend
->>>>>>> e7edd913659a413ee8d2f6dfd88ff6bdfdfda238
+Vui lòng tạo issue hoặc liên hệ nhóm phát triển khi cần hỗ trợ thêm.
