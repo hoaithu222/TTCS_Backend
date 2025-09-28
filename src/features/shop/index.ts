@@ -22,13 +22,13 @@ shopRouter.get("/:id", getShopController);
 shopRouter.post(
   "/",
   authenticateToken,
-  authorize(["admin"]),
+  authorize(["admin", "user"]),
   createShopController
 );
 shopRouter.put(
   "/:id",
   authenticateToken,
-  authorize(["admin"]),
+  authorize(["admin", "shop"]),
   updateShopController
 );
 shopRouter.delete(

@@ -50,7 +50,7 @@
  *       200:
  *         description: Thành công
  *   post:
- *     summary: Tạo cửa hàng (admin)
+ *     summary: Tạo cửa hàng (admin, user)
  *     tags: [Shops]
  *     requestBody:
  *       required: true
@@ -75,7 +75,7 @@
  *         required: true
  *         schema: { type: string }
  *   put:
- *     summary: Cập nhật cửa hàng (admin)
+ *     summary: Cập nhật cửa hàng (admin, shop)
  *     tags: [Shops]
  *     parameters:
  *       - in: path

@@ -133,7 +133,7 @@
  *       200:
  *         description: Thành công
  *   put:
- *     summary: Cập nhật sản phẩm (admin)
+ *     summary: Cập nhật sản phẩm (admin, shop)
  *     tags: [Products]
  *     parameters:
  *       - in: path
@@ -151,7 +151,7 @@
  *       200:
  *         description: Thành công
  *   delete:
- *     summary: Xóa sản phẩm (admin)
+ *     summary: Xóa sản phẩm (admin, shop)
  *     tags: [Products]
  *     parameters:
  *       - in: path

@@ -24,13 +24,13 @@ productRouter.post(
 productRouter.put(
   "/:id",
   authenticateToken,
-  authorize(["admin"]),
+  authorize(["admin", "shop"]),
   updateProductController
 );
 productRouter.delete(
   "/:id",
   authenticateToken,
-  authorize(["admin"]),
+  authorize(["admin", "shop"]),
   deleteProductController
 );
 

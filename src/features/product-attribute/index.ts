@@ -18,19 +18,19 @@ productAttributeRouter.get("/:id", getProductAttributeController);
 productAttributeRouter.post(
   "/",
   authenticateToken,
-  authorize(["admin"]),
+  authorize(["admin", "shop"]),
   createProductAttributeController
 );
 productAttributeRouter.put(
   "/:id",
   authenticateToken,
-  authorize(["admin"]),
+  authorize(["admin", "shop"]),
   updateProductAttributeController
 );
 productAttributeRouter.delete(
   "/:id",
   authenticateToken,
-  authorize(["admin"]),
+  authorize(["admin", "shop"]),
   deleteProductAttributeController
 );
 

@@ -33,7 +33,7 @@
  *     summary: Danh sách thuộc tính sản phẩm
  *     tags: [Product Attributes]
  *   post:
- *     summary: Tạo thuộc tính sản phẩm (admin)
+ *     summary: Tạo thuộc tính sản phẩm (admin, shop)
  *     tags: [Product Attributes]
  *     requestBody:
  *       required: true
@@ -46,9 +46,9 @@
  *     summary: Chi tiết thuộc tính sản phẩm
  *     tags: [Product Attributes]
  *   put:
- *     summary: Cập nhật thuộc tính sản phẩm (admin)
+ *     summary: Cập nhật thuộc tính sản phẩm (admin, shop)
  *     tags: [Product Attributes]
  *   delete:
- *     summary: Xóa thuộc tính sản phẩm (admin)
+ *     summary: Xóa thuộc tính sản phẩm (admin, shop)
  *     tags: [Product Attributes]
  */
