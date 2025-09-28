@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import routes from "./routes";
 import { env } from "./shared/config/env.config";
+import { swaggerUi, specs, swaggerUiOptions } from "./shared/config/swagger";
 import passport from "passport";
 import {
   errorHandler,
@@ -13,7 +14,6 @@ import {
   handleUnhandledRejection,
   handleUncaughtException,
 } from "./shared/middlewares/error.middleware";
-import { swaggerUi, specs, swaggerUiOptions } from "./shared/config/swagger";
 import { rateLimit } from "./shared/middlewares/rateLimit.middleware";
 
 // Load environment variables
