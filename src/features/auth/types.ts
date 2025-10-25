@@ -27,3 +27,7 @@ export interface ResetPasswordRequest {
   identifier: string; // email or phone used to receive OTP
   otp: string; // one-time code
 }
+
+export interface LogoutRequest {
+  token?: string; // optional token from request body, can also use Authorization header
+}

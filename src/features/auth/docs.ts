@@ -190,6 +190,18 @@
  *         otp:
  *           type: string
  *           example: "123456"
+ *     LogoutRequest:
+ *       type: object
+ *       properties:
+ *         token:
+ *           type: string
+ *           description: Access token (optional if provided in Authorization header)
+ *           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
  */
 
 /**
@@ -436,6 +448,50 @@
  *                       $ref: '#/components/schemas/SimpleMessageData'
  *       400:
  *         description: Token không hợp lệ/hết hạn hoặc lỗi xác thực dữ liệu
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Đăng xuất khỏi hệ thống
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       - Vô hiệu hóa access token và refresh token của người dùng
+ *       - Token có thể được cung cấp qua Authorization header hoặc request body
+ *       - Sau khi logout, token sẽ không còn hợp lệ để truy cập các API được bảo vệ
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LogoutRequest'
+ *     responses:
+ *       200:
+ *         description: Đăng xuất thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/SimpleMessageData'
+ *       400:
+ *         description: Token không hợp lệ hoặc không được cung cấp
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       401:
+ *         description: Token không hợp lệ hoặc đã hết hạn
  *         content:
  *           application/json:
  *             schema:

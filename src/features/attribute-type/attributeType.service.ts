@@ -66,7 +66,7 @@ export default class AttributeTypeService {
           : 10;
       const skip = (page - 1) * limit;
       const filter: any = {};
-      if (typeof query.isActive === "boolean") filter.isActive = query.isActive;
+      if (query.isActive !== undefined) filter.isActive = query.isActive;
       if (query.search) filter.name = { $regex: query.search, $options: "i" };
       const [items, total] = await Promise.all([
         AttributeTypeModel.find(filter)
@@ -85,4 +85,3 @@ export default class AttributeTypeService {
     }
   }
 }
-

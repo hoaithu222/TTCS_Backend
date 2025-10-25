@@ -9,6 +9,7 @@ import {
   RegisterUserRequest,
   ForgotPasswordRequest,
   ResetPasswordRequest,
+  LogoutRequest,
 } from "./types";
 
 // định nghĩa code error
@@ -162,8 +163,25 @@ export const logoutController = async (
   req: ExpressRequest,
   res: ExpressResponse
 ) => {
-  const { token } = req.body as { token?: string };
-  const result = await AuthService.logout(token as string);
+  // Try to get token from Authorization header first, then from request body
+  const authHeader = req.headers.authorization;
+  const tokenFromHeader = authHeader && authHeader.split(" ")[1];
+  const { token: tokenFromBody } = req.body as LogoutRequest;
+
+  const token = tokenFromHeader || tokenFromBody;
+
+  if (!token) {
+    return ResponseUtil.error(
+      res,
+      "Token không được cung cấp",
+      400,
+      undefined,
+      req.path,
+      req.method
+    );
+  }
+
+  const result = await AuthService.logout(token);
   if (!result.ok) {
     return ResponseUtil.error(
       res,

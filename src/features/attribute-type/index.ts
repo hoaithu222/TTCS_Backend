@@ -36,3 +36,12 @@ attributeTypeRouter.delete(
 
 export default attributeTypeRouter;
 
+
+
+
+
+
+
+
+
+

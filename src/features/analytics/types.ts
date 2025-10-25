@@ -4,3 +4,9 @@ export interface RevenueQuery {
   shopId?: string; // admin can filter by shop, shop user ignored
 }
 
+
+
+
+
+
+

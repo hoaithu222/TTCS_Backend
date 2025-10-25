@@ -19,3 +19,9 @@ export interface ListShopQuery {
   status?: "pending" | "active" | "blocked";
 }
 
+
+
+
+
+
+
