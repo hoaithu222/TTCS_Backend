@@ -167,12 +167,14 @@ export const logoutController = async (
   req: ExpressRequest,
   res: ExpressResponse
 ) => {
-  // Try to get token from Authorization header first, then from request body
+  // Try to get token from request body, then from Authorization header
+  const body = req.body as LogoutRequest | undefined;
+  const tokenFromBody = body?.token;
+
   const authHeader = req.headers.authorization;
   const tokenFromHeader = authHeader && authHeader.split(" ")[1];
-  const { token: tokenFromBody } = req.body as LogoutRequest;
 
-  const token = tokenFromHeader || tokenFromBody;
+  const token = tokenFromBody || tokenFromHeader;
 
   if (!token) {
     return ResponseUtil.error(
@@ -181,7 +183,9 @@ export const logoutController = async (
       400,
       undefined,
       req.path,
-      req.method
+      req.method,
+      undefined, // code
+      true // skipToast
     );
   }
 
@@ -193,7 +197,9 @@ export const logoutController = async (
       result.status,
       undefined,
       req.path,
-      req.method
+      req.method,
+      undefined, // code
+      true // skipToast - logout errors shouldn't show toast
     );
   }
   return ResponseUtil.success(res, { message: result.message });
