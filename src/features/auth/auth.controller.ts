@@ -23,6 +23,7 @@ export const registerUserController = async (
     req.body as RegisterUserRequest
   );
   if (!result.ok) {
+    // Skip toast for registration errors - they should be handled in UI
     return ResponseUtil.error(
       res,
       result.message,
@@ -30,7 +31,8 @@ export const registerUserController = async (
       undefined,
       req.path,
       req.method,
-      result.code
+      result.code,
+      true // skipToast = true for registration errors
     );
   }
   return ResponseUtil.success(res, {
@@ -85,6 +87,7 @@ export const loginController = async (
 ) => {
   const result = await AuthService.login(req.body as LoginRequest);
   if (!result.ok) {
+    // Skip toast for login errors - they should be handled in UI
     return ResponseUtil.error(
       res,
       result.message,
@@ -92,7 +95,8 @@ export const loginController = async (
       undefined,
       req.path,
       req.method,
-      result.code
+      result.code,
+      true // skipToast = true for login errors
     );
   }
   return ResponseUtil.success(res, {

@@ -29,6 +29,7 @@ export interface ErrorResponse {
   path?: string;
   method?: string;
   code?: number;
+  skipToast?: boolean; // Flag to skip toast notification in front-end
 }
 
 export class ResponseUtil {
@@ -65,7 +66,8 @@ export class ResponseUtil {
     errors?: Array<{ field: string; message: string }>,
     path?: string,
     method?: string,
-    code?: number
+    code?: number,
+    skipToast?: boolean
   ): void {
     const response: ErrorResponse = {
       success: false,
@@ -75,6 +77,7 @@ export class ResponseUtil {
       path,
       method,
       code,
+      skipToast,
     };
 
     res.status(statusCode).json(response);

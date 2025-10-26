@@ -24,13 +24,18 @@ export const errorHandler = (
 
   // Handle AppError instances
   if (error instanceof AppError) {
+    // Skip toast for authentication-related errors (401, 403)
+    const skipToast = error.statusCode === 401 || error.statusCode === 403;
+
     return ResponseUtil.error(
       res,
       error.message,
       error.statusCode,
       error.errors,
       req.path,
-      req.method
+      req.method,
+      undefined, // code
+      skipToast
     );
   }
 
@@ -45,11 +50,29 @@ export const errorHandler = (
 
   // Handle JWT errors
   if (error.name === "JsonWebTokenError") {
-    return ResponseUtil.unauthorized(res, "Invalid token");
+    return ResponseUtil.error(
+      res,
+      "Invalid token",
+      401,
+      undefined,
+      req.path,
+      req.method,
+      undefined,
+      true
+    );
   }
 
   if (error.name === "TokenExpiredError") {
-    return ResponseUtil.unauthorized(res, "Token expired");
+    return ResponseUtil.error(
+      res,
+      "Token expired",
+      401,
+      undefined,
+      req.path,
+      req.method,
+      undefined,
+      true
+    );
   }
 
   // Handle database errors
