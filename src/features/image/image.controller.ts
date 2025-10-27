@@ -112,8 +112,21 @@ export const uploadImageController = async (req: Request, res: Response) => {
         transformation: cloudinaryConfig.transformation,
       });
 
-      // Return URL at the top level (as requested)
-      return res.status(201).json({ url: result.secure_url });
+      // Return full upload result including publicId, width, height, etc.
+      const uploadData = {
+        url: result.secure_url,
+        publicId: result.public_id,
+        width: result.width,
+        height: result.height,
+        format: result.format,
+        bytes: result.bytes,
+      };
+
+      return ResponseUtil.created(
+        res,
+        uploadData,
+        "Image uploaded successfully"
+      );
     } catch (err) {
       const anyErr = err as any;
       const diag = {
