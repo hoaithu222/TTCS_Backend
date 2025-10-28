@@ -50,18 +50,37 @@ export default class CategoryService {
     }
     return { ok: true as const, category };
   }
-  static async getCategories(page: number = 1, limit: number = 10) {
+  static async getCategories(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    isActive?: boolean
+  ) {
     try {
       const safePage = Number.isFinite(page) && page > 0 ? page : 1;
       const safeLimit =
         Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 10;
       const skip = (safePage - 1) * safeLimit;
+
+      // Build filter query
+      const filterQuery: any = {};
+
+      // Add search filter (case insensitive)
+      if (search && search.trim()) {
+        filterQuery.name = { $regex: search.trim(), $options: "i" };
+      }
+
+      // Add isActive filter
+      if (isActive !== undefined) {
+        filterQuery.isActive = isActive;
+      }
+
       const [categories, total] = await Promise.all([
-        CategoryModel.find()
+        CategoryModel.find(filterQuery)
           .skip(skip)
           .limit(safeLimit)
           .sort({ order_display: 1, createdAt: -1 }),
-        CategoryModel.countDocuments(),
+        CategoryModel.countDocuments(filterQuery),
       ]);
       return {
         ok: true as const,

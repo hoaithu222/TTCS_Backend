@@ -77,7 +77,10 @@ export const getSubCategoriesController = async (
 export const getCategoriesController = async (req: Request, res: Response) => {
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit) || 10;
-  const result = await CategoryService.getCategories(page, limit);
+  const search = req.query.search as string | undefined;
+  const isActive = req.query.isActive !== undefined ? req.query.isActive === "true" || req.query.isActive === true : undefined;
+  
+  const result = await CategoryService.getCategories(page, limit, search, isActive);
   if (!result.ok) {
     return ResponseUtil.error(res, result.message, result.status);
   }
