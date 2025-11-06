@@ -1,4 +1,5 @@
 import AttributeTypeModel from "../../models/AttributeType";
+import AttributeValueModel from "../../models/AttributeValue";
 import {
   CreateAttributeTypeRequest,
   UpdateAttributeTypeRequest,
@@ -7,7 +8,10 @@ import {
 
 export default class AttributeTypeService {
   static async get(id: string) {
-    const item = await AttributeTypeModel.findById(id);
+    const item = await AttributeTypeModel.findById(id).populate(
+      "categoryId",
+      "name"
+    );
     if (!item)
       return {
         ok: false as const,
@@ -19,7 +23,18 @@ export default class AttributeTypeService {
 
   static async create(data: CreateAttributeTypeRequest) {
     try {
-      const item = await AttributeTypeModel.create(data as any);
+      const { values, ...typeData } = data;
+      const item = await AttributeTypeModel.create(typeData as any);
+
+      // Create values if provided
+      if (values && Array.isArray(values) && values.length > 0) {
+        const valueDocs = values.map((v) => ({
+          attributeTypeId: item._id,
+          value: v.value,
+        }));
+        await AttributeValueModel.insertMany(valueDocs);
+      }
+
       return { ok: true as const, item };
     } catch (error) {
       return {
@@ -68,8 +83,10 @@ export default class AttributeTypeService {
       const filter: any = {};
       if (query.isActive !== undefined) filter.isActive = query.isActive;
       if (query.search) filter.name = { $regex: query.search, $options: "i" };
+      if (query.categoryId) filter.categoryId = query.categoryId;
       const [items, total] = await Promise.all([
         AttributeTypeModel.find(filter)
+          .populate("categoryId", "name")
           .skip(skip)
           .limit(limit)
           .sort({ createdAt: -1 }),

@@ -45,12 +45,13 @@ export const listAttributeTypeController = async (
   req: Request,
   res: Response
 ) => {
-  const { page, limit, search, isActive } = req.query as any;
+  const { page, limit, search, isActive, categoryId } = req.query as any;
   const result = await AttributeTypeService.list({
     page: Number(page) || 1,
     limit: Number(limit) || 10,
     search,
     isActive: typeof isActive === "string" ? isActive === "true" : undefined,
+    categoryId,
   });
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
   return ResponseUtil.success(res, result.items, "Success", 200, 1, {

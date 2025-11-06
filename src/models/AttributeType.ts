@@ -9,6 +9,10 @@ export const attributeTypeSchema = new mongoose.Schema(
     description: {
       type: String,
     },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+    },
     isActive: {
       type: Boolean,
       default: true,
