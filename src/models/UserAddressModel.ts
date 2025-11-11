@@ -22,6 +22,10 @@ export const userAddressSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // normalized address string (optional mirror for clients)
+  address: {
+    type: String,
+  },
   // Tỉnh
   city: {
     type: String,
@@ -31,6 +35,10 @@ export const userAddressSchema = new mongoose.Schema({
   district: {
     type: String,
     required: true,
+  },
+  // ward/phường (optional for legacy)
+  ward: {
+    type: String,
   },
   // isDefault
   isDefault: {

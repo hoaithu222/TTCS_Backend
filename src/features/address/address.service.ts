@@ -4,9 +4,11 @@ import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
 export interface CreateAddressRequest {
   name: string;
   phone: string;
-  addressDetail: string;
+  addressDetail?: string;
+  address?: string;
   district: string;
   city: string;
+  ward?: string;
   isDefault?: boolean;
 }
 
@@ -28,13 +30,30 @@ export default class AddressService {
     const userId = (req as any).user?.userId;
     if (!userId)
       return { ok: false as const, status: 401, message: "Unauthorized" };
-    if (data.isDefault) {
+    // normalize incoming shapes from various clients
+    const normalizedAddressDetail =
+      data.addressDetail ||
+      data.address ||
+      (data as any).address_line1 ||
+      "";
+    const normalizedWard = data.ward || (data as any).ward || "";
+    const normalizedData: any = {
+      name: (data as any).recipient_name || data.name,
+      phone: data.phone,
+      addressDetail: normalizedAddressDetail,
+      address: data.address || `${(data as any).address_line2 || ""} ${(data as any).address_line1 || ""}`.trim() || normalizedAddressDetail,
+      district: data.district,
+      city: data.city,
+      ward: normalizedWard,
+      isDefault: Boolean((data as any).is_default ?? data.isDefault),
+    };
+    if (normalizedData.isDefault) {
       await UserAddressModel.updateMany(
         { userId },
         { $set: { isDefault: false } }
       );
     }
-    const item = await UserAddressModel.create({ ...data, userId });
+    const item = await UserAddressModel.create({ ...normalizedData, userId });
     return { ok: true as const, item };
   }
 
@@ -46,7 +65,18 @@ export default class AddressService {
     const userId = (req as any).user?.userId;
     if (!userId)
       return { ok: false as const, status: 401, message: "Unauthorized" };
-    if (data.isDefault) {
+    const normalized: any = { ...data };
+    if ((data as any).is_default !== undefined) {
+      normalized.isDefault = Boolean((data as any).is_default);
+    }
+    if ((data as any).recipient_name) normalized.name = (data as any).recipient_name;
+    if ((data as any).address_line1 || (data as any).address_line2) {
+      const addr =
+        `${(data as any).address_line2 || ""} ${(data as any).address_line1 || ""}`.trim();
+      normalized.address = addr;
+      normalized.addressDetail = (data as any).address_line1 || addr;
+    }
+    if (normalized.isDefault) {
       await UserAddressModel.updateMany(
         { userId },
         { $set: { isDefault: false } }
@@ -54,7 +84,7 @@ export default class AddressService {
     }
     const item = await UserAddressModel.findOneAndUpdate(
       { _id: id, userId },
-      data,
+      normalized,
       { new: true }
     );
     if (!item)

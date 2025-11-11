@@ -10,7 +10,7 @@ import {
   logoutController,
 } from "./auth.controller";
 import { authenticateToken } from "../../shared/middlewares/auth.middleware";
-import { getProfileController } from "./profile.controller";
+import { getProfileController, updateProfileController } from "./profile.controller";
 
 const router = Router();
 
@@ -23,5 +23,6 @@ router.post("/auth/reset-password", resetPasswordController);
 router.post("/auth/refresh-token", refreshTokenController);
 router.post("/auth/logout", authenticateToken, logoutController);
 router.get("/auth/profile", authenticateToken, getProfileController);
+router.put("/auth/profile", authenticateToken, updateProfileController);
 
 export default router;

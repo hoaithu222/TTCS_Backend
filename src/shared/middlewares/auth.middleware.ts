@@ -44,7 +44,7 @@ export const authenticateToken: RequestHandler = async (req, res, next) => {
     const decoded = Jwt.verifyAccessToken<JwtAccessPayload>(token);
     // Load full user from DB once to attach richer context
     const user = await UserModel.findById(decoded.userId).select(
-      "_id email name role status avatar"
+      "_id email name phone role status avatar"
     );
     if (!user) {
       return res
@@ -75,7 +75,7 @@ export const optionalAuth: RequestHandler = async (req, res, next) => {
     if (token) {
       const decoded = Jwt.verifyAccessToken<JwtAccessPayload>(token);
       const user = await UserModel.findById(decoded.userId).select(
-        "_id email name role status avatar"
+        "_id email name phone role status avatar"
       );
       if (user) {
         (req as any).user = {

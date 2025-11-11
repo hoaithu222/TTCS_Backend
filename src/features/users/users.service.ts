@@ -31,4 +31,24 @@ export default class UsersService {
     const users = await UserModel.find();
     return { ok: true as const, users };
   }
+
+  // cập nhật avatar của user
+  static async updateAvatar(id: string, avatarUrl: string) {
+    if (!avatarUrl || typeof avatarUrl !== "string") {
+      return {
+        ok: false as const,
+        status: 400,
+        message: "avatar là bắt buộc và phải là string",
+      };
+    }
+    const user = await UserModel.findByIdAndUpdate(
+      id,
+      { avatar: avatarUrl },
+      { new: true }
+    );
+    if (!user) {
+      return { ok: false as const, status: 400, message: "User không tồn tại" };
+    }
+    return { ok: true as const, user };
+  }
 }

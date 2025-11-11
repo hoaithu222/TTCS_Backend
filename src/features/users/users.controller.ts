@@ -68,6 +68,29 @@ export const deleteUserController = async (
   return ResponseUtil.success(res, { message: "Xóa người dùng thành công" });
 };
 
+export const updateUserAvatarController = async (
+  req: ExpressRequest,
+  res: ExpressResponse
+) => {
+  const { id } = req.params;
+  const { avatar } = req.body as { avatar?: string };
+  const result = await UsersService.updateAvatar(id, avatar || "");
+  if (!result.ok) {
+    return ResponseUtil.error(
+      res,
+      result.message,
+      result.status,
+      undefined,
+      req.path,
+      req.method
+    );
+  }
+  return ResponseUtil.success(res, {
+    message: "Cập nhật avatar thành công",
+    user: result.user,
+  });
+};
+
 export const getUsersController = async (
   req: ExpressRequest,
   res: ExpressResponse
