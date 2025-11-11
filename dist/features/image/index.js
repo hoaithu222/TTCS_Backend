@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const image_controller_1 = require("./image.controller");
+const image_controller_2 = require("./image.controller");
+const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
+const imageRouter = (0, express_1.Router)();
+imageRouter.get("/", image_controller_1.listImageController);
+imageRouter.get("/:id", image_controller_1.getImageController);
+imageRouter.post("/", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), image_controller_1.createImageController);
+imageRouter.post("/upload", image_controller_2.uploadImageMiddleware, image_controller_2.uploadImageController);
+imageRouter.put("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), image_controller_1.updateImageController);
+imageRouter.delete("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), image_controller_1.deleteImageController);
+exports.default = imageRouter;

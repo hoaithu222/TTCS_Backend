@@ -78,9 +78,17 @@ export const getCategoriesController = async (req: Request, res: Response) => {
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit) || 10;
   const search = req.query.search as string | undefined;
-  const isActive = req.query.isActive !== undefined ? req.query.isActive === "true" || req.query.isActive === true : undefined;
-  
-  const result = await CategoryService.getCategories(page, limit, search, isActive);
+  const isActive =
+    req.query.isActive !== undefined
+      ? String(req.query.isActive) === "true"
+      : undefined;
+
+  const result = await CategoryService.getCategories(
+    page,
+    limit,
+    search,
+    isActive
+  );
   if (!result.ok) {
     return ResponseUtil.error(res, result.message, result.status);
   }

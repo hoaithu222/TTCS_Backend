@@ -22,20 +22,17 @@ const sockets_1 = __importDefault(require("./sockets"));
 // Initialize database connections
 const initializeServer = async () => {
     try {
-        // Check all database connections
+        // Check all database connections (do not block server startup in dev)
         const connectionsOk = await (0, connections_1.checkConnections)();
-        if (connectionsOk) {
-            server.listen(PORT, () => {
-                console.log(`🚀 Server is running on port ${PORT}`);
-                console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
-                console.log(`📡 Socket.io server ready`);
-                console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
-            });
+        if (!connectionsOk) {
+            console.warn("⚠️ Database connection failed. Starting server anyway (dev mode).");
         }
-        else {
-            console.error("❌ Failed to connect to databases. Server not started.");
-            process.exit(1);
-        }
+        server.listen(PORT, () => {
+            console.log(`🚀 Server is running on port ${PORT}`);
+            console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+            console.log(`📡 Socket.io server ready`);
+            console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+        });
     }
     catch (error) {
         console.error("❌ Server initialization failed:", error);

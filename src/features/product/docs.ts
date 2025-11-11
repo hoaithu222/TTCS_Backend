@@ -33,6 +33,15 @@
  *           type: number
  *         stock:
  *           type: number
+ *         rating:
+ *           type: number
+ *           minimum: 0
+ *           maximum: 5
+ *           description: Đánh giá sản phẩm (0-5), mặc định 0
+ *         salesCount:
+ *           type: number
+ *           minimum: 0
+ *           description: Số lượng đã bán, mặc định 0
  *         warrantyInfo:
  *           type: string
  *         weight:
@@ -41,6 +50,10 @@
  *           type: string
  *         metaKeywords:
  *           type: string
+ *         viewCount:
+ *           type: number
+ *           minimum: 0
+ *           description: Số lượt xem, mặc định 0
  *         isActive:
  *           type: boolean
  *     UpdateProductRequest:

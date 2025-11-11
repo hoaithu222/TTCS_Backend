@@ -2,6 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ResponseUtil = void 0;
 class ResponseUtil {
+    static buildPaginationMeta(page, limit, total) {
+        const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+        const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 10;
+        const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+        return { page: safePage, limit: safeLimit, total, totalPages };
+    }
     static success(res, data, message = "Success", statusCode = 200, code = 1, meta) {
         const response = {
             success: true,
@@ -13,7 +19,7 @@ class ResponseUtil {
         };
         res.status(statusCode).json(response);
     }
-    static error(res, message = "Error occurred", statusCode = 400, errors, path, method, code) {
+    static error(res, message = "Error occurred", statusCode = 400, errors, path, method, code, skipToast) {
         const response = {
             success: false,
             message,
@@ -22,6 +28,7 @@ class ResponseUtil {
             path,
             method,
             code,
+            skipToast,
         };
         res.status(statusCode).json(response);
     }

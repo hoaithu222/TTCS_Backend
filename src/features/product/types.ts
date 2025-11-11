@@ -8,10 +8,13 @@ export interface CreateProductRequest {
   price: number;
   discount?: number;
   stock?: number;
+  rating?: number; // 0-5, default 0
+  salesCount?: number; // default 0
   warrantyInfo: string;
   weight?: number;
   dimensions: string;
   metaKeywords: string;
+  viewCount?: number; // default 0
   isActive?: boolean;
 }
 

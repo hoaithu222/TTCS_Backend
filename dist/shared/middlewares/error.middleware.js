@@ -19,7 +19,10 @@ const errorHandler = (error, req, res, next) => {
     });
     // Handle AppError instances
     if (error instanceof errors_util_1.AppError) {
-        return response_util_1.ResponseUtil.error(res, error.message, error.statusCode, error.errors, req.path, req.method);
+        // Skip toast for authentication-related errors (401, 403)
+        const skipToast = error.statusCode === 401 || error.statusCode === 403;
+        return response_util_1.ResponseUtil.error(res, error.message, error.statusCode, error.errors, req.path, req.method, undefined, // code
+        skipToast);
     }
     // Handle validation errors from express-validator
     if (error.name === "ValidationError") {
@@ -28,10 +31,10 @@ const errorHandler = (error, req, res, next) => {
     }
     // Handle JWT errors
     if (error.name === "JsonWebTokenError") {
-        return response_util_1.ResponseUtil.unauthorized(res, "Invalid token");
+        return response_util_1.ResponseUtil.error(res, "Invalid token", 401, undefined, req.path, req.method, undefined, true);
     }
     if (error.name === "TokenExpiredError") {
-        return response_util_1.ResponseUtil.unauthorized(res, "Token expired");
+        return response_util_1.ResponseUtil.error(res, "Token expired", 401, undefined, req.path, req.method, undefined, true);
     }
     // Handle database errors
     if (error.name === "SequelizeValidationError" ||

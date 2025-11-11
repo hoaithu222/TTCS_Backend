@@ -2,10 +2,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_controller_1 = require("./auth.controller");
+const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
+const profile_controller_1 = require("./profile.controller");
 const router = (0, express_1.Router)();
 router.post("/auth/register", auth_controller_1.registerUserController);
 router.get("/auth/verify-email", auth_controller_1.verifyEmailController);
 router.post("/auth/resend-verify-email", auth_controller_1.resendVerifyEmailController);
 router.post("/auth/login", auth_controller_1.loginController);
 router.post("/auth/forgot-password", auth_controller_1.forgotPasswordController);
+router.post("/auth/reset-password", auth_controller_1.resetPasswordController);
+router.post("/auth/refresh-token", auth_controller_1.refreshTokenController);
+router.post("/auth/logout", auth_middleware_1.authenticateToken, auth_controller_1.logoutController);
+router.get("/auth/profile", auth_middleware_1.authenticateToken, profile_controller_1.getProfileController);
 exports.default = router;

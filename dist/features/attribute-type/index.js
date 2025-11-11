@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const attributeType_controller_1 = require("./attributeType.controller");
+const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
+const attributeTypeRouter = (0, express_1.Router)();
+attributeTypeRouter.get("/", attributeType_controller_1.listAttributeTypeController);
+attributeTypeRouter.get("/:id", attributeType_controller_1.getAttributeTypeController);
+attributeTypeRouter.post("/", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), attributeType_controller_1.createAttributeTypeController);
+attributeTypeRouter.put("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), attributeType_controller_1.updateAttributeTypeController);
+attributeTypeRouter.delete("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), attributeType_controller_1.deleteAttributeTypeController);
+exports.default = attributeTypeRouter;

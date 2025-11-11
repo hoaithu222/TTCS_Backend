@@ -17,6 +17,7 @@ import ordersRoutes from "./orders";
 import cartRoutes from "./cart";
 import addressRoutes from "./address";
 import reviewsRoutes from "./reviews";
+import homeRoutes from "./home";
 const router = Router();
 
 /**
@@ -47,6 +48,7 @@ const router = Router();
  *   - name: Cart
  *   - name: Addresses
  *   - name: Reviews
+ *   - name: Home
  */
 
 // Mount feature routes
@@ -68,4 +70,5 @@ router.use("/orders", ordersRoutes);
 router.use("/cart", cartRoutes);
 router.use("/addresses", addressRoutes);
 router.use("/reviews", reviewsRoutes);
+router.use("/home", homeRoutes);
 export default router;
