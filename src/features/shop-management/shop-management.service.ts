@@ -89,7 +89,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 
@@ -148,7 +149,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 
@@ -185,7 +187,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 
@@ -230,7 +233,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 
@@ -274,7 +278,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 
@@ -336,7 +341,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 
@@ -381,7 +387,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 
@@ -430,7 +437,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 
@@ -559,7 +567,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 
@@ -642,7 +651,8 @@ export default class ShopManagementService {
         return {
           ok: false as const,
           status: 404,
-          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
         };
       }
 

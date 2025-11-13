@@ -32,13 +32,22 @@ shopManagementRouter.put("/my-shop", updateMyShopController);
 // Products
 shopManagementRouter.get("/my-shop/products", getMyShopProductsController);
 shopManagementRouter.post("/my-shop/products", createMyShopProductController);
-shopManagementRouter.put("/my-shop/products/:productId", updateMyShopProductController);
-shopManagementRouter.delete("/my-shop/products/:productId", deleteMyShopProductController);
+shopManagementRouter.put(
+  "/my-shop/products/:productId",
+  updateMyShopProductController
+);
+shopManagementRouter.delete(
+  "/my-shop/products/:productId",
+  deleteMyShopProductController
+);
 
 // Orders
 shopManagementRouter.get("/my-shop/orders", getMyShopOrdersController);
 shopManagementRouter.get("/my-shop/orders/:orderId", getMyShopOrderController);
-shopManagementRouter.put("/my-shop/orders/:orderId/status", updateMyShopOrderStatusController);
+shopManagementRouter.put(
+  "/my-shop/orders/:orderId/status",
+  updateMyShopOrderStatusController
+);
 
 // Analytics
 shopManagementRouter.get("/my-shop/analytics", getMyShopAnalyticsController);
@@ -50,4 +59,3 @@ shopManagementRouter.get("/my-shop/reviews", getMyShopReviewsController);
 shopManagementRouter.get("/my-shop/followers", getMyShopFollowersController);
 
 export default shopManagementRouter;
-
