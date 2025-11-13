@@ -43,10 +43,74 @@ export default class UsersService {
     }
     return { ok: true as const, user };
   }
-  // lấy danh sách user
-  static async getUsers() {
-    const users = await UserModel.find();
-    return { ok: true as const, users };
+  // lấy danh sách user với pagination và filter
+  static async getUsers(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    status?: "active" | "inactive" | "suspended",
+    role?: "admin" | "user" | "moderator",
+    sortBy?: string,
+    sortOrder?: "asc" | "desc"
+  ) {
+    try {
+      const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+      const safeLimit =
+        Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 10;
+      const skip = (safePage - 1) * safeLimit;
+
+      // Build filter query
+      const filterQuery: any = {};
+
+      // Add search filter (case insensitive) - search by name or email
+      if (search && search.trim()) {
+        filterQuery.$or = [
+          { name: { $regex: search.trim(), $options: "i" } },
+          { email: { $regex: search.trim(), $options: "i" } },
+        ];
+      }
+
+      // Add status filter
+      if (status) {
+        filterQuery.status = status;
+      }
+
+      // Add role filter
+      if (role) {
+        filterQuery.role = role;
+      }
+
+      // Build sort
+      const sort: any = {};
+      if (sortBy) {
+        sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+      } else {
+        sort.createdAt = -1; // Default sort by createdAt desc
+      }
+
+      const [users, total] = await Promise.all([
+        UserModel.find(filterQuery)
+          .skip(skip)
+          .limit(safeLimit)
+          .sort(sort)
+          .select("-password -refreshToken -accessToken -forgotPasswordToken -verifyToken -twoFactorAuthSecret"),
+        UserModel.countDocuments(filterQuery),
+      ]);
+
+      return {
+        ok: true as const,
+        users,
+        total,
+        page: safePage,
+        limit: safeLimit,
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
   }
 
   // cập nhật avatar của user

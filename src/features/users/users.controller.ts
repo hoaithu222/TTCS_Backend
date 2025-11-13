@@ -96,20 +96,51 @@ export const getUsersController = async (
   req: ExpressRequest,
   res: ExpressResponse
 ) => {
-  const result = await UsersService.getUsers();
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const search = req.query.search as string | undefined;
+  const status = req.query.status as "active" | "inactive" | "suspended" | undefined;
+  const role = req.query.role as "admin" | "user" | "moderator" | undefined;
+  const sortBy = req.query.sortBy as string | undefined;
+  const sortOrder = req.query.sortOrder as "asc" | "desc" | undefined;
+
+  const result = await UsersService.getUsers(
+    page,
+    limit,
+    search,
+    status,
+    role,
+    sortBy,
+    sortOrder
+  );
 
   if (!result.ok) {
     return ResponseUtil.error(
       res,
-      "Không thể lấy danh sách người dùng",
-      400,
+      result.message || "Không thể lấy danh sách người dùng",
+      result.status || 400,
       undefined,
       req.path,
       req.method
     );
   }
-  return ResponseUtil.success(res, {
-    message: "Lấy danh sách người dùng thành công",
-    users: result.users,
-  });
+
+  const paginationMeta = {
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
+  };
+
+  return ResponseUtil.success(
+    res,
+    {
+      users: result.users,
+      pagination: paginationMeta,
+    },
+    "Lấy danh sách người dùng thành công",
+    200,
+    1,
+    paginationMeta
+  );
 };
