@@ -10,7 +10,15 @@ export const getShopController = async (req: Request, res: Response) => {
 };
 
 export const createShopController = async (req: Request, res: Response) => {
-  const result = await ShopService.create(req.body);
+  const currentUser = (req as any).user as { userId: string } | undefined;
+  if (!currentUser) return ResponseUtil.error(res, "Unauthorized", 401);
+
+  const data = {
+    ...req.body,
+    userId: currentUser.userId,
+  };
+
+  const result = await ShopService.create(data);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
   return ResponseUtil.created(res, result.item);
 };
@@ -82,4 +90,38 @@ export const followersCountController = async (req: Request, res: Response) => {
   const result = await ShopService.followersCount(id);
   if (!result.ok) return ResponseUtil.error(res, "Error", 400);
   return ResponseUtil.success(res, { count: result.count });
+};
+
+export const getShopStatusByUserIdController = async (
+  req: Request,
+  res: Response
+) => {
+  const { userId } = req.params;
+  const result = await ShopService.getShopStatusByUserId(userId);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, {
+    shopStatus: result.shopStatus,
+    shop: result.shop,
+  });
+};
+
+export const approveShopController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ShopService.approveShop(id);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.item);
+};
+
+export const rejectShopController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ShopService.rejectShop(id);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.item);
+};
+
+export const suspendShopController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ShopService.suspendShop(id);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.item);
 };

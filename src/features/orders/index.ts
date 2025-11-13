@@ -6,6 +6,7 @@ import {
   listOrdersController,
   updateOrderController,
   updateOrderStatusController,
+  cancelOrderByUserController,
 } from "./orders.controller";
 import {
   authenticateToken,
@@ -38,6 +39,9 @@ ordersRouter.put(
   authorize(["admin"]),
   updateOrderStatusController
 );
+
+// Cancel order by owner (only if not shipped/processed beyond processing)
+ordersRouter.put("/:id/cancel", authenticateToken, cancelOrderByUserController);
 
 // Delete order (admin)
 ordersRouter.delete(

@@ -135,7 +135,11 @@ export default class OrdersService {
       const sort: any = { [sortField]: sortDir };
 
       const [items, total] = await Promise.all([
-        OrderModel.find(filter).skip(skip).limit(limit).sort(sort),
+        OrderModel.find(filter)
+          .skip(skip)
+          .limit(limit)
+          .sort(sort)
+          .populate("orderHistory"),
         OrderModel.countDocuments(filter),
       ]);
       return { ok: true as const, items, total, page, limit };
@@ -185,6 +189,49 @@ export default class OrdersService {
       $push: { orderHistory: history._id },
     });
     return { ok: true as const, order: updated };
+  }
+
+  static async cancelByUser(
+    req: AuthenticatedRequest,
+    id: string,
+    reason?: string
+  ) {
+    const currentUser = (req as any).currentUser as any;
+    const order = await OrderModel.findById(id);
+    if (!order)
+      return {
+        ok: false as const,
+        status: 404,
+        message: "Order không tồn tại",
+      };
+    if (order.userId.toString() !== currentUser.id.toString()) {
+      return { ok: false as const, status: 403, message: "Forbidden" };
+    }
+    if (
+      order.status !== OrderStatus.PENDING &&
+      order.status !== OrderStatus.PROCESSING
+    ) {
+      return {
+        ok: false as const,
+        status: 409,
+        message: "Không thể hủy đơn hàng ở trạng thái hiện tại",
+      };
+    }
+
+    order.status = OrderStatus.CANCELLED;
+    if (reason) order.cancellationReason = reason;
+    await order.save();
+
+    const history = await OrderHistoryModel.create({
+      orderId: order._id,
+      status: OrderStatus.CANCELLED,
+      description: reason || "Order cancelled by user",
+    });
+    await OrderModel.findByIdAndUpdate(order._id, {
+      $push: { orderHistory: history._id },
+    });
+
+    return { ok: true as const, order };
   }
 
   static async delete(req: AuthenticatedRequest, id: string) {

@@ -1,14 +1,31 @@
 import UserModel from "../../models/UserModel";
 import { UpdateUserRequest } from "./types";
+import ShopService from "../shop/shop.service";
 
 export default class UsersService {
   // lấy thông tin user
-  static async getUser(id: string) {
+  static async getUser(id: string, includeShopStatus = false) {
     const user = await UserModel.findById(id);
     if (!user) {
       return { ok: false as const, status: 400, message: "User không tồn tại" };
     }
-    return { ok: true as const, user };
+    const userObj = user.toObject();
+    
+    if (includeShopStatus) {
+      const shopStatusResult = await ShopService.getShopStatusByUserId(id);
+      if (shopStatusResult.ok) {
+        return {
+          ok: true as const,
+          user: {
+            ...userObj,
+            shopStatus: shopStatusResult.shopStatus,
+            shop: shopStatusResult.shop,
+          },
+        };
+      }
+    }
+    
+    return { ok: true as const, user: userObj };
   }
   // cập nhật thông tin user
   static async updateUser(id: string, data: UpdateUserRequest) {

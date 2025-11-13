@@ -66,3 +66,18 @@ export const deleteOrderController = async (req: Request, res: Response) => {
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
   return ResponseUtil.success(res, result.order);
 };
+
+export const cancelOrderByUserController = async (
+  req: Request,
+  res: Response
+) => {
+  const { id } = req.params;
+  const { reason } = req.body as any;
+  const result = await OrdersService.cancelByUser(
+    req as AuthenticatedRequest,
+    id,
+    reason
+  );
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.order);
+};

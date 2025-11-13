@@ -1,11 +1,27 @@
 import { Request, Response } from "express";
 import { ResponseUtil } from "../../shared/utils/response.util";
 import UserModel from "../../models/UserModel";
+import ShopService from "../shop/shop.service";
 
 export const getProfileController = async (req: Request, res: Response) => {
   const currentUser = (req as any).currentUser;
   if (!currentUser) return ResponseUtil.unauthorized(res);
-  return ResponseUtil.success(res, currentUser);
+  
+  // Lấy shop status của user
+  const shopStatusResult = await ShopService.getShopStatusByUserId(currentUser._id || currentUser.id);
+  if (shopStatusResult.ok) {
+    return ResponseUtil.success(res, {
+      ...currentUser,
+      shopStatus: shopStatusResult.shopStatus,
+      shop: shopStatusResult.shop,
+    });
+  }
+  
+  return ResponseUtil.success(res, {
+    ...currentUser,
+    shopStatus: "not_registered",
+    shop: null,
+  });
 };
 
 export const updateProfileController = async (req: Request, res: Response) => {

@@ -22,16 +22,14 @@ export const shopSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  // logo liên với ảnh
+  // logo (store image publicId or URL)
   logo: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Image",
+    type: String,
     required: true,
   },
-  // banner liên với ảnh
+  // banner (store image publicId or URL)
   banner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Image",
+    type: String,
     required: true,
   },
   rating: {
@@ -56,7 +54,7 @@ export const shopSchema = new mongoose.Schema({
   },
   // isActive
   status: {
-    type: Boolean,
+    type: String,
     default: ShopStatus.PENDING,
     enum: Object.values(ShopStatus),
   },
@@ -64,6 +62,84 @@ export const shopSchema = new mongoose.Schema({
   products: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: "Product",
+  },
+  // Contact information
+  contactEmail: {
+    type: String,
+    required: true,
+  },
+  contactPhone: {
+    type: String,
+    required: true,
+  },
+  contactName: {
+    type: String,
+    required: true,
+  },
+  // Address
+  address: {
+    provinceCode: { type: Number },
+    districtCode: { type: Number },
+    wardCode: { type: Number },
+  },
+  // Business information
+  slug: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  businessType: {
+    type: String,
+    enum: ["individual", "household", "enterprise"],
+    required: true,
+  },
+  taxId: {
+    type: String,
+  },
+  repId: {
+    type: String,
+    required: true,
+  },
+  // Bank information
+  bankName: {
+    type: String,
+    required: true,
+  },
+  bankAccount: {
+    type: String,
+    required: true,
+  },
+  bankHolder: {
+    type: String,
+    required: true,
+  },
+  // Documents
+  idCardImages: [String],
+  businessLicenseImages: [String],
+  // Setup information
+  shippingPolicy: {
+    type: String,
+  },
+  returnPolicy: {
+    type: String,
+  },
+  openHour: {
+    type: String,
+  },
+  closeHour: {
+    type: String,
+  },
+  workingDays: {
+    type: String,
+  },
+  facebook: {
+    type: String,
+  },
+  zalo: {
+    type: String,
+  },
+  instagram: {
+    type: String,
   },
 });
 

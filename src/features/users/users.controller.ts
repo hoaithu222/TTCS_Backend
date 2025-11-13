@@ -10,7 +10,8 @@ export const getUserController = async (
   res: ExpressResponse
 ) => {
   const { id } = req.params;
-  const result = await UsersService.getUser(id);
+  const includeShopStatus = req.query.includeShopStatus === "true";
+  const result = await UsersService.getUser(id, includeShopStatus);
   if (!result.ok) {
     return ResponseUtil.error(
       res,
