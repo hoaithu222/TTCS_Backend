@@ -1,0 +1,683 @@
+import ShopModel from "../../models/ShopModel";
+import ProductModel from "../../models/ProductModal";
+import OrderModel from "../../models/OrderModel";
+import ShopFollowerModel from "../../models/ShopFollower";
+import ReviewModel from "../../models/ReviewModel";
+import {
+  GetMyShopProductsQuery,
+  GetMyShopOrdersQuery,
+  UpdateOrderStatusRequest,
+  GetAnalyticsQuery,
+  GetReviewsQuery,
+  GetFollowersQuery,
+} from "./types";
+import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
+
+export default class ShopManagementService {
+  // Lấy thông tin shop của user hiện tại
+  static async getMyShop(req: AuthenticatedRequest) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).lean();
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước.",
+        };
+      }
+
+      return { ok: true as const, shop };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Cập nhật thông tin shop
+  static async updateMyShop(req: AuthenticatedRequest, data: any) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOneAndUpdate({ userId }, data, {
+        new: true,
+      });
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Shop không tồn tại",
+        };
+      }
+
+      return { ok: true as const, shop };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Lấy danh sách sản phẩm của shop
+  static async getMyShopProducts(
+    req: AuthenticatedRequest,
+    query: GetMyShopProductsQuery
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const page =
+        Number.isFinite(query.page) && query.page && query.page > 0
+          ? query.page
+          : 1;
+      const limit =
+        Number.isFinite(query.limit) && query.limit && query.limit > 0
+          ? Math.min(query.limit, 500)
+          : 50;
+      const skip = (page - 1) * limit;
+
+      const filter: any = { shopId: shop._id.toString() };
+      if (query.categoryId) filter.categoryId = query.categoryId;
+      if (query.subCategoryId) filter.subCategoryId = query.subCategoryId;
+      if (query.search) filter.name = { $regex: query.search, $options: "i" };
+      if (typeof query.isActive === "boolean") filter.isActive = query.isActive;
+
+      const sortField = query.sortBy || "createdAt";
+      const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
+      const sort: any = { [sortField]: sortDir };
+
+      const [products, total] = await Promise.all([
+        ProductModel.find(filter).skip(skip).limit(limit).sort(sort),
+        ProductModel.countDocuments(filter),
+      ]);
+
+      return {
+        ok: true as const,
+        products,
+        total,
+        page,
+        limit,
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Tạo sản phẩm mới
+  static async createMyShopProduct(req: AuthenticatedRequest, data: any) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const product = await ProductModel.create({
+        ...data,
+        shopId: shop._id.toString(),
+      });
+
+      return { ok: true as const, product };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Cập nhật sản phẩm
+  static async updateMyShopProduct(
+    req: AuthenticatedRequest,
+    productId: string,
+    data: any
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const product = await ProductModel.findOneAndUpdate(
+        { _id: productId, shopId: shop._id.toString() },
+        data,
+        { new: true }
+      );
+
+      if (!product) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Sản phẩm không tồn tại",
+        };
+      }
+
+      return { ok: true as const, product };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Xóa sản phẩm
+  static async deleteMyShopProduct(
+    req: AuthenticatedRequest,
+    productId: string
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const product = await ProductModel.findOneAndDelete({
+        _id: productId,
+        shopId: shop._id.toString(),
+      });
+
+      if (!product) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Sản phẩm không tồn tại",
+        };
+      }
+
+      return { ok: true as const, product };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Lấy danh sách đơn hàng của shop
+  static async getMyShopOrders(
+    req: AuthenticatedRequest,
+    query: GetMyShopOrdersQuery
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const page =
+        Number.isFinite(query.page) && query.page && query.page > 0
+          ? query.page
+          : 1;
+      const limit =
+        Number.isFinite(query.limit) && query.limit && query.limit > 0
+          ? Math.min(query.limit, 500)
+          : 50;
+      const skip = (page - 1) * limit;
+
+      const filter: any = { shopId: shop._id };
+      if (query.orderStatus) filter.status = query.orderStatus;
+      if (query.paymentStatus) filter.isPay = query.paymentStatus === "paid";
+      if (query.dateFrom || query.dateTo) {
+        filter.createdAt = {};
+        if (query.dateFrom) filter.createdAt.$gte = new Date(query.dateFrom);
+        if (query.dateTo) filter.createdAt.$lte = new Date(query.dateTo);
+      }
+
+      const sortField = query.sortBy || "createdAt";
+      const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
+      const sort: any = { [sortField]: sortDir };
+
+      const [orders, total] = await Promise.all([
+        OrderModel.find(filter).skip(skip).limit(limit).sort(sort),
+        OrderModel.countDocuments(filter),
+      ]);
+
+      return {
+        ok: true as const,
+        orders,
+        total,
+        page,
+        limit,
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Lấy chi tiết đơn hàng
+  static async getMyShopOrder(req: AuthenticatedRequest, orderId: string) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const order = await OrderModel.findOne({
+        _id: orderId,
+        shopId: shop._id,
+      });
+
+      if (!order) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Đơn hàng không tồn tại",
+        };
+      }
+
+      return { ok: true as const, order };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Cập nhật trạng thái đơn hàng
+  static async updateMyShopOrderStatus(
+    req: AuthenticatedRequest,
+    orderId: string,
+    data: UpdateOrderStatusRequest
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const updateData: any = { status: data.orderStatus };
+      if (data.trackingNumber) updateData.trackingNumber = data.trackingNumber;
+      if (data.notes) updateData.notes = data.notes;
+
+      const order = await OrderModel.findOneAndUpdate(
+        { _id: orderId, shopId: shop._id },
+        updateData,
+        { new: true }
+      );
+
+      if (!order) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Đơn hàng không tồn tại",
+        };
+      }
+
+      return { ok: true as const, order };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Lấy thống kê shop
+  static async getMyShopAnalytics(
+    req: AuthenticatedRequest,
+    query: GetAnalyticsQuery
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const shopId = shop._id.toString();
+      const dateFilter: any = {};
+      if (query.startDate) dateFilter.$gte = new Date(query.startDate);
+      if (query.endDate) dateFilter.$lte = new Date(query.endDate);
+
+      // Tổng doanh thu
+      const revenueMatch: any = {
+        shopId: shop._id,
+        status: { $in: ["delivered"] },
+        isPay: true,
+      };
+      if (Object.keys(dateFilter).length > 0) {
+        revenueMatch.createdAt = dateFilter;
+      }
+
+      const revenueResult = await OrderModel.aggregate([
+        { $match: revenueMatch },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$totalAmount" },
+            totalOrders: { $sum: 1 },
+          },
+        },
+      ]);
+
+      // Tổng sản phẩm
+      const productsCount = await ProductModel.countDocuments({
+        shopId: shop._id,
+      });
+
+      // Tổng đơn hàng
+      const ordersMatch: any = { shopId: shop._id };
+      if (Object.keys(dateFilter).length > 0) {
+        ordersMatch.createdAt = dateFilter;
+      }
+      const totalOrders = await OrderModel.countDocuments(ordersMatch);
+
+      // Đơn hàng theo trạng thái
+      const ordersByStatus = await OrderModel.aggregate([
+        { $match: ordersMatch },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      // Top sản phẩm bán chạy (cần populate orderItems)
+      const ordersWithItems = await OrderModel.find(revenueMatch)
+        .populate("orderItems")
+        .limit(100)
+        .lean();
+
+      const productStats: Record<
+        string,
+        { productName: string; totalSold: number; totalRevenue: number }
+      > = {};
+
+      ordersWithItems.forEach((order: any) => {
+        if (order.orderItems && Array.isArray(order.orderItems)) {
+          order.orderItems.forEach((item: any) => {
+            const productId = item.productId?.toString() || "unknown";
+            if (!productStats[productId]) {
+              productStats[productId] = {
+                productName: item.productName || "Unknown",
+                totalSold: 0,
+                totalRevenue: 0,
+              };
+            }
+            productStats[productId].totalSold += item.quantity || 0;
+            productStats[productId].totalRevenue += item.totalPrice || 0;
+          });
+        }
+      });
+
+      const topProducts = Object.entries(productStats)
+        .map(([productId, stats]) => ({
+          _id: productId,
+          productName: stats.productName,
+          totalSold: stats.totalSold,
+          totalRevenue: stats.totalRevenue,
+        }))
+        .sort((a, b) => b.totalSold - a.totalSold)
+        .slice(0, 10);
+
+      const analytics = {
+        revenue: revenueResult[0]?.totalRevenue || 0,
+        totalOrders,
+        productsCount,
+        ordersByStatus: ordersByStatus.reduce((acc: any, item: any) => {
+          acc[item._id] = item.count;
+          return acc;
+        }, {}),
+        topProducts,
+      };
+
+      return { ok: true as const, analytics };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Lấy đánh giá shop
+  static async getMyShopReviews(
+    req: AuthenticatedRequest,
+    query: GetReviewsQuery
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const page =
+        Number.isFinite(query.page) && query.page && query.page > 0
+          ? query.page
+          : 1;
+      const limit =
+        Number.isFinite(query.limit) && query.limit && query.limit > 0
+          ? Math.min(query.limit, 500)
+          : 50;
+      const skip = (page - 1) * limit;
+
+      const filter: any = { shopId: shop._id.toString() };
+      if (query.rating) filter.rating = query.rating;
+
+      const sortField = query.sortBy || "createdAt";
+      const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
+      const sort: any = { [sortField]: sortDir };
+
+      const [reviews, total] = await Promise.all([
+        ReviewModel.find(filter).skip(skip).limit(limit).sort(sort),
+        ReviewModel.countDocuments(filter),
+      ]);
+
+      // Tính rating trung bình
+      const ratingStats = await ReviewModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: "$rating" },
+            totalReviews: { $sum: 1 },
+            ratingDistribution: {
+              $push: "$rating",
+            },
+          },
+        },
+      ]);
+
+      const ratingDistribution = ratingStats[0]?.ratingDistribution || [];
+      const distribution: Record<number, number> = {};
+      ratingDistribution.forEach((rating: number) => {
+        distribution[rating] = (distribution[rating] || 0) + 1;
+      });
+
+      return {
+        ok: true as const,
+        reviews,
+        total,
+        page,
+        limit,
+        averageRating: ratingStats[0]?.averageRating || 0,
+        totalReviews: ratingStats[0]?.totalReviews || 0,
+        ratingDistribution: distribution,
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Lấy danh sách người theo dõi
+  static async getMyShopFollowers(
+    req: AuthenticatedRequest,
+    query: GetFollowersQuery
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const page =
+        Number.isFinite(query.page) && query.page && query.page > 0
+          ? query.page
+          : 1;
+      const limit =
+        Number.isFinite(query.limit) && query.limit && query.limit > 0
+          ? Math.min(query.limit, 500)
+          : 50;
+      const skip = (page - 1) * limit;
+
+      const [followers, total] = await Promise.all([
+        ShopFollowerModel.find({ shopId: shop._id.toString() })
+          .skip(skip)
+          .limit(limit)
+          .populate("userId", "name email avatar")
+          .sort({ createdAt: -1 }),
+        ShopFollowerModel.countDocuments({ shopId: shop._id.toString() }),
+      ]);
+
+      return {
+        ok: true as const,
+        followers,
+        total,
+        page,
+        limit,
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+}

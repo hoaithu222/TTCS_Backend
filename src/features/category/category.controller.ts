@@ -61,7 +61,7 @@ export const getSubCategoriesController = async (
 ) => {
   const { id } = req.params;
   const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 10;
+  const limit = Number(req.query.limit) || 50;
   const result = await CategoryService.getSubCategories(id, page, limit);
   if (!result.ok) {
     return ResponseUtil.error(res, result.message, result.status);
@@ -76,7 +76,7 @@ export const getSubCategoriesController = async (
 
 export const getCategoriesController = async (req: Request, res: Response) => {
   const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 10;
+  const limit = Number(req.query.limit) || 50;
   const search = req.query.search as string | undefined;
   const isActive =
     req.query.isActive !== undefined

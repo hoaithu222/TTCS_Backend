@@ -62,8 +62,8 @@ export default class ProductService {
           : 1;
       const limit =
         Number.isFinite(query.limit as number) && (query.limit as number) > 0
-          ? Math.min(query.limit as number, 100)
-          : 10;
+          ? Math.min(query.limit as number, 500)
+          : 50;
       const skip = (page - 1) * limit;
       const filter: any = {};
       if (typeof query.isActive === "boolean") filter.isActive = query.isActive;

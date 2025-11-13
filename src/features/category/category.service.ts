@@ -52,14 +52,14 @@ export default class CategoryService {
   }
   static async getCategories(
     page: number = 1,
-    limit: number = 10,
+    limit: number = 50,
     search?: string,
     isActive?: boolean
   ) {
     try {
       const safePage = Number.isFinite(page) && page > 0 ? page : 1;
       const safeLimit =
-        Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 10;
+        Number.isFinite(limit) && limit > 0 ? Math.min(limit, 500) : 50;
       const skip = (safePage - 1) * safeLimit;
 
       // Build filter query
@@ -101,12 +101,12 @@ export default class CategoryService {
   static async getSubCategories(
     id: string,
     page: number = 1,
-    limit: number = 10
+    limit: number = 50
   ) {
     try {
       const safePage = Number.isFinite(page) && page > 0 ? page : 1;
       const safeLimit =
-        Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 10;
+        Number.isFinite(limit) && limit > 0 ? Math.min(limit, 500) : 50;
       const skip = (safePage - 1) * safeLimit;
       const [subCategories, total] = await Promise.all([
         SubCategoryModel.find({ categoryId: id })

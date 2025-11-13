@@ -51,8 +51,8 @@ app.use(
 );
 
 // Body parsing middleware
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Cookie parser
 app.use(cookieParser());
@@ -71,7 +71,7 @@ if (process.env.NODE_ENV === "development") {
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
 
 // Rate limiting
-app.use(rateLimit(100, 15 * 60 * 1000)); // 100 requests per 15 minutes
+app.use(rateLimit(500, 15 * 60 * 1000)); // 500 requests per 15 minutes
 
 // Root route (hello world)
 app.get("/", (req, res) => {

@@ -45,7 +45,7 @@ export const listProductController = async (req: Request, res: Response) => {
   } = req.query as any;
   const result = await ProductService.list({
     page: Number(page) || 1,
-    limit: Number(limit) || 10,
+    limit: Number(limit) || 50,
     categoryId,
     subCategoryId,
     shopId,
