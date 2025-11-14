@@ -17,12 +17,23 @@ export default class ShopManagementService {
   // Lấy thông tin shop của user hiện tại
   static async getMyShop(req: AuthenticatedRequest) {
     try {
-      const userId =
-        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      // Lấy userId từ currentUser._id (ObjectId) hoặc user.userId (string)
+      const currentUser = (req as any).currentUser;
+      const user = (req as any).user;
+
+      // Ưu tiên currentUser._id, nếu không có thì dùng user.userId
+      // Convert ObjectId thành string để đảm bảo consistency
+      const userId = currentUser?._id
+        ? currentUser._id.toString
+          ? currentUser._id.toString()
+          : String(currentUser._id)
+        : user?.userId;
+
       if (!userId) {
         return { ok: false as const, status: 401, message: "Unauthorized" };
       }
 
+      // Mongoose sẽ tự động convert string thành ObjectId khi query
       const shop = await ShopModel.findOne({ userId }).lean();
       if (!shop) {
         return {

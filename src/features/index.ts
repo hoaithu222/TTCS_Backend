@@ -65,8 +65,9 @@ router.use("/product-attributes", productAttributeRoutes);
 router.use("/attribute-types", attributeTypeRoutes);
 router.use("/attribute-values", attributeValueRoutes);
 router.use("/images", imageRoutes);
-router.use("/shops", shopRoutes);
+// Đăng ký shopManagementRoutes trước shopRoutes để các route cụ thể như /my-shop được match trước route /:id
 router.use("/shops", shopManagementRoutes);
+router.use("/shops", shopRoutes);
 router.use("/analytics", analyticsRoutes);
 router.use("/orders", ordersRoutes);
 router.use("/cart", cartRoutes);
