@@ -70,6 +70,19 @@ export const updateMyShopProductController = async (req: Request, res: Response)
   return ResponseUtil.success(res, result.product);
 };
 
+// Lấy chi tiết một sản phẩm của shop
+export const getMyShopProductController = async (req: Request, res: Response) => {
+  const { productId } = req.params;
+  const result = await ShopManagementService.getMyShopProduct(
+    req as AuthenticatedRequest,
+    productId
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, result.product);
+};
+
 // Xóa sản phẩm
 export const deleteMyShopProductController = async (req: Request, res: Response) => {
   const { productId } = req.params;

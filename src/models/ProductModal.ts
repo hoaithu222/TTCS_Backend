@@ -102,6 +102,55 @@ export const productSchema = new mongoose.Schema(
       required: true,
       default: true,
     },
+    // Product variants (for different colors, sizes, etc.)
+    variants: {
+      type: [
+        {
+          attributes: {
+            type: mongoose.Schema.Types.Mixed,
+            required: true,
+          },
+          price: {
+            type: Number,
+            required: true,
+            min: 0,
+          },
+          stock: {
+            type: Number,
+            required: true,
+            min: 0,
+            default: 0,
+          },
+          image: {
+            type: String,
+            trim: true,
+          },
+          sku: {
+            type: String,
+            trim: true,
+            maxlength: 64,
+          },
+        },
+      ],
+      default: [],
+    },
+    // Product attributes (non-variant attributes)
+    attributes: {
+      type: [
+        {
+          attribute_type_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "AttributeType",
+          },
+          attribute_value_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "AttributeValue",
+          },
+          value: String,
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

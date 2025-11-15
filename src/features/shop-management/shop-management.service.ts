@@ -126,7 +126,12 @@ export default class ShopManagementService {
       const sort: any = { [sortField]: sortDir };
 
       const [products, total] = await Promise.all([
-        ProductModel.find(filter).skip(skip).limit(limit).sort(sort),
+        ProductModel.find(filter)
+          .populate("images", "url publicId")
+          .skip(skip)
+          .limit(limit)
+          .sort(sort)
+          .lean(),
         ProductModel.countDocuments(filter),
       ]);
 
@@ -165,10 +170,79 @@ export default class ShopManagementService {
         };
       }
 
-      const product = await ProductModel.create({
+      // Prepare product data
+      const productData: any = {
         ...data,
         shopId: shop._id.toString(),
-      });
+      };
+
+      // Handle variants if provided
+      if (
+        data.variants &&
+        Array.isArray(data.variants) &&
+        data.variants.length > 0
+      ) {
+        productData.variants = data.variants.map((variant: any) => ({
+          attributes: variant.attributes || {},
+          price: variant.price || data.price || 0,
+          stock: variant.stock || 0,
+          image: variant.image || null,
+          sku: variant.sku || undefined,
+        }));
+        // If variants exist, calculate total stock from variants
+        productData.stock = productData.variants.reduce(
+          (sum: number, v: any) => sum + (v.stock || 0),
+          0
+        );
+      }
+
+      // Handle images - convert string URLs to ObjectIds if needed
+      if (data.images && Array.isArray(data.images)) {
+        const ImageModel = (await import("../../models/ImageModel")).default;
+        const imageIds: string[] = [];
+
+        for (const imageItem of data.images) {
+          // If it's already an ObjectId string, use it directly
+          if (
+            typeof imageItem === "string" &&
+            imageItem.match(/^[0-9a-fA-F]{24}$/)
+          ) {
+            imageIds.push(imageItem);
+            continue;
+          }
+
+          // If it's a URL, create Image record
+          if (typeof imageItem === "string" && imageItem.startsWith("http")) {
+            try {
+              // Extract publicId from URL if possible, or generate one
+              const publicId = `product-image-${Date.now()}-${Math.random()
+                .toString(36)
+                .substring(7)}`;
+              const imageRecord = await ImageModel.create({
+                url: imageItem,
+                publicId: publicId,
+              });
+              imageIds.push(imageRecord._id.toString());
+            } catch (err) {
+              console.error("Failed to create image record:", err);
+              // Continue with other images
+            }
+          }
+        }
+
+        if (imageIds.length > 0) {
+          productData.images = imageIds;
+        } else {
+          // If no valid images, return error
+          return {
+            ok: false as const,
+            status: 400,
+            message: "At least one valid image is required",
+          };
+        }
+      }
+
+      const product = await ProductModel.create(productData);
 
       return { ok: true as const, product };
     } catch (error) {
@@ -203,9 +277,101 @@ export default class ShopManagementService {
         };
       }
 
+      // Prepare update data
+      const updateData: any = { ...data };
+
+      // Handle images - convert string URLs to ObjectIds if needed
+      if (data.images && Array.isArray(data.images)) {
+        const ImageModel = (await import("../../models/ImageModel")).default;
+        const imageIds: string[] = [];
+
+        for (const imageItem of data.images) {
+          // If it's already an ObjectId string, use it directly
+          if (
+            typeof imageItem === "string" &&
+            imageItem.match(/^[0-9a-fA-F]{24}$/)
+          ) {
+            imageIds.push(imageItem);
+            continue;
+          }
+
+          // If it's a URL, create Image record
+          if (typeof imageItem === "string" && imageItem.startsWith("http")) {
+            try {
+              const publicId = `product-image-${Date.now()}-${Math.random()
+                .toString(36)
+                .substring(7)}`;
+              const imageRecord = await ImageModel.create({
+                url: imageItem,
+                publicId: publicId,
+              });
+              imageIds.push(imageRecord._id.toString());
+            } catch (err) {
+              console.error("Failed to create image record:", err);
+              // Continue with other images
+            }
+          }
+        }
+
+        if (imageIds.length > 0) {
+          updateData.images = imageIds;
+        }
+      }
+
+      // Handle variants if provided
+      if (data.variants !== undefined) {
+        if (Array.isArray(data.variants) && data.variants.length > 0) {
+          const ImageModel = (await import("../../models/ImageModel")).default;
+
+          updateData.variants = await Promise.all(
+            data.variants.map(async (variant: any) => {
+              let variantImage = variant.image || null;
+
+              // If variant image is a URL (not ObjectId), create Image record
+              if (
+                variantImage &&
+                typeof variantImage === "string" &&
+                !variantImage.match(/^[0-9a-fA-F]{24}$/)
+              ) {
+                try {
+                  const publicId = `variant-image-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .substring(7)}`;
+                  const imageRecord = await ImageModel.create({
+                    url: variantImage,
+                    publicId: publicId,
+                  });
+                  variantImage = imageRecord._id.toString();
+                } catch (err) {
+                  console.error("Failed to create variant image record:", err);
+                  variantImage = null;
+                }
+              }
+
+              return {
+                attributes: variant.attributes || {},
+                price: variant.price || data.price || 0,
+                stock: variant.stock || 0,
+                image: variantImage,
+                sku: variant.sku || undefined,
+              };
+            })
+          );
+
+          // If variants exist, calculate total stock from variants
+          updateData.stock = updateData.variants.reduce(
+            (sum: number, v: any) => sum + (v.stock || 0),
+            0
+          );
+        } else {
+          // Empty array means remove all variants
+          updateData.variants = [];
+        }
+      }
+
       const product = await ProductModel.findOneAndUpdate(
         { _id: productId, shopId: shop._id.toString() },
-        data,
+        updateData,
         { new: true }
       );
 
@@ -215,6 +381,79 @@ export default class ShopManagementService {
           status: 404,
           message: "Sản phẩm không tồn tại",
         };
+      }
+
+      return { ok: true as const, product };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Lấy chi tiết một sản phẩm của shop
+  static async getMyShopProduct(req: AuthenticatedRequest, productId: string) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message:
+            "Bạn chưa có shop. Vui lòng tạo shop trước khi thêm sản phẩm.",
+        };
+      }
+
+      const productDoc = await ProductModel.findOne({
+        _id: productId,
+        shopId: shop._id.toString(),
+      })
+        .populate("images", "url publicId")
+        .lean();
+
+      if (!productDoc) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Sản phẩm không tồn tại",
+        };
+      }
+
+      // Populate variant images if they are ObjectIds
+      const product: any = { ...productDoc };
+      if (product.variants && Array.isArray(product.variants)) {
+        const ImageModel = (await import("../../models/ImageModel")).default;
+        product.variants = await Promise.all(
+          product.variants.map(async (variant: any) => {
+            // If variant.image is an ObjectId string, fetch the image URL
+            if (
+              variant.image &&
+              typeof variant.image === "string" &&
+              variant.image.match(/^[0-9a-fA-F]{24}$/)
+            ) {
+              try {
+                const imageDoc = await ImageModel.findById(
+                  variant.image
+                ).lean();
+                if (imageDoc && imageDoc.url) {
+                  variant.image = imageDoc.url; // Convert ObjectId to URL
+                }
+              } catch (err) {
+                console.error("Failed to populate variant image:", err);
+                // Keep original value if fetch fails
+              }
+            }
+            return variant;
+          })
+        );
       }
 
       return { ok: true as const, product };

@@ -19,7 +19,23 @@ export default class CartService {
     const userId = (req as any).user?.userId;
     if (!userId)
       return { ok: false as const, status: 401, message: "Unauthorized" };
-    let cart = await CartModel.findOne({ userId }).populate("cartItems");
+    let cart = await CartModel.findOne({ userId }).populate({
+      path: "cartItems",
+      populate: [
+        {
+          path: "productId",
+          select: "name images price discount stock",
+          populate: {
+            path: "images",
+            select: "url publicId",
+          },
+        },
+        {
+          path: "shopId",
+          select: "name logo",
+        },
+      ],
+    });
     if (!cart) {
       cart = await CartModel.create({ userId, cartItems: [] });
     }
@@ -44,7 +60,23 @@ export default class CartService {
     await CartModel.findByIdAndUpdate(cart._id, {
       $push: { cartItems: item._id },
     });
-    const populated = await CartModel.findById(cart._id).populate("cartItems");
+    const populated = await CartModel.findById(cart._id).populate({
+      path: "cartItems",
+      populate: [
+        {
+          path: "productId",
+          select: "name images price discount stock",
+          populate: {
+            path: "images",
+            select: "url publicId",
+          },
+        },
+        {
+          path: "shopId",
+          select: "name logo",
+        },
+      ],
+    });
     return { ok: true as const, cart: populated };
   }
 
@@ -67,7 +99,23 @@ export default class CartService {
         status: 404,
         message: "Cart item không tồn tại",
       };
-    const cart = await CartModel.findOne({ userId }).populate("cartItems");
+    const cart = await CartModel.findOne({ userId }).populate({
+      path: "cartItems",
+      populate: [
+        {
+          path: "productId",
+          select: "name images price discount stock",
+          populate: {
+            path: "images",
+            select: "url publicId",
+          },
+        },
+        {
+          path: "shopId",
+          select: "name logo",
+        },
+      ],
+    });
     return { ok: true as const, cart };
   }
 
@@ -77,7 +125,23 @@ export default class CartService {
       return { ok: false as const, status: 401, message: "Unauthorized" };
     await CartItemModel.findByIdAndDelete(itemId);
     await CartModel.updateOne({ userId }, { $pull: { cartItems: itemId } });
-    const cart = await CartModel.findOne({ userId }).populate("cartItems");
+    const cart = await CartModel.findOne({ userId }).populate({
+      path: "cartItems",
+      populate: [
+        {
+          path: "productId",
+          select: "name images price discount stock",
+          populate: {
+            path: "images",
+            select: "url publicId",
+          },
+        },
+        {
+          path: "shopId",
+          select: "name logo",
+        },
+      ],
+    });
     return { ok: true as const, cart };
   }
 
@@ -90,7 +154,23 @@ export default class CartService {
       await CartItemModel.deleteMany({ _id: { $in: cart.cartItems } });
       await CartModel.updateOne({ _id: cart._id }, { $set: { cartItems: [] } });
     }
-    const refreshed = await CartModel.findOne({ userId }).populate("cartItems");
+    const refreshed = await CartModel.findOne({ userId }).populate({
+      path: "cartItems",
+      populate: [
+        {
+          path: "productId",
+          select: "name images price discount stock",
+          populate: {
+            path: "images",
+            select: "url publicId",
+          },
+        },
+        {
+          path: "shopId",
+          select: "name logo",
+        },
+      ],
+    });
     return { ok: true as const, cart: refreshed };
   }
 }

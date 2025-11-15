@@ -3,6 +3,7 @@ import {
   getMyShopController,
   updateMyShopController,
   getMyShopProductsController,
+  getMyShopProductController,
   createMyShopProductController,
   updateMyShopProductController,
   deleteMyShopProductController,
@@ -31,6 +32,7 @@ shopManagementRouter.put("/my-shop", updateMyShopController);
 
 // Products
 shopManagementRouter.get("/my-shop/products", getMyShopProductsController);
+shopManagementRouter.get("/my-shop/products/:productId", getMyShopProductController);
 shopManagementRouter.post("/my-shop/products", createMyShopProductController);
 shopManagementRouter.put(
   "/my-shop/products/:productId",

@@ -12,7 +12,42 @@ export default class CategoryService {
         message: "Category không tồn tại",
       };
     }
-    return { ok: true as const, category };
+
+    // Fetch attributes for this category
+    const AttributeTypeModel = (await import("../../models/AttributeType")).default;
+    const AttributeValueModel = (await import("../../models/AttributeValue")).default;
+    
+    const attributeTypes = await AttributeTypeModel.find({ categoryId: id, isActive: true });
+    
+    // Populate values for each attribute type
+    const attributesWithValues = await Promise.all(
+      attributeTypes.map(async (attrType) => {
+        const values = await AttributeValueModel.find({
+          attributeTypeId: attrType._id,
+        });
+        return {
+          id: attrType._id.toString(),
+          _id: attrType._id.toString(),
+          name: attrType.name,
+          description: attrType.description,
+          inputType: attrType.is_multiple ? "multiselect" : "select",
+          isRequired: false, // Default, can be added to schema later
+          values: values.map((val: any) => ({
+            id: val._id.toString(),
+            _id: val._id.toString(),
+            value: val.value,
+            label: val.value,
+            colorCode: val.colorCode || undefined,
+          })),
+        };
+      })
+    );
+
+    // Convert category to plain object and add attributes
+    const categoryObj = category.toObject ? category.toObject() : category;
+    (categoryObj as any).attributes = attributesWithValues;
+
+    return { ok: true as const, category: categoryObj };
   }
   static async createCategory(data: CreateCategoryRequest) {
     try {

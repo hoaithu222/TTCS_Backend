@@ -64,3 +64,123 @@ export const listProductController = async (req: Request, res: Response) => {
     totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
   });
 };
+
+export const searchProductController = async (req: Request, res: Response) => {
+  const {
+    page,
+    limit,
+    categoryId,
+    subCategoryId,
+    shopId,
+    search,
+    minPrice,
+    maxPrice,
+    sortBy,
+    sortOrder,
+  } = req.query as any;
+  const result = await ProductService.search({
+    page: Number(page) || 1,
+    limit: Number(limit) || 20,
+    categoryId,
+    subCategoryId,
+    shopId,
+    search,
+    minPrice: minPrice != null ? Number(minPrice) : undefined,
+    maxPrice: maxPrice != null ? Number(maxPrice) : undefined,
+    sortBy,
+    sortOrder,
+  });
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.items, "Success", 200, 1, {
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
+  });
+};
+
+export const getFeaturedProductsController = async (req: Request, res: Response) => {
+  const {
+    page,
+    limit,
+    categoryId,
+    subCategoryId,
+    shopId,
+  } = req.query as any;
+  const result = await ProductService.getFeatured({
+    page: Number(page) || 1,
+    limit: Number(limit) || 20,
+    categoryId,
+    subCategoryId,
+    shopId,
+  });
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.items, "Success", 200, 1, {
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
+  });
+};
+
+export const getRecommendedProductsController = async (req: Request, res: Response) => {
+  const {
+    page,
+    limit,
+    categoryId,
+    subCategoryId,
+    shopId,
+  } = req.query as any;
+  const result = await ProductService.getRecommended({
+    page: Number(page) || 1,
+    limit: Number(limit) || 20,
+    categoryId,
+    subCategoryId,
+    shopId,
+  });
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.items, "Success", 200, 1, {
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
+  });
+};
+
+export const getRelatedProductsController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { limit } = req.query as any;
+  const result = await ProductService.getRelated(id, limit ? Number(limit) : 8);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.items);
+};
+
+export const trackProductViewController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ProductService.trackView(id);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, {});
+};
+
+export const getProductReviewsController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { page, limit, sortBy } = req.query as any;
+  const result = await ProductService.getReviews(id, {
+    page: page ? Number(page) : 1,
+    limit: limit ? Number(limit) : 10,
+    sortBy,
+  });
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, {
+    reviews: result.reviews,
+    averageRating: result.averageRating,
+    totalReviews: result.totalReviews,
+    ratingDistribution: result.ratingDistribution,
+    pagination: {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
+    },
+  });
+};
