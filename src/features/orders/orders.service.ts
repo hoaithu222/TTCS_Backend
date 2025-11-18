@@ -1,11 +1,13 @@
+import mongoose from "mongoose";
 import OrderModel, { OrderStatus } from "../../models/OrderModel";
 import OrderItemModel from "../../models/OrderItem";
 import OrderHistoryModel from "../../models/OrderHistory";
+import ProductModel from "../../models/ProductModal";
 import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
 
 export interface CreateOrderItemInput {
   productId: string;
-  variantId: string;
+  variantId?: string; // Optional - not all products have variants
   quantity: number;
   price: number;
   totalPrice: number;
@@ -35,59 +37,168 @@ export interface ListOrdersQuery {
 
 export default class OrdersService {
   static async create(req: AuthenticatedRequest, data: CreateOrderRequest) {
-    try {
-      const userId = (req as any).user?.userId;
-      if (!userId)
-        return { ok: false as const, status: 401, message: "Unauthorized" };
+    const userId = (req as any).user?.userId;
+    if (!userId)
+      return { ok: false as const, status: 401, message: "Unauthorized" };
+    if (!data.items || data.items.length === 0) {
+      return {
+        ok: false as const,
+        status: 400,
+        message: "Danh sách sản phẩm không hợp lệ",
+      };
+    }
 
-      const orderItemsDocs = await OrderItemModel.insertMany(
-        (data.items || []).map((i) => ({
-          orderId: undefined as any,
-          productId: i.productId,
-          variantId: i.variantId,
-          quantity: i.quantity,
-          price: i.price,
-          totalPrice: i.totalPrice,
-          discount: i.discount ?? 0,
-          tax: i.tax ?? 0,
-        }))
-      );
-      const totalAmount =
-        orderItemsDocs.reduce((sum, it) => sum + (it as any).totalPrice, 0) +
-        data.shippingFee;
-      const order = await OrderModel.create({
-        userId,
-        shopId: data.shopId,
-        totalAmount,
-        shippingFee: data.shippingFee,
-        status: OrderStatus.PENDING,
-        addressId: data.addressId,
-        paymentMethod: data.paymentMethod,
-        notes: data.notes,
-        voucherId: data.voucherId,
-        isPay: false,
-        discountAmount: 0,
-        orderItems: orderItemsDocs.map((d) => d._id),
+    const session = await mongoose.startSession();
+    let createdOrder: any = null;
+    try {
+      await session.withTransaction(async () => {
+        const sanitizedItems: Array<{
+          productId: mongoose.Types.ObjectId;
+          variantId?: mongoose.Types.ObjectId;
+          quantity: number;
+          price: number;
+          totalPrice: number;
+          discount: number;
+          tax: number;
+        }> = [];
+        let subtotal = 0;
+        let discountAmount = 0;
+
+        for (const rawItem of data.items) {
+          const product = await ProductModel.findById(rawItem.productId)
+            .select("price discount stock variants shopId")
+            .session(session);
+          if (!product)
+            throw new Error("Sản phẩm trong đơn hàng không tồn tại");
+          if (data.shopId && product.shopId.toString() !== data.shopId) {
+            throw new Error("Sản phẩm không thuộc cửa hàng đã chọn");
+          }
+
+          const quantity =
+            Number.isFinite(rawItem.quantity) && rawItem.quantity > 0
+              ? rawItem.quantity
+              : 1;
+
+          let variantDoc: any = null;
+          if (rawItem.variantId) {
+            variantDoc = product.variants.id(rawItem.variantId);
+            if (!variantDoc)
+              throw new Error("Biến thể sản phẩm không tồn tại");
+            if ((variantDoc.stock || 0) < quantity)
+              throw new Error("Số lượng biến thể không đủ");
+          } else if ((product.stock || 0) < quantity) {
+            throw new Error("Số lượng sản phẩm không đủ");
+          }
+
+          const basePrice = variantDoc?.price ?? product.price ?? 0;
+          const discountPercent = Math.min(
+            Math.max(product.discount ?? 0, 0),
+            100
+          );
+          const discountedPrice =
+            basePrice - (basePrice * discountPercent) / 100;
+          const lineTotal = discountedPrice * quantity;
+
+          sanitizedItems.push({
+            productId: product._id,
+            variantId: variantDoc?._id,
+            quantity,
+            price: basePrice,
+            totalPrice: lineTotal,
+            discount: discountPercent,
+            tax: rawItem.tax ?? 0,
+          });
+
+          subtotal += lineTotal;
+          discountAmount += (basePrice - discountedPrice) * quantity;
+
+          if (variantDoc) {
+            variantDoc.stock = Math.max(0, (variantDoc.stock || 0) - quantity);
+          } else {
+            product.stock = Math.max(0, (product.stock || 0) - quantity);
+          }
+          await product.save({ session });
+        }
+
+        const orderItemsDocs = await OrderItemModel.insertMany(
+          sanitizedItems.map((i) => ({
+            productId: i.productId,
+            variantId: i.variantId,
+            quantity: i.quantity,
+            price: i.price,
+            totalPrice: i.totalPrice,
+            discount: i.discount,
+            tax: i.tax,
+          })),
+          { session }
+        );
+
+        const shippingFee = Number.isFinite(data.shippingFee)
+          ? data.shippingFee
+          : 0;
+        const totalAmount = subtotal + shippingFee;
+
+        const [order] = await OrderModel.create(
+          [
+            {
+              userId,
+              shopId: data.shopId,
+              totalAmount,
+              shippingFee,
+              status: OrderStatus.PENDING,
+              addressId: data.addressId,
+              paymentMethod: data.paymentMethod,
+              notes: data.notes,
+              voucherId: data.voucherId,
+              isPay: false,
+              discountAmount,
+              orderItems: orderItemsDocs.map((d) => d._id),
+            },
+          ],
+          { session }
+        );
+
+        await OrderItemModel.updateMany(
+          { _id: { $in: order.orderItems } },
+          { orderId: order._id },
+          { session }
+        );
+
+        const [history] = await OrderHistoryModel.create(
+          [
+            {
+              orderId: order._id,
+              status: OrderStatus.PENDING,
+              description: "Order created",
+            },
+          ],
+          { session }
+        );
+
+        await OrderModel.findByIdAndUpdate(
+          order._id,
+          { $push: { orderHistory: history._id } },
+          { session }
+        );
+
+        createdOrder = order;
       });
-      await OrderItemModel.updateMany(
-        { _id: { $in: order.orderItems } },
-        { orderId: order._id }
-      );
-      const history = await OrderHistoryModel.create({
-        orderId: order._id,
-        status: OrderStatus.PENDING,
-        description: "Order created",
-      });
-      await OrderModel.findByIdAndUpdate(order._id, {
-        $push: { orderHistory: history._id },
-      });
-      return { ok: true as const, order };
+
+      if (!createdOrder)
+        throw new Error("Không thể tạo đơn hàng, vui lòng thử lại");
+
+      return { ok: true as const, order: createdOrder };
     } catch (error) {
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
       return {
         ok: false as const,
         status: 400,
         message: (error as Error).message,
       };
+    } finally {
+      await session.endSession();
     }
   }
 
@@ -221,6 +332,7 @@ export default class OrdersService {
     order.status = OrderStatus.CANCELLED;
     if (reason) order.cancellationReason = reason;
     await order.save();
+    await OrdersService.restoreInventory(order);
 
     const history = await OrderHistoryModel.create({
       orderId: order._id,
@@ -243,5 +355,30 @@ export default class OrdersService {
         message: "Order không tồn tại",
       };
     return { ok: true as const, order: deleted };
+  }
+
+  private static async restoreInventory(order: any) {
+    if (!order?.orderItems?.length) return;
+    const orderItems = await OrderItemModel.find({
+      _id: { $in: order.orderItems },
+    });
+
+    for (const item of orderItems) {
+      const product = await ProductModel.findById(item.productId).select(
+        "stock variants"
+      );
+      if (!product) continue;
+
+      if (item.variantId) {
+        const variant = product.variants.id(item.variantId);
+        if (variant) {
+          variant.stock = (variant.stock || 0) + (item.quantity || 0);
+        }
+      } else {
+        product.stock = (product.stock || 0) + (item.quantity || 0);
+      }
+
+      await product.save();
+    }
   }
 }

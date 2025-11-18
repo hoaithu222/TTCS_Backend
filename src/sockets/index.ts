@@ -1,49 +1,61 @@
-import { Server } from 'socket.io';
+import { Server, Socket } from "socket.io";
+import Jwt from "../shared/utils/jwt";
+import UserModel from "../models/UserModel";
+
+interface SocketAuth {
+  userId?: string;
+  token?: string;
+}
 
 const socketHandler = (io: Server) => {
-  io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`);
+  io.use(async (socket: Socket, next) => {
+    try {
+      const auth = socket.handshake.auth as SocketAuth;
+      const authHeader = socket.handshake.headers.authorization;
+      const token =
+        auth?.token ||
+        (authHeader && authHeader.startsWith("Bearer ")
+          ? authHeader.split(" ")[1]
+          : authHeader);
 
-    // Handle user join room
-    socket.on('join-room', (roomId: string) => {
-      socket.join(roomId);
-      console.log(`User ${socket.id} joined room: ${roomId}`);
-    });
+      if (token) {
+        try {
+          const decoded = Jwt.verifyAccessToken<{ userId: string }>(token);
+          const user = await UserModel.findById(decoded.userId).select(
+            "_id email name fullName avatar role"
+          );
+          if (user) {
+            (socket as any).user = {
+              userId: user._id.toString(),
+              user,
+            };
+          }
+        } catch (error) {
+          console.error("Socket auth token invalid:", error);
+        }
+      } else if (auth?.userId) {
+        (socket as any).user = { userId: auth.userId };
+      }
 
-    // Handle user leave room
-    socket.on('leave-room', (roomId: string) => {
-      socket.leave(roomId);
-      console.log(`User ${socket.id} left room: ${roomId}`);
-    });
+      next();
+    } catch (error) {
+      console.error("Socket auth error:", error);
+      next();
+    }
+  });
 
-    // Handle chat message
-    socket.on('send-message', (data) => {
-      const { roomId, message, userId, username } = data;
-      io.to(roomId).emit('receive-message', {
-        message,
-        userId,
-        username,
-        timestamp: new Date().toISOString()
-      });
-    });
+  io.on("connection", (socket: Socket) => {
+    const socketUser = (socket as any).user;
+    const userId = socketUser?.userId || socket.handshake.auth?.userId;
+    console.log(
+      `Socket connected: ${socket.id}${userId ? ` (userId: ${userId})` : ""}`
+    );
 
-    // Handle typing indicator
-    socket.on('typing', (data) => {
-      const { roomId, userId, username } = data;
-      socket.to(roomId).emit('user-typing', { userId, username });
-    });
-
-    // Handle stop typing
-    socket.on('stop-typing', (data) => {
-      const { roomId, userId } = data;
-      socket.to(roomId).emit('user-stop-typing', { userId });
-    });
-
-    // Handle disconnect
-    socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.id}`);
+    socket.on("disconnect", (reason) => {
+      console.log(`Socket disconnected: ${socket.id} (${reason})`);
     });
   });
 };
 
-export default socketHandler; 
+export default socketHandler;
+

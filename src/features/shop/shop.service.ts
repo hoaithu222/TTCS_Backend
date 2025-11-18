@@ -82,46 +82,54 @@ export default class ShopService {
   }
 
   static async follow(shopId: string, userId: string) {
-    const shop = await ShopModel.findById(shopId).select("_id followCount");
+    const shop = await ShopModel.findById(shopId).select("_id followCount userId");
     if (!shop)
       return { ok: false as const, status: 404, message: "Shop không tồn tại" };
-    try {
-      await ShopFollowerModel.create({ shopId, userId } as any);
-      await ShopModel.findByIdAndUpdate(shopId, { $inc: { followCount: 1 } });
-      return { ok: true as const };
-    } catch (error) {
-      // Duplicate follows should be idempotent
-      if ((error as any).code === 11000) {
-        return { ok: true as const };
-      }
+    if (shop.userId && shop.userId.toString() === userId) {
       return {
         ok: false as const,
         status: 400,
-        message: (error as Error).message,
+        message: "Bạn không thể theo dõi cửa hàng của chính mình",
       };
     }
+    try {
+      await ShopFollowerModel.create({ shopId, userId } as any);
+    } catch (error) {
+      // Duplicate follows should be idempotent
+      if ((error as any).code !== 11000) {
+        return {
+          ok: false as const,
+          status: 400,
+          message: (error as Error).message,
+        };
+      }
+    }
+    const followersCount = await ShopFollowerModel.countDocuments({ shopId });
+    await ShopModel.findByIdAndUpdate(shopId, { followCount: followersCount });
+    return { ok: true as const, isFollowing: true, followersCount };
   }
 
   static async unfollow(shopId: string, userId: string) {
-    const shop = await ShopModel.findById(shopId).select("_id followCount");
+    const shop = await ShopModel.findById(shopId).select("_id");
     if (!shop)
       return { ok: false as const, status: 404, message: "Shop không tồn tại" };
-    const res = await ShopFollowerModel.findOneAndDelete({ shopId, userId });
-    if (res) {
-      await ShopModel.findByIdAndUpdate(shopId, { $inc: { followCount: -1 } });
-    }
-    return { ok: true as const };
+    await ShopFollowerModel.findOneAndDelete({ shopId, userId });
+    const followersCount = await ShopFollowerModel.countDocuments({ shopId });
+    await ShopModel.findByIdAndUpdate(shopId, { followCount: followersCount });
+    return { ok: true as const, isFollowing: false, followersCount };
   }
 
   static async isFollowing(shopId: string, userId: string) {
-    const doc = await ShopFollowerModel.findOne({ shopId, userId }).select(
-      "_id"
-    );
-    return { ok: true as const, following: !!doc };
+    const [doc, followersCount] = await Promise.all([
+      ShopFollowerModel.findOne({ shopId, userId }).select("_id"),
+      ShopFollowerModel.countDocuments({ shopId }),
+    ]);
+    return { ok: true as const, isFollowing: !!doc, followersCount };
   }
 
   static async followersCount(shopId: string) {
     const count = await ShopFollowerModel.countDocuments({ shopId });
+    await ShopModel.findByIdAndUpdate(shopId, { followCount: count });
     return { ok: true as const, count };
   }
 

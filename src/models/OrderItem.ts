@@ -5,7 +5,7 @@ export const orderItemSchema = new mongoose.Schema(
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
-      required: true,
+      required: false, // Will be set after order creation
     },
     productId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -15,7 +15,7 @@ export const orderItemSchema = new mongoose.Schema(
     variantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ProductVariant",
-      required: true,
+      required: false, // Not all products have variants
     },
     quantity: {
       type: Number,

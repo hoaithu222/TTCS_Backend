@@ -61,7 +61,10 @@ export const followShopController = async (req: Request, res: Response) => {
   if (!currentUser) return ResponseUtil.error(res, "Unauthorized", 401);
   const result = await ShopService.follow(id, currentUser.userId);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, { followed: true });
+  return ResponseUtil.success(res, {
+    isFollowing: result.isFollowing,
+    followersCount: result.followersCount,
+  });
 };
 
 export const unfollowShopController = async (req: Request, res: Response) => {
@@ -70,7 +73,10 @@ export const unfollowShopController = async (req: Request, res: Response) => {
   if (!currentUser) return ResponseUtil.error(res, "Unauthorized", 401);
   const result = await ShopService.unfollow(id, currentUser.userId);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, { followed: false });
+  return ResponseUtil.success(res, {
+    isFollowing: result.isFollowing,
+    followersCount: result.followersCount,
+  });
 };
 
 export const isFollowingShopController = async (
@@ -82,7 +88,10 @@ export const isFollowingShopController = async (
   if (!currentUser) return ResponseUtil.error(res, "Unauthorized", 401);
   const result = await ShopService.isFollowing(id, currentUser.userId);
   if (!result.ok) return ResponseUtil.error(res, "Error", 400);
-  return ResponseUtil.success(res, { following: result.following });
+  return ResponseUtil.success(res, {
+    isFollowing: result.isFollowing,
+    followersCount: result.followersCount,
+  });
 };
 
 export const followersCountController = async (req: Request, res: Response) => {
