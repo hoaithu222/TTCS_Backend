@@ -8,8 +8,9 @@ const home_service_1 = __importDefault(require("./home.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 const getBannerController = async (req, res) => {
     const result = await home_service_1.default.getBanner();
-    if (!result.ok)
-        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, "Failed to fetch banners", 500);
+    }
     return response_util_1.ResponseUtil.success(res, { banners: result.banners });
 };
 exports.getBannerController = getBannerController;
@@ -19,8 +20,9 @@ const getHomeCategoriesController = async (req, res) => {
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
     });
-    if (!result.ok)
+    if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
     return response_util_1.ResponseUtil.success(res, { categories: result.categories }, "Success", 200, 1, result.pagination);
 };
 exports.getHomeCategoriesController = getHomeCategoriesController;
@@ -30,8 +32,9 @@ const getBestSellerProductsController = async (req, res) => {
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
     });
-    if (!result.ok)
+    if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
     return response_util_1.ResponseUtil.success(res, { products: result.products }, "Success", 200, 1, result.pagination);
 };
 exports.getBestSellerProductsController = getBestSellerProductsController;
@@ -41,8 +44,9 @@ const getBestShopsController = async (req, res) => {
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
     });
-    if (!result.ok)
+    if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
     return response_util_1.ResponseUtil.success(res, { shops: result.shops }, "Success", 200, 1, result.pagination);
 };
 exports.getBestShopsController = getBestShopsController;
@@ -52,8 +56,9 @@ const getFlashSaleProductsController = async (req, res) => {
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
     });
-    if (!result.ok)
+    if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
     return response_util_1.ResponseUtil.success(res, { products: result.products }, "Success", 200, 1, result.pagination);
 };
 exports.getFlashSaleProductsController = getFlashSaleProductsController;
@@ -67,8 +72,9 @@ const getSearchSuggestionsController = async (req, res) => {
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
     });
-    if (!result.ok)
+    if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
     return response_util_1.ResponseUtil.success(res, { products: result.products }, "Success", 200, 1, result.pagination);
 };
 exports.getSearchSuggestionsController = getSearchSuggestionsController;

@@ -307,8 +307,9 @@ export default class PaymentService {
       // Convert to object and ensure orderId is a string, not an object
       const paymentObj = payment.toObject();
       // Ensure orderId is always a string (in case it was populated)
-      if (paymentObj.orderId && typeof paymentObj.orderId === 'object') {
-        paymentObj.orderId = paymentObj.orderId._id?.toString() || paymentObj.orderId.toString();
+      if (paymentObj.orderId && typeof paymentObj.orderId === "object") {
+        (paymentObj as any).orderId =
+          paymentObj.orderId._id?.toString() || paymentObj.orderId.toString();
       }
 
       return {

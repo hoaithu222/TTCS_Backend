@@ -25,6 +25,7 @@ app.use((0, cors_1.default)({
     origin: (origin, callback) => {
         const allowed = [
             env_config_1.env.CORS_ORIGIN,
+            ...env_config_1.env.CORS_ORIGINS,
             "http://localhost:3000",
             "http://127.0.0.1:3000",
         ].filter(Boolean);
@@ -43,8 +44,8 @@ app.use((0, cors_1.default)({
     credentials: true,
 }));
 // Body parsing middleware
-app.use(express_1.default.json({ limit: "10mb" }));
-app.use(express_1.default.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express_1.default.json({ limit: "50mb" }));
+app.use(express_1.default.urlencoded({ extended: true, limit: "50mb" }));
 // Cookie parser
 app.use((0, cookie_parser_1.default)());
 // Passport (social auth)
@@ -59,7 +60,7 @@ else {
 // Swagger Documentation (serve local swagger-ui-dist assets to satisfy CSP/MIME)
 app.use("/api-docs", swagger_1.swaggerUi.serve, swagger_1.swaggerUi.setup(swagger_1.specs, swagger_1.swaggerUiOptions));
 // Rate limiting
-app.use((0, rateLimit_middleware_1.rateLimit)(100, 15 * 60 * 1000)); // 100 requests per 15 minutes
+app.use((0, rateLimit_middleware_1.rateLimit)(500, 15 * 60 * 1000)); // 500 requests per 15 minutes
 // Root route (hello world)
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Hello world", success: true });

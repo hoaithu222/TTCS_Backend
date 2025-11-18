@@ -14,6 +14,8 @@ ordersRouter.post("/", auth_middleware_1.authenticateToken, orders_controller_1.
 ordersRouter.put("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), orders_controller_1.updateOrderController);
 // Update order status (admin only or future: shop)
 ordersRouter.put("/:id/status", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), orders_controller_1.updateOrderStatusController);
+// Cancel order by owner (only if not shipped/processed beyond processing)
+ordersRouter.put("/:id/cancel", auth_middleware_1.authenticateToken, orders_controller_1.cancelOrderByUserController);
 // Delete order (admin)
 ordersRouter.delete("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), orders_controller_1.deleteOrderController);
 exports.default = ordersRouter;

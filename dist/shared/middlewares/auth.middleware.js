@@ -33,7 +33,7 @@ const authenticateToken = async (req, res, next) => {
         }
         const decoded = jwt_1.default.verifyAccessToken(token);
         // Load full user from DB once to attach richer context
-        const user = await UserModel_1.default.findById(decoded.userId).select("_id email name role status avatar");
+        const user = await UserModel_1.default.findById(decoded.userId).select("_id email name phone role status avatar");
         if (!user) {
             return res
                 .status(401)
@@ -61,7 +61,7 @@ const optionalAuth = async (req, res, next) => {
         const token = authHeader && authHeader.split(" ")[1];
         if (token) {
             const decoded = jwt_1.default.verifyAccessToken(token);
-            const user = await UserModel_1.default.findById(decoded.userId).select("_id email name role status avatar");
+            const user = await UserModel_1.default.findById(decoded.userId).select("_id email name phone role status avatar");
             if (user) {
                 req.user = {
                     userId: user.id.toString(),

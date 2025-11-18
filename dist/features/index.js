@@ -17,12 +17,15 @@ const attribute_type_1 = __importDefault(require("./attribute-type"));
 const attribute_value_1 = __importDefault(require("./attribute-value"));
 const image_1 = __importDefault(require("./image"));
 const shop_1 = __importDefault(require("./shop"));
+const shop_management_1 = __importDefault(require("./shop-management"));
 const analytics_1 = __importDefault(require("./analytics"));
 const orders_1 = __importDefault(require("./orders"));
 const cart_1 = __importDefault(require("./cart"));
 const address_1 = __importDefault(require("./address"));
 const reviews_1 = __importDefault(require("./reviews"));
 const home_1 = __importDefault(require("./home"));
+const payment_1 = __importDefault(require("./payment"));
+const admin_1 = __importDefault(require("./admin"));
 const router = (0, express_1.Router)();
 /**
  * @swagger
@@ -52,6 +55,7 @@ const router = (0, express_1.Router)();
  *   - name: Addresses
  *   - name: Reviews
  *   - name: Home
+ *   - name: Payments
  */
 // Mount feature routes
 router.use("/health", health_1.default);
@@ -66,6 +70,8 @@ router.use("/product-attributes", product_attribute_1.default);
 router.use("/attribute-types", attribute_type_1.default);
 router.use("/attribute-values", attribute_value_1.default);
 router.use("/images", image_1.default);
+// Đăng ký shopManagementRoutes trước shopRoutes để các route cụ thể như /my-shop được match trước route /:id
+router.use("/shops", shop_management_1.default);
 router.use("/shops", shop_1.default);
 router.use("/analytics", analytics_1.default);
 router.use("/orders", orders_1.default);
@@ -73,4 +79,6 @@ router.use("/cart", cart_1.default);
 router.use("/addresses", address_1.default);
 router.use("/reviews", reviews_1.default);
 router.use("/home", home_1.default);
+router.use("/payments", payment_1.default);
+router.use("/admin", admin_1.default);
 exports.default = router;

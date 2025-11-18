@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.followersCountController = exports.isFollowingShopController = exports.unfollowShopController = exports.followShopController = exports.listShopController = exports.deleteShopController = exports.updateShopController = exports.createShopController = exports.getShopController = void 0;
+exports.suspendShopController = exports.rejectShopController = exports.approveShopController = exports.getShopStatusByUserIdController = exports.followersCountController = exports.isFollowingShopController = exports.unfollowShopController = exports.followShopController = exports.listShopController = exports.deleteShopController = exports.updateShopController = exports.createShopController = exports.getShopController = void 0;
 const shop_service_1 = __importDefault(require("./shop.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 const getShopController = async (req, res) => {
@@ -15,7 +15,14 @@ const getShopController = async (req, res) => {
 };
 exports.getShopController = getShopController;
 const createShopController = async (req, res) => {
-    const result = await shop_service_1.default.create(req.body);
+    const currentUser = req.user;
+    if (!currentUser)
+        return response_util_1.ResponseUtil.error(res, "Unauthorized", 401);
+    const data = {
+        ...req.body,
+        userId: currentUser.userId,
+    };
+    const result = await shop_service_1.default.create(data);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     return response_util_1.ResponseUtil.created(res, result.item);
@@ -64,7 +71,10 @@ const followShopController = async (req, res) => {
     const result = await shop_service_1.default.follow(id, currentUser.userId);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, { followed: true });
+    return response_util_1.ResponseUtil.success(res, {
+        isFollowing: result.isFollowing,
+        followersCount: result.followersCount,
+    });
 };
 exports.followShopController = followShopController;
 const unfollowShopController = async (req, res) => {
@@ -75,7 +85,10 @@ const unfollowShopController = async (req, res) => {
     const result = await shop_service_1.default.unfollow(id, currentUser.userId);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, { followed: false });
+    return response_util_1.ResponseUtil.success(res, {
+        isFollowing: result.isFollowing,
+        followersCount: result.followersCount,
+    });
 };
 exports.unfollowShopController = unfollowShopController;
 const isFollowingShopController = async (req, res) => {
@@ -86,7 +99,10 @@ const isFollowingShopController = async (req, res) => {
     const result = await shop_service_1.default.isFollowing(id, currentUser.userId);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, "Error", 400);
-    return response_util_1.ResponseUtil.success(res, { following: result.following });
+    return response_util_1.ResponseUtil.success(res, {
+        isFollowing: result.isFollowing,
+        followersCount: result.followersCount,
+    });
 };
 exports.isFollowingShopController = isFollowingShopController;
 const followersCountController = async (req, res) => {
@@ -97,3 +113,38 @@ const followersCountController = async (req, res) => {
     return response_util_1.ResponseUtil.success(res, { count: result.count });
 };
 exports.followersCountController = followersCountController;
+const getShopStatusByUserIdController = async (req, res) => {
+    const { userId } = req.params;
+    const result = await shop_service_1.default.getShopStatusByUserId(userId);
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.success(res, {
+        shopStatus: result.shopStatus,
+        shop: result.shop,
+    });
+};
+exports.getShopStatusByUserIdController = getShopStatusByUserIdController;
+const approveShopController = async (req, res) => {
+    const { id } = req.params;
+    const result = await shop_service_1.default.approveShop(id);
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.success(res, result.item);
+};
+exports.approveShopController = approveShopController;
+const rejectShopController = async (req, res) => {
+    const { id } = req.params;
+    const result = await shop_service_1.default.rejectShop(id);
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.success(res, result.item);
+};
+exports.rejectShopController = rejectShopController;
+const suspendShopController = async (req, res) => {
+    const { id } = req.params;
+    const result = await shop_service_1.default.suspendShop(id);
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.success(res, result.item);
+};
+exports.suspendShopController = suspendShopController;

@@ -10,7 +10,23 @@ class CartService {
         const userId = req.user?.userId;
         if (!userId)
             return { ok: false, status: 401, message: "Unauthorized" };
-        let cart = await Cart_1.default.findOne({ userId }).populate("cartItems");
+        let cart = await Cart_1.default.findOne({ userId }).populate({
+            path: "cartItems",
+            populate: [
+                {
+                    path: "productId",
+                    select: "name images price discount stock",
+                    populate: {
+                        path: "images",
+                        select: "url publicId",
+                    },
+                },
+                {
+                    path: "shopId",
+                    select: "name logo",
+                },
+            ],
+        });
         if (!cart) {
             cart = await Cart_1.default.create({ userId, cartItems: [] });
         }
@@ -34,7 +50,23 @@ class CartService {
         await Cart_1.default.findByIdAndUpdate(cart._id, {
             $push: { cartItems: item._id },
         });
-        const populated = await Cart_1.default.findById(cart._id).populate("cartItems");
+        const populated = await Cart_1.default.findById(cart._id).populate({
+            path: "cartItems",
+            populate: [
+                {
+                    path: "productId",
+                    select: "name images price discount stock",
+                    populate: {
+                        path: "images",
+                        select: "url publicId",
+                    },
+                },
+                {
+                    path: "shopId",
+                    select: "name logo",
+                },
+            ],
+        });
         return { ok: true, cart: populated };
     }
     static async updateItem(req, itemId, data) {
@@ -48,7 +80,23 @@ class CartService {
                 status: 404,
                 message: "Cart item không tồn tại",
             };
-        const cart = await Cart_1.default.findOne({ userId }).populate("cartItems");
+        const cart = await Cart_1.default.findOne({ userId }).populate({
+            path: "cartItems",
+            populate: [
+                {
+                    path: "productId",
+                    select: "name images price discount stock",
+                    populate: {
+                        path: "images",
+                        select: "url publicId",
+                    },
+                },
+                {
+                    path: "shopId",
+                    select: "name logo",
+                },
+            ],
+        });
         return { ok: true, cart };
     }
     static async removeItem(req, itemId) {
@@ -57,7 +105,23 @@ class CartService {
             return { ok: false, status: 401, message: "Unauthorized" };
         await CartItem_1.default.findByIdAndDelete(itemId);
         await Cart_1.default.updateOne({ userId }, { $pull: { cartItems: itemId } });
-        const cart = await Cart_1.default.findOne({ userId }).populate("cartItems");
+        const cart = await Cart_1.default.findOne({ userId }).populate({
+            path: "cartItems",
+            populate: [
+                {
+                    path: "productId",
+                    select: "name images price discount stock",
+                    populate: {
+                        path: "images",
+                        select: "url publicId",
+                    },
+                },
+                {
+                    path: "shopId",
+                    select: "name logo",
+                },
+            ],
+        });
         return { ok: true, cart };
     }
     static async clear(req) {
@@ -69,7 +133,23 @@ class CartService {
             await CartItem_1.default.deleteMany({ _id: { $in: cart.cartItems } });
             await Cart_1.default.updateOne({ _id: cart._id }, { $set: { cartItems: [] } });
         }
-        const refreshed = await Cart_1.default.findOne({ userId }).populate("cartItems");
+        const refreshed = await Cart_1.default.findOne({ userId }).populate({
+            path: "cartItems",
+            populate: [
+                {
+                    path: "productId",
+                    select: "name images price discount stock",
+                    populate: {
+                        path: "images",
+                        select: "url publicId",
+                    },
+                },
+                {
+                    path: "shopId",
+                    select: "name logo",
+                },
+            ],
+        });
         return { ok: true, cart: refreshed };
     }
 }

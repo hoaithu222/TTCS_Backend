@@ -106,6 +106,55 @@ exports.productSchema = new mongoose_1.default.Schema({
         required: true,
         default: true,
     },
+    // Product variants (for different colors, sizes, etc.)
+    variants: {
+        type: [
+            {
+                attributes: {
+                    type: mongoose_1.default.Schema.Types.Mixed,
+                    required: true,
+                },
+                price: {
+                    type: Number,
+                    required: true,
+                    min: 0,
+                },
+                stock: {
+                    type: Number,
+                    required: true,
+                    min: 0,
+                    default: 0,
+                },
+                image: {
+                    type: String,
+                    trim: true,
+                },
+                sku: {
+                    type: String,
+                    trim: true,
+                    maxlength: 64,
+                },
+            },
+        ],
+        default: [],
+    },
+    // Product attributes (non-variant attributes)
+    attributes: {
+        type: [
+            {
+                attribute_type_id: {
+                    type: mongoose_1.default.Schema.Types.ObjectId,
+                    ref: "AttributeType",
+                },
+                attribute_value_id: {
+                    type: mongoose_1.default.Schema.Types.ObjectId,
+                    ref: "AttributeValue",
+                },
+                value: String,
+            },
+        ],
+        default: [],
+    },
 }, { timestamps: true });
 // Useful indexes for performance and searchability
 exports.productSchema.index({ shopId: 1, isActive: 1 });

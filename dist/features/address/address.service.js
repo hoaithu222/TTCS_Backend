@@ -19,20 +19,47 @@ class AddressService {
         const userId = req.user?.userId;
         if (!userId)
             return { ok: false, status: 401, message: "Unauthorized" };
-        if (data.isDefault) {
+        // normalize incoming shapes from various clients
+        const normalizedAddressDetail = data.addressDetail ||
+            data.address ||
+            data.address_line1 ||
+            "";
+        const normalizedWard = data.ward || data.ward || "";
+        const normalizedData = {
+            name: data.recipient_name || data.name,
+            phone: data.phone,
+            addressDetail: normalizedAddressDetail,
+            address: data.address || `${data.address_line2 || ""} ${data.address_line1 || ""}`.trim() || normalizedAddressDetail,
+            district: data.district,
+            city: data.city,
+            ward: normalizedWard,
+            isDefault: Boolean(data.is_default ?? data.isDefault),
+        };
+        if (normalizedData.isDefault) {
             await UserAddressModel_1.default.updateMany({ userId }, { $set: { isDefault: false } });
         }
-        const item = await UserAddressModel_1.default.create({ ...data, userId });
+        const item = await UserAddressModel_1.default.create({ ...normalizedData, userId });
         return { ok: true, item };
     }
     static async update(req, id, data) {
         const userId = req.user?.userId;
         if (!userId)
             return { ok: false, status: 401, message: "Unauthorized" };
-        if (data.isDefault) {
+        const normalized = { ...data };
+        if (data.is_default !== undefined) {
+            normalized.isDefault = Boolean(data.is_default);
+        }
+        if (data.recipient_name)
+            normalized.name = data.recipient_name;
+        if (data.address_line1 || data.address_line2) {
+            const addr = `${data.address_line2 || ""} ${data.address_line1 || ""}`.trim();
+            normalized.address = addr;
+            normalized.addressDetail = data.address_line1 || addr;
+        }
+        if (normalized.isDefault) {
             await UserAddressModel_1.default.updateMany({ userId }, { $set: { isDefault: false } });
         }
-        const item = await UserAddressModel_1.default.findOneAndUpdate({ _id: id, userId }, data, { new: true });
+        const item = await UserAddressModel_1.default.findOneAndUpdate({ _id: id, userId }, normalized, { new: true });
         if (!item)
             return {
                 ok: false,

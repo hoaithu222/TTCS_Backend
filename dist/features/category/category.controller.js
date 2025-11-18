@@ -57,7 +57,7 @@ exports.deleteCategoryController = deleteCategoryController;
 const getSubCategoriesController = async (req, res) => {
     const { id } = req.params;
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
+    const limit = Number(req.query.limit) || 50;
     const result = await category_service_1.default.getSubCategories(id, page, limit);
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
@@ -72,9 +72,11 @@ const getSubCategoriesController = async (req, res) => {
 exports.getSubCategoriesController = getSubCategoriesController;
 const getCategoriesController = async (req, res) => {
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
+    const limit = Number(req.query.limit) || 50;
     const search = req.query.search;
-    const isActive = req.query.isActive !== undefined ? req.query.isActive === "true" || req.query.isActive === true : undefined;
+    const isActive = req.query.isActive !== undefined
+        ? String(req.query.isActive) === "true"
+        : undefined;
     const result = await category_service_1.default.getCategories(page, limit, search, isActive);
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);

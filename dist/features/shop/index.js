@@ -5,6 +5,7 @@ const shop_controller_1 = require("./shop.controller");
 const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
 const shopRouter = (0, express_1.Router)();
 shopRouter.get("/", shop_controller_1.listShopController);
+shopRouter.get("/status/user/:userId", shop_controller_1.getShopStatusByUserIdController);
 shopRouter.get("/:id", shop_controller_1.getShopController);
 shopRouter.post("/", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin", "user"]), shop_controller_1.createShopController);
 shopRouter.put("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin", "shop"]), shop_controller_1.updateShopController);
@@ -14,4 +15,8 @@ shopRouter.post("/:id/follow", auth_middleware_1.authenticateToken, shop_control
 shopRouter.delete("/:id/follow", auth_middleware_1.authenticateToken, shop_controller_1.unfollowShopController);
 shopRouter.get("/:id/following", auth_middleware_1.authenticateToken, shop_controller_1.isFollowingShopController);
 shopRouter.get("/:id/followers/count", shop_controller_1.followersCountController);
+// Admin actions: approve, reject, suspend
+shopRouter.post("/:id/approve", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), shop_controller_1.approveShopController);
+shopRouter.post("/:id/reject", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), shop_controller_1.rejectShopController);
+shopRouter.post("/:id/suspend", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), shop_controller_1.suspendShopController);
 exports.default = shopRouter;

@@ -1,0 +1,465 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+const PaymentModel_1 = __importStar(require("../../models/PaymentModel"));
+const OrderModel_1 = __importStar(require("../../models/OrderModel"));
+const payment_gateway_service_1 = require("./payment-gateway.service");
+const CLIENT_APP_URL = process.env.FRONTEND_URL ||
+    process.env.CLIENT_URL ||
+    "http://localhost:5174";
+class PaymentService {
+    /**
+     * Get available payment methods
+     * This can be extended to fetch from database or config
+     */
+    static async getPaymentMethods() {
+        const isVNPayConfigured = !!process.env.VNPAY_TMN_CODE && !!process.env.VNPAY_HASH_SECRET;
+        const isMomoConfigured = !!process.env.MOMO_PARTNER_CODE &&
+            !!process.env.MOMO_ACCESS_KEY &&
+            !!process.env.MOMO_SECRET_KEY;
+        const isZaloPayConfigured = !!process.env.ZALOPAY_APP_ID &&
+            !!process.env.ZALOPAY_KEY1 &&
+            !!process.env.ZALOPAY_KEY2;
+        const methods = [
+            {
+                id: "cod",
+                name: "Thanh toán khi nhận hàng",
+                type: PaymentModel_1.PaymentMethod.COD,
+                isActive: true,
+                description: "Thanh toán bằng tiền mặt khi nhận hàng",
+                icon: "cash",
+            },
+            {
+                id: "bank_transfer",
+                name: "Chuyển khoản ngân hàng",
+                type: PaymentModel_1.PaymentMethod.BANK_TRANSFER,
+                isActive: true,
+                description: "Chuyển khoản trực tiếp vào tài khoản ngân hàng",
+                icon: "bank",
+                config: {
+                    bankAccounts: [
+                        {
+                            bankName: "Vietcombank",
+                            accountNumber: "1234567890",
+                            accountHolder: "Công ty TNHH ABC",
+                        },
+                    ],
+                },
+            },
+            {
+                id: "vnpay",
+                name: "VNPay",
+                type: PaymentModel_1.PaymentMethod.VNPAY,
+                isActive: isVNPayConfigured,
+                description: "Thanh toán qua cổng VNPay",
+                icon: "vnpay",
+                config: {
+                    // These should come from environment variables
+                    vnp_TmnCode: process.env.VNPAY_TMN_CODE || "",
+                    vnp_HashSecret: process.env.VNPAY_HASH_SECRET || "",
+                    vnp_Url: process.env.VNPAY_URL || "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+                },
+            },
+            {
+                id: "momo",
+                name: "MoMo",
+                type: PaymentModel_1.PaymentMethod.MOMO,
+                isActive: isMomoConfigured,
+                description: "Thanh toán qua ví điện tử MoMo",
+                icon: "momo",
+                config: {
+                    partnerCode: process.env.MOMO_PARTNER_CODE || "",
+                    accessKey: process.env.MOMO_ACCESS_KEY || "",
+                    secretKey: process.env.MOMO_SECRET_KEY || "",
+                },
+            },
+            {
+                id: "zalopay",
+                name: "ZaloPay",
+                type: PaymentModel_1.PaymentMethod.ZALOPAY,
+                isActive: isZaloPayConfigured,
+                description: "Thanh toán qua ví điện tử ZaloPay",
+                icon: "zalopay",
+                config: {
+                    appId: process.env.ZALOPAY_APP_ID || "",
+                    key1: process.env.ZALOPAY_KEY1 || "",
+                    key2: process.env.ZALOPAY_KEY2 || "",
+                },
+            },
+            {
+                id: "credit_card",
+                name: "Thẻ tín dụng",
+                type: PaymentModel_1.PaymentMethod.CREDIT_CARD,
+                isActive: false, // Disabled until integrated
+                description: "Thanh toán bằng thẻ tín dụng",
+                icon: "credit-card",
+            },
+            {
+                id: "paypal",
+                name: "PayPal",
+                type: PaymentModel_1.PaymentMethod.PAYPAL,
+                isActive: false, // Disabled until integrated
+                description: "Thanh toán qua PayPal",
+                icon: "paypal",
+                config: {
+                    clientId: process.env.PAYPAL_CLIENT_ID || "",
+                    clientSecret: process.env.PAYPAL_CLIENT_SECRET || "",
+                },
+            },
+            {
+                id: "test",
+                name: "Test Payment (Miễn phí)",
+                type: PaymentModel_1.PaymentMethod.TEST,
+                isActive: process.env.NODE_ENV !== "production", // Only in development
+                description: "Phương thức thanh toán test để kiểm thử (không tính phí thật)",
+                icon: "test",
+            },
+        ];
+        // Filter only active methods
+        return methods.filter((method) => method.isActive);
+    }
+    /**
+     * Create payment checkout
+     */
+    static async createCheckout(req, data) {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                return { ok: false, status: 401, message: "Unauthorized" };
+            }
+            // Verify order exists and belongs to user
+            const order = await OrderModel_1.default.findOne({
+                _id: data.orderId,
+                userId: userId,
+            });
+            if (!order) {
+                return {
+                    ok: false,
+                    status: 404,
+                    message: "Order not found",
+                };
+            }
+            // Check if payment already exists for this order
+            const existingPayment = await PaymentModel_1.default.findOne({
+                orderId: data.orderId,
+                status: { $in: [PaymentModel_1.PaymentStatus.PENDING, PaymentModel_1.PaymentStatus.PROCESSING] },
+            });
+            if (existingPayment) {
+                return {
+                    ok: false,
+                    status: 400,
+                    message: "Payment already exists for this order",
+                };
+            }
+            // Validate payment method
+            const availableMethods = await this.getPaymentMethods();
+            const methodExists = availableMethods.find((m) => m.id === data.paymentMethod || m.type === data.paymentMethod);
+            if (!methodExists) {
+                return {
+                    ok: false,
+                    status: 400,
+                    message: "Invalid payment method",
+                };
+            }
+            const defaultReturnUrl = data.returnUrl ||
+                PaymentService.buildReturnUrl(order._id.toString());
+            const defaultCancelUrl = data.cancelUrl || PaymentService.buildCancelUrl(order._id.toString());
+            const payment = new PaymentModel_1.default({
+                orderId: data.orderId,
+                userId: userId,
+                amount: Math.max(0, order.totalAmount || 0),
+                currency: "VND",
+                method: methodExists.type,
+                status: PaymentModel_1.PaymentStatus.PENDING,
+                returnUrl: defaultReturnUrl,
+                cancelUrl: defaultCancelUrl,
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+            });
+            let response = {
+                paymentId: payment._id.toString(),
+                paymentUrl: undefined,
+                instructions: undefined,
+            };
+            switch (methodExists.type) {
+                case PaymentModel_1.PaymentMethod.COD: {
+                    payment.status = PaymentModel_1.PaymentStatus.COMPLETED;
+                    payment.paidAt = new Date();
+                    payment.instructions = "Vui lòng chuẩn bị tiền mặt khi nhận hàng.";
+                    response.instructions = payment.instructions;
+                    await OrderModel_1.default.findByIdAndUpdate(order._id, {
+                        isPay: true,
+                        status: OrderModel_1.OrderStatus.PROCESSING,
+                    });
+                    break;
+                }
+                case PaymentModel_1.PaymentMethod.BANK_TRANSFER: {
+                    const bankAccounts = methodExists.config?.bankAccounts || [];
+                    payment.instructions = PaymentService.buildBankTransferInstructions(order._id.toString(), bankAccounts);
+                    payment.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                    response.instructions = payment.instructions;
+                    break;
+                }
+                case PaymentModel_1.PaymentMethod.VNPAY: {
+                    const { paymentUrl, expiresAt } = payment_gateway_service_1.VNPayGateway.generatePaymentUrl({
+                        paymentId: payment._id.toString(),
+                        amount: payment.amount,
+                        orderId: order._id.toString(),
+                        clientIp: PaymentService.getClientIp(req),
+                        returnUrl: payment.returnUrl || defaultReturnUrl,
+                    });
+                    payment.expiresAt = expiresAt;
+                    response.paymentUrl = paymentUrl;
+                    break;
+                }
+                case PaymentModel_1.PaymentMethod.TEST: {
+                    const paymentUrl = payment_gateway_service_1.TestPaymentGateway.generatePaymentUrl(payment._id.toString(), payment.amount);
+                    payment.instructions =
+                        "Đây là phương thức thanh toán test. Bạn có thể mô phỏng kết quả.";
+                    response.paymentUrl = paymentUrl;
+                    response.instructions = payment.instructions;
+                    break;
+                }
+                default: {
+                    response.paymentUrl = payment.returnUrl || defaultReturnUrl;
+                    break;
+                }
+            }
+            await payment.save();
+            return {
+                ok: true,
+                checkout: response,
+            };
+        }
+        catch (error) {
+            return {
+                ok: false,
+                status: 500,
+                message: error.message || "Failed to create checkout",
+            };
+        }
+    }
+    /**
+     * Get payment status
+     */
+    static async getPaymentStatus(req, orderId) {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                return { ok: false, status: 401, message: "Unauthorized" };
+            }
+            const payment = await PaymentModel_1.default.findOne({
+                orderId: orderId,
+                userId: userId,
+            });
+            if (!payment) {
+                return {
+                    ok: false,
+                    status: 404,
+                    message: "Payment not found",
+                };
+            }
+            // Convert to object and ensure orderId is a string, not an object
+            const paymentObj = payment.toObject();
+            // Ensure orderId is always a string (in case it was populated)
+            if (paymentObj.orderId && typeof paymentObj.orderId === 'object') {
+                paymentObj.orderId = paymentObj.orderId._id?.toString() || paymentObj.orderId.toString();
+            }
+            return {
+                ok: true,
+                payment: paymentObj,
+            };
+        }
+        catch (error) {
+            return {
+                ok: false,
+                status: 500,
+                message: error.message || "Failed to get payment status",
+            };
+        }
+    }
+    /**
+     * Get payment history
+     */
+    static async getPaymentHistory(req, query) {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                return { ok: false, status: 401, message: "Unauthorized" };
+            }
+            const page = parseInt(query.page) || 1;
+            const limit = parseInt(query.limit) || 10;
+            const skip = (page - 1) * limit;
+            // Build filter
+            const filter = { userId: userId };
+            if (query.status) {
+                filter.status = query.status;
+            }
+            if (query.method) {
+                filter.method = query.method;
+            }
+            if (query.dateFrom || query.dateTo) {
+                filter.createdAt = {};
+                if (query.dateFrom) {
+                    filter.createdAt.$gte = new Date(query.dateFrom);
+                }
+                if (query.dateTo) {
+                    filter.createdAt.$lte = new Date(query.dateTo);
+                }
+            }
+            // Build sort
+            const sort = {};
+            if (query.sortBy) {
+                sort[query.sortBy] = query.sortOrder === "desc" ? -1 : 1;
+            }
+            else {
+                sort.createdAt = -1; // Default: newest first
+            }
+            const [payments, total] = await Promise.all([
+                PaymentModel_1.default.find(filter)
+                    .sort(sort)
+                    .skip(skip)
+                    .limit(limit)
+                    .populate("orderId")
+                    .lean(),
+                PaymentModel_1.default.countDocuments(filter),
+            ]);
+            return {
+                ok: true,
+                payments,
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            };
+        }
+        catch (error) {
+            return {
+                ok: false,
+                status: 500,
+                message: error.message || "Failed to get payment history",
+            };
+        }
+    }
+    /**
+     * Confirm bank transfer payment manually (admin or user with proof)
+     */
+    static async confirmBankTransfer(req, paymentId, transactionId) {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                return { ok: false, status: 401, message: "Unauthorized" };
+            }
+            const payment = await PaymentModel_1.default.findOne({
+                _id: paymentId,
+                userId: userId,
+                method: PaymentModel_1.PaymentMethod.BANK_TRANSFER,
+                status: PaymentModel_1.PaymentStatus.PENDING,
+            });
+            if (!payment) {
+                return {
+                    ok: false,
+                    status: 404,
+                    message: "Payment not found or already processed",
+                };
+            }
+            // Update payment status
+            payment.status = PaymentModel_1.PaymentStatus.COMPLETED;
+            payment.transactionId = transactionId || `BANK_${Date.now()}`;
+            payment.paidAt = new Date();
+            payment.gatewayResponse = {
+                confirmedBy: userId,
+                confirmedAt: new Date().toISOString(),
+                manualConfirmation: true,
+            };
+            await payment.save();
+            // Update order
+            await OrderModel_1.default.findByIdAndUpdate(payment.orderId, {
+                isPay: true,
+                status: OrderModel_1.OrderStatus.PROCESSING,
+            });
+            return {
+                ok: true,
+                payment: payment.toObject(),
+            };
+        }
+        catch (error) {
+            return {
+                ok: false,
+                status: 500,
+                message: error.message || "Failed to confirm payment",
+            };
+        }
+    }
+    static getClientIp(req) {
+        const forwarded = req.headers["x-forwarded-for"];
+        if (typeof forwarded === "string" && forwarded.length > 0) {
+            return forwarded.split(",")[0].trim();
+        }
+        if (Array.isArray(forwarded) && forwarded.length > 0) {
+            return forwarded[0];
+        }
+        const remote = (req.socket && req.socket.remoteAddress) ||
+            req.ip ||
+            "127.0.0.1";
+        return remote.replace(/^::ffff:/, "");
+    }
+    static buildReturnUrl(orderId) {
+        const base = CLIENT_APP_URL.endsWith("/")
+            ? CLIENT_APP_URL.slice(0, -1)
+            : CLIENT_APP_URL;
+        return `${base}/payment/${orderId}`;
+    }
+    static buildCancelUrl(orderId) {
+        const base = CLIENT_APP_URL.endsWith("/")
+            ? CLIENT_APP_URL.slice(0, -1)
+            : CLIENT_APP_URL;
+        return `${base}/orders/${orderId}`;
+    }
+    static buildBankTransferInstructions(orderId, bankAccounts) {
+        if (!bankAccounts.length) {
+            return `Vui lòng liên hệ cửa hàng để được cung cấp thông tin chuyển khoản.\nNội dung chuyển khoản: ${orderId}`;
+        }
+        const accountLines = bankAccounts
+            .map((acc) => `• ${acc.bankName}: ${acc.accountNumber} - ${acc.accountHolder}`)
+            .join("\n");
+        return [
+            "Vui lòng chuyển khoản theo thông tin bên dưới:",
+            accountLines,
+            `Nội dung chuyển khoản: ${orderId}`,
+            "Sau khi chuyển khoản, vui lòng xác nhận với shop để đơn hàng được xử lý.",
+        ].join("\n");
+    }
+}
+exports.default = PaymentService;

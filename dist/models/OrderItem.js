@@ -9,7 +9,7 @@ exports.orderItemSchema = new mongoose_1.default.Schema({
     orderId: {
         type: mongoose_1.default.Schema.Types.ObjectId,
         ref: "Order",
-        required: true,
+        required: false, // Will be set after order creation
     },
     productId: {
         type: mongoose_1.default.Schema.Types.ObjectId,
@@ -19,7 +19,7 @@ exports.orderItemSchema = new mongoose_1.default.Schema({
     variantId: {
         type: mongoose_1.default.Schema.Types.ObjectId,
         ref: "ProductVariant",
-        required: true,
+        required: false, // Not all products have variants
     },
     quantity: {
         type: Number,

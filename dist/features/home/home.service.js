@@ -6,6 +6,52 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const ProductModal_1 = __importDefault(require("../../models/ProductModal"));
 const CategoryModel_1 = __importDefault(require("../../models/CategoryModel"));
 const ShopModel_1 = __importDefault(require("../../models/ShopModel"));
+const mapHomeProduct = (product) => {
+    if (!product)
+        return product;
+    const formatImages = (images) => (images || []).map((img) => {
+        if (!img)
+            return img;
+        if (typeof img === "string") {
+            return {
+                _id: img,
+                url: img,
+            };
+        }
+        return {
+            _id: (img._id || img.id || "").toString(),
+            url: img.url,
+            publicId: img.publicId,
+        };
+    });
+    return {
+        ...product,
+        images: formatImages(product.images),
+        finalPrice: product.price - (product.discount || 0),
+        shop: product.shopId
+            ? {
+                _id: product.shopId._id || product.shopId,
+                name: product.shopId.name || "",
+                logo: product.shopId.logo,
+                rating: product.shopId.rating,
+            }
+            : undefined,
+        category: product.categoryId
+            ? {
+                _id: product.categoryId._id || product.categoryId,
+                name: product.categoryId.name || "",
+                slug: product.categoryId.slug,
+            }
+            : undefined,
+        subCategory: product.subCategoryId
+            ? {
+                _id: product.subCategoryId._id || product.subCategoryId,
+                name: product.subCategoryId.name || "",
+                slug: product.subCategoryId.slug,
+            }
+            : undefined,
+    };
+};
 class HomeService {
     // Get home banner (for now, return empty array - can be extended with banner model)
     static async getBanner() {
@@ -63,6 +109,10 @@ class HomeService {
             const filter = { isActive: true };
             const [products, total] = await Promise.all([
                 ProductModal_1.default.find(filter)
+                    .populate({
+                    path: "images",
+                    select: "url publicId _id",
+                })
                     .populate("shopId", "name logo rating")
                     .populate("categoryId", "name slug")
                     .populate("subCategoryId", "name slug")
@@ -73,15 +123,10 @@ class HomeService {
                 ProductModal_1.default.countDocuments(filter),
             ]);
             // Calculate finalPrice for each product
-            const productsWithFinalPrice = products.map((product) => ({
-                ...product,
-                finalPrice: product.discount
-                    ? product.price - product.discount
-                    : product.price,
-            }));
+            const mappedProducts = products.map(mapHomeProduct);
             return {
                 ok: true,
-                products: productsWithFinalPrice,
+                products: mappedProducts,
                 pagination: {
                     page,
                     limit,
@@ -154,6 +199,10 @@ class HomeService {
             };
             const [products, total] = await Promise.all([
                 ProductModal_1.default.find(filter)
+                    .populate({
+                    path: "images",
+                    select: "url publicId _id",
+                })
                     .populate("shopId", "name logo rating")
                     .populate("categoryId", "name slug")
                     .populate("subCategoryId", "name slug")
@@ -164,13 +213,10 @@ class HomeService {
                 ProductModal_1.default.countDocuments(filter),
             ]);
             // Calculate finalPrice for each product
-            const productsWithFinalPrice = products.map((product) => ({
-                ...product,
-                finalPrice: product.price - (product.discount || 0),
-            }));
+            const mappedProducts = products.map(mapHomeProduct);
             return {
                 ok: true,
-                products: productsWithFinalPrice,
+                products: mappedProducts,
                 pagination: {
                     page,
                     limit,
@@ -217,6 +263,10 @@ class HomeService {
             };
             const [products, total] = await Promise.all([
                 ProductModal_1.default.find(filter)
+                    .populate({
+                    path: "images",
+                    select: "url publicId _id",
+                })
                     .populate("shopId", "name logo rating")
                     .populate("categoryId", "name slug")
                     .populate("subCategoryId", "name slug")
@@ -227,15 +277,10 @@ class HomeService {
                 ProductModal_1.default.countDocuments(filter),
             ]);
             // Calculate finalPrice for each product
-            const productsWithFinalPrice = products.map((product) => ({
-                ...product,
-                finalPrice: product.discount
-                    ? product.price - product.discount
-                    : product.price,
-            }));
+            const mappedProducts = products.map(mapHomeProduct);
             return {
                 ok: true,
-                products: productsWithFinalPrice,
+                products: mappedProducts,
                 pagination: {
                     page,
                     limit,
