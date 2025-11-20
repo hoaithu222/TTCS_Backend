@@ -76,6 +76,14 @@ exports.orderSchema = new mongoose_1.default.Schema({
         required: true,
         default: false,
     },
+    // Track wallet transfer status
+    walletTransferred: {
+        type: Boolean,
+        default: false,
+    },
+    walletTransferredAt: {
+        type: Date,
+    },
     orderItems: {
         type: [mongoose_1.default.Schema.Types.ObjectId],
         ref: "OrderItem",

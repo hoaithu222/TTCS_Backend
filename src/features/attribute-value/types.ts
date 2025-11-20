@@ -1,6 +1,10 @@
 export interface CreateAttributeValueRequest {
   attributeTypeId: string;
   value: string;
+  label?: string;
+  colorCode?: string;
+  sortOrder?: number;
+  isActive?: boolean;
 }
 
 export interface UpdateAttributeValueRequest
@@ -12,12 +16,4 @@ export interface ListAttributeValueQuery {
   attributeTypeId?: string;
   search?: string;
 }
-
-
-
-
-
-
-
-
 

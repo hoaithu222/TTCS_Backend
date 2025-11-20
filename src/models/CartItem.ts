@@ -14,7 +14,27 @@ export const cartItemSchema = new mongoose.Schema({
   variantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "ProductVariant",
-    required: true,
+    required: false,
+    default: null,
+  },
+  variantSnapshot: {
+    type: {
+      attributes: {
+        type: mongoose.Schema.Types.Mixed,
+      },
+      sku: {
+        type: String,
+        trim: true,
+      },
+      price: {
+        type: Number,
+      },
+      image: {
+        type: String,
+        trim: true,
+      },
+    },
+    default: undefined,
   },
   quantity: {
     type: Number,

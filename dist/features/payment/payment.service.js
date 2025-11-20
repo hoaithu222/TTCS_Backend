@@ -139,6 +139,14 @@ class PaymentService {
                 },
             },
             {
+                id: "wallet",
+                name: "Thanh toán bằng ví",
+                type: PaymentModel_1.PaymentMethod.WALLET,
+                isActive: true,
+                description: "Thanh toán bằng số dư trong ví của bạn",
+                icon: "wallet",
+            },
+            {
                 id: "test",
                 name: "Test Payment (Miễn phí)",
                 type: PaymentModel_1.PaymentMethod.TEST,
@@ -171,17 +179,66 @@ class PaymentService {
                     message: "Order not found",
                 };
             }
+            // Build default URLs
+            const defaultReturnUrl = data.returnUrl ||
+                PaymentService.buildReturnUrl(order._id.toString());
+            const defaultCancelUrl = data.cancelUrl || PaymentService.buildCancelUrl(order._id.toString());
             // Check if payment already exists for this order
             const existingPayment = await PaymentModel_1.default.findOne({
                 orderId: data.orderId,
-                status: { $in: [PaymentModel_1.PaymentStatus.PENDING, PaymentModel_1.PaymentStatus.PROCESSING] },
+                userId: userId,
             });
+            // If payment already exists, return existing payment info
             if (existingPayment) {
-                return {
-                    ok: false,
-                    status: 400,
-                    message: "Payment already exists for this order",
+                const paymentObj = existingPayment.toObject();
+                let response = {
+                    paymentId: paymentObj._id.toString(),
+                    paymentUrl: undefined,
+                    instructions: paymentObj.instructions || undefined,
                 };
+                // Regenerate payment URL if needed for gateway methods (only if pending)
+                if (existingPayment.status === PaymentModel_1.PaymentStatus.PENDING) {
+                    if (existingPayment.method === PaymentModel_1.PaymentMethod.VNPAY) {
+                        const { paymentUrl } = payment_gateway_service_1.VNPayGateway.generatePaymentUrl({
+                            paymentId: paymentObj._id.toString(),
+                            amount: paymentObj.amount,
+                            orderId: data.orderId,
+                            clientIp: PaymentService.getClientIp(req),
+                            returnUrl: existingPayment.returnUrl || defaultReturnUrl,
+                        });
+                        response.paymentUrl = paymentUrl;
+                    }
+                }
+                // If payment is completed, return existing payment (no need to create new)
+                if (existingPayment.status === PaymentModel_1.PaymentStatus.COMPLETED) {
+                    return {
+                        ok: true,
+                        checkout: response,
+                    };
+                }
+                // If payment is pending/processing, return existing payment
+                if (existingPayment.status === PaymentModel_1.PaymentStatus.PENDING ||
+                    existingPayment.status === PaymentModel_1.PaymentStatus.PROCESSING) {
+                    return {
+                        ok: true,
+                        checkout: response,
+                    };
+                }
+                // If payment is failed/cancelled, allow creating new payment with different method
+                // But check if user wants to use the same method or different method
+                const availableMethods = await this.getPaymentMethods();
+                const methodExists = availableMethods.find((m) => m.id === data.paymentMethod || m.type === data.paymentMethod);
+                // If same method and failed, return existing (user can retry)
+                if (existingPayment.method === methodExists?.type &&
+                    (existingPayment.status === PaymentModel_1.PaymentStatus.FAILED ||
+                        existingPayment.status === PaymentModel_1.PaymentStatus.CANCELLED)) {
+                    return {
+                        ok: true,
+                        checkout: response,
+                    };
+                }
+                // If different method, continue to create new payment below
+                // (existing payment will remain in DB but new one will be created)
             }
             // Validate payment method
             const availableMethods = await this.getPaymentMethods();
@@ -193,9 +250,6 @@ class PaymentService {
                     message: "Invalid payment method",
                 };
             }
-            const defaultReturnUrl = data.returnUrl ||
-                PaymentService.buildReturnUrl(order._id.toString());
-            const defaultCancelUrl = data.cancelUrl || PaymentService.buildCancelUrl(order._id.toString());
             const payment = new PaymentModel_1.default({
                 orderId: data.orderId,
                 userId: userId,
@@ -241,6 +295,47 @@ class PaymentService {
                     });
                     payment.expiresAt = expiresAt;
                     response.paymentUrl = paymentUrl;
+                    break;
+                }
+                case PaymentModel_1.PaymentMethod.WALLET: {
+                    // Check wallet balance
+                    const { WalletBalanceModel } = await Promise.resolve().then(() => __importStar(require("../../models/WalletModel")));
+                    const wallet = await WalletBalanceModel.findOne({ userId });
+                    if (!wallet || wallet.balance < payment.amount) {
+                        return {
+                            ok: false,
+                            status: 400,
+                            message: `Số dư ví không đủ. Số dư hiện tại: ${(wallet?.balance || 0).toLocaleString('vi-VN')} VNĐ. Vui lòng nạp thêm tiền.`,
+                        };
+                    }
+                    // Deduct from wallet
+                    wallet.balance -= payment.amount;
+                    wallet.lastTransactionAt = new Date();
+                    await wallet.save();
+                    // Create wallet transaction
+                    const { WalletTransactionModel, WalletTransactionType, WalletTransactionStatus } = await Promise.resolve().then(() => __importStar(require("../../models/WalletModel")));
+                    await WalletTransactionModel.create({
+                        userId,
+                        type: WalletTransactionType.PAYMENT,
+                        amount: payment.amount,
+                        status: WalletTransactionStatus.COMPLETED,
+                        description: `Thanh toán đơn hàng #${order._id.toString()}`,
+                        orderId: order._id,
+                        paymentId: payment._id,
+                        completedAt: new Date(),
+                    });
+                    // Complete payment
+                    payment.status = PaymentModel_1.PaymentStatus.COMPLETED;
+                    payment.paidAt = new Date();
+                    payment.transactionId = `WALLET_${payment._id.toString()}`;
+                    payment.instructions = `Đã thanh toán thành công bằng ví. Số dư còn lại: ${wallet.balance.toLocaleString('vi-VN')} VNĐ`;
+                    response.instructions = payment.instructions;
+                    // Update order
+                    await OrderModel_1.default.findByIdAndUpdate(order._id, {
+                        isPay: true,
+                        status: OrderModel_1.OrderStatus.PROCESSING,
+                    });
+                    // Note: Money will be transferred to shop wallet when order status = DELIVERED
                     break;
                 }
                 case PaymentModel_1.PaymentMethod.TEST: {
@@ -293,8 +388,9 @@ class PaymentService {
             // Convert to object and ensure orderId is a string, not an object
             const paymentObj = payment.toObject();
             // Ensure orderId is always a string (in case it was populated)
-            if (paymentObj.orderId && typeof paymentObj.orderId === 'object') {
-                paymentObj.orderId = paymentObj.orderId._id?.toString() || paymentObj.orderId.toString();
+            if (paymentObj.orderId && typeof paymentObj.orderId === "object") {
+                paymentObj.orderId =
+                    paymentObj.orderId._id?.toString() || paymentObj.orderId.toString();
             }
             return {
                 ok: true,
@@ -409,6 +505,7 @@ class PaymentService {
                 isPay: true,
                 status: OrderModel_1.OrderStatus.PROCESSING,
             });
+            // Note: Money will be transferred to shop wallet when order status = DELIVERED
             return {
                 ok: true,
                 payment: payment.toObject(),

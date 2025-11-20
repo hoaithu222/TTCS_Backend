@@ -3,7 +3,13 @@ import OrderModel, { OrderStatus } from "../../models/OrderModel";
 import OrderItemModel from "../../models/OrderItem";
 import OrderHistoryModel from "../../models/OrderHistory";
 import ProductModel from "../../models/ProductModal";
+import PaymentModel from "../../models/PaymentModel";
 import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
+import ShopModel from "../../models/ShopModel";
+import UserModel from "../../models/UserModel";
+import { notificationService } from "../../shared/services/notification.service";
+import CartItemModel from "../../models/CartItem";
+import CartModel from "../../models/Cart";
 
 export interface CreateOrderItemInput {
   productId: string;
@@ -187,6 +193,89 @@ export default class OrdersService {
       if (!createdOrder)
         throw new Error("Không thể tạo đơn hàng, vui lòng thử lại");
 
+      // Remove ordered items from cart
+      try {
+        const cart = await CartModel.findOne({ userId });
+        if (cart && cart.cartItems && cart.cartItems.length > 0) {
+          // Get order items with productId and variantId
+          const orderItems = await OrderItemModel.find({
+            orderId: createdOrder._id,
+          }).select("productId variantId quantity").lean();
+
+          // Create a map of productId+variantId to quantity ordered
+          const orderedItemsMap = new Map<string, number>();
+          for (const orderItem of orderItems) {
+            const key = `${orderItem.productId.toString()}_${orderItem.variantId?.toString() || 'none'}`;
+            orderedItemsMap.set(key, (orderedItemsMap.get(key) || 0) + orderItem.quantity);
+          }
+
+          // Get all cart items
+          const cartItems = await CartItemModel.find({
+            cartId: cart._id,
+          }).lean();
+
+          // Find items to remove (match productId and variantId, remove up to ordered quantity)
+          const itemsToRemove: mongoose.Types.ObjectId[] = [];
+          const remainingQuantities = new Map(orderedItemsMap);
+
+          for (const cartItem of cartItems) {
+            const key = `${cartItem.productId.toString()}_${cartItem.variantId?.toString() || 'none'}`;
+            const remainingQty = remainingQuantities.get(key);
+            
+            if (remainingQty && remainingQty > 0) {
+              // Remove this cart item
+              itemsToRemove.push(cartItem._id);
+              // Decrease remaining quantity
+              remainingQuantities.set(key, remainingQty - cartItem.quantity);
+            }
+          }
+
+          // Remove matched cart items
+          if (itemsToRemove.length > 0) {
+            await CartItemModel.deleteMany({ _id: { $in: itemsToRemove } });
+            await CartModel.updateOne(
+              { _id: cart._id },
+              { $pull: { cartItems: { $in: itemsToRemove } } }
+            );
+          }
+        }
+      } catch (cartError) {
+        // Log error but don't fail the order creation
+        console.error("[orders] Failed to remove items from cart:", cartError);
+      }
+
+      const shop = await ShopModel.findById(createdOrder.shopId).select(
+        "userId name"
+      );
+      const buyer = (req as any).currentUser as any;
+      const buyerName =
+        buyer?.fullName || buyer?.name || buyer?.email || "Khách hàng";
+
+      try {
+        const notifyTasks = [
+          notificationService.notifyUserOrderPlaced({
+            userId,
+            orderId: createdOrder._id.toString(),
+            totalAmount: createdOrder.totalAmount,
+            shopName: shop?.name,
+          }),
+        ];
+        if (shop?.userId) {
+          notifyTasks.push(
+            notificationService.notifyShopOrderCreated({
+              shopOwnerId: shop.userId.toString(),
+              shopName: shop.name,
+              orderId: createdOrder._id.toString(),
+              totalAmount: createdOrder.totalAmount,
+              buyerName,
+            })
+          );
+        }
+        await Promise.all(notifyTasks);
+      } catch (notifyError) {
+        console.error("[orders] notify order create failed:", notifyError);
+      }
+
       return { ok: true as const, order: createdOrder };
     } catch (error) {
       if (session.inTransaction()) {
@@ -205,7 +294,25 @@ export default class OrdersService {
   static async get(req: AuthenticatedRequest, id: string) {
     const currentUser = (req as any).currentUser as any;
     const order = await OrderModel.findById(id)
-      .populate("orderItems")
+      .populate({
+        path: "shopId",
+        select: "_id name logo slug description",
+      })
+      .populate({
+        path: "orderItems",
+        populate: {
+          path: "productId",
+          select: "_id name images price discount",
+          populate: {
+            path: "images",
+            select: "_id url publicId",
+          },
+        },
+      })
+      .populate({
+        path: "addressId",
+        select: "_id fullName phone address city district ward",
+      })
       .populate("orderHistory");
     if (!order)
       return {
@@ -250,6 +357,25 @@ export default class OrdersService {
           .skip(skip)
           .limit(limit)
           .sort(sort)
+          .populate({
+            path: "shopId",
+            select: "_id name logo slug description",
+          })
+          .populate({
+            path: "orderItems",
+            populate: {
+              path: "productId",
+              select: "_id name images price discount",
+              populate: {
+                path: "images",
+                select: "_id url publicId",
+              },
+            },
+          })
+          .populate({
+            path: "addressId",
+            select: "_id fullName phone address city district ward",
+          })
           .populate("orderHistory"),
         OrderModel.countDocuments(filter),
       ]);
@@ -299,6 +425,46 @@ export default class OrdersService {
     await OrderModel.findByIdAndUpdate(updated._id, {
       $push: { orderHistory: history._id },
     });
+
+    // Handle wallet transfer based on order status
+    try {
+      const { default: WalletHelperService } = await import("../wallet/wallet-helper.service");
+      
+      if (status === OrderStatus.DELIVERED && updated.isPay && !updated.walletTransferred) {
+        // Transfer money to shop wallet when order is delivered
+        const payment = await PaymentModel.findOne({ orderId: updated._id }).sort({ createdAt: -1 });
+        await WalletHelperService.transferToShopWallet(
+          updated._id.toString(),
+          updated.totalAmount,
+          payment?._id.toString()
+        );
+      } else if (status === OrderStatus.CANCELLED && updated.isPay) {
+        // Refund money when order is cancelled
+        await WalletHelperService.refundOrder(
+          updated._id.toString(),
+          description || "Đơn hàng bị hủy"
+        );
+      }
+    } catch (walletError) {
+      console.error("[orders] wallet operation failed:", walletError);
+      // Don't fail the order status update if wallet operation fails
+    }
+
+    try {
+      const shop = await ShopModel.findById(updated.shopId).select("name");
+      await notificationService.notifyUserOrderStatus({
+        userId: updated.userId.toString(),
+        orderId: updated._id.toString(),
+        status,
+        shopName: shop?.name,
+      });
+    } catch (notifyError) {
+      console.error(
+        "[orders] notify user order status failed:",
+        notifyError
+      );
+    }
+
     return { ok: true as const, order: updated };
   }
 
@@ -342,6 +508,42 @@ export default class OrdersService {
     await OrderModel.findByIdAndUpdate(order._id, {
       $push: { orderHistory: history._id },
     });
+
+    // Refund money if order was paid
+    try {
+      if (order.isPay) {
+        const { default: WalletHelperService } = await import("../wallet/wallet-helper.service");
+        await WalletHelperService.refundOrder(
+          order._id.toString(),
+          reason || "Đơn hàng bị hủy bởi người dùng"
+        );
+      }
+    } catch (walletError) {
+      console.error("[orders] refund failed:", walletError);
+      // Don't fail the cancellation if refund fails
+    }
+
+    try {
+      const shop = await ShopModel.findById(order.shopId).select("userId name");
+      if (shop?.userId) {
+        const customer =
+          ((req as any).currentUser as any) ||
+          (await UserModel.findById(order.userId)
+            .select("name fullName email")
+            .lean());
+        const customerName =
+          customer?.fullName || customer?.name || customer?.email || "Khách hàng";
+        await notificationService.notifyShopOrderUpdate({
+          shopOwnerId: shop.userId.toString(),
+          orderId: order._id.toString(),
+          status: order.status,
+          userName: customerName,
+          note: reason,
+        });
+      }
+    } catch (notifyError) {
+      console.error("[orders] notify shop order update failed:", notifyError);
+    }
 
     return { ok: true as const, order };
   }

@@ -56,20 +56,26 @@ class CategoryService {
         const attributesWithValues = await Promise.all(attributeTypes.map(async (attrType) => {
             const values = await AttributeValueModel.find({
                 attributeTypeId: attrType._id,
+                isActive: true,
             });
             return {
                 id: attrType._id.toString(),
                 _id: attrType._id.toString(),
                 name: attrType.name,
+                code: attrType.code,
                 description: attrType.description,
-                inputType: attrType.is_multiple ? "multiselect" : "select",
+                inputType: attrType.inputType || (attrType.is_multiple ? "multiselect" : "select"),
                 isRequired: false, // Default, can be added to schema later
+                helperText: attrType.helperText,
+                isVariantAttribute: attrType.isVariantAttribute,
                 values: values.map((val) => ({
                     id: val._id.toString(),
                     _id: val._id.toString(),
                     value: val.value,
-                    label: val.value,
+                    label: val.label || val.value,
+                    code: val.code,
                     colorCode: val.colorCode || undefined,
+                    sortOrder: val.sortOrder ?? 0,
                 })),
             };
         }));

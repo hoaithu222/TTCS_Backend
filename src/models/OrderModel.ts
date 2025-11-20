@@ -72,6 +72,14 @@ export const orderSchema = new mongoose.Schema(
       required: true,
       default: false,
     },
+    // Track wallet transfer status
+    walletTransferred: {
+      type: Boolean,
+      default: false,
+    },
+    walletTransferredAt: {
+      type: Date,
+    },
     orderItems: {
       type: [mongoose.Schema.Types.ObjectId],
       ref: "OrderItem",

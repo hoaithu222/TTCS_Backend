@@ -5,30 +5,52 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const Cart_1 = __importDefault(require("../../models/Cart"));
 const CartItem_1 = __importDefault(require("../../models/CartItem"));
+const ProductModal_1 = __importDefault(require("../../models/ProductModal"));
+const CART_ITEM_POPULATE = {
+    path: "cartItems",
+    populate: [
+        {
+            path: "productId",
+            select: "name images price discount stock variants",
+            populate: {
+                path: "images",
+                select: "url publicId",
+            },
+        },
+        {
+            path: "shopId",
+            select: "name logo",
+        },
+    ],
+};
+const extractImageUrl = (value) => {
+    if (!value)
+        return undefined;
+    if (typeof value === "string")
+        return value;
+    if (typeof value === "object") {
+        if (typeof value.url === "string")
+            return value.url;
+        if (Array.isArray(value) && value.length > 0) {
+            const first = value[0];
+            if (typeof first === "string")
+                return first;
+            if (first && typeof first === "object" && typeof first.url === "string") {
+                return first.url;
+            }
+        }
+    }
+    return undefined;
+};
 class CartService {
     static async getOrCreate(req) {
         const userId = req.user?.userId;
         if (!userId)
             return { ok: false, status: 401, message: "Unauthorized" };
-        let cart = await Cart_1.default.findOne({ userId }).populate({
-            path: "cartItems",
-            populate: [
-                {
-                    path: "productId",
-                    select: "name images price discount stock",
-                    populate: {
-                        path: "images",
-                        select: "url publicId",
-                    },
-                },
-                {
-                    path: "shopId",
-                    select: "name logo",
-                },
-            ],
-        });
+        let cart = await Cart_1.default.findOne({ userId }).populate(CART_ITEM_POPULATE);
         if (!cart) {
             cart = await Cart_1.default.create({ userId, cartItems: [] });
+            cart = await Cart_1.default.findOne({ userId }).populate(CART_ITEM_POPULATE);
         }
         return { ok: true, cart };
     }
@@ -39,64 +61,87 @@ class CartService {
         let cart = await Cart_1.default.findOne({ userId });
         if (!cart)
             cart = await Cart_1.default.create({ userId, cartItems: [] });
-        const item = await CartItem_1.default.create({
+        const product = await ProductModal_1.default.findById(data.productId)
+            .select("shopId price discount variants images name")
+            .lean();
+        if (!product)
+            return {
+                ok: false,
+                status: 400,
+                message: "Sản phẩm không tồn tại hoặc đã bị xóa",
+            };
+        const variantDetails = CartService.extractVariantDetails(product, data.variantId);
+        if (data.variantId && !variantDetails)
+            return {
+                ok: false,
+                status: 400,
+                message: "Biến thể sản phẩm không hợp lệ",
+            };
+        const priceAtTime = typeof data.priceAtTime === "number"
+            ? data.priceAtTime
+            : variantDetails?.snapshot?.price ?? product.price ?? 0;
+        const itemPayload = {
             cartId: cart._id,
-            productId: data.productId,
-            variantId: data.variantId,
+            productId: product._id,
             quantity: data.quantity,
-            priceAtTime: data.priceAtTime,
-            shopId: data.shopId,
-        });
+            priceAtTime,
+            shopId: product.shopId,
+        };
+        if (variantDetails) {
+            itemPayload.variantId = variantDetails.variantObjectId;
+            itemPayload.variantSnapshot = variantDetails.snapshot;
+        }
+        const item = await CartItem_1.default.create(itemPayload);
         await Cart_1.default.findByIdAndUpdate(cart._id, {
             $push: { cartItems: item._id },
         });
-        const populated = await Cart_1.default.findById(cart._id).populate({
-            path: "cartItems",
-            populate: [
-                {
-                    path: "productId",
-                    select: "name images price discount stock",
-                    populate: {
-                        path: "images",
-                        select: "url publicId",
-                    },
-                },
-                {
-                    path: "shopId",
-                    select: "name logo",
-                },
-            ],
-        });
+        const populated = await Cart_1.default.findById(cart._id).populate(CART_ITEM_POPULATE);
         return { ok: true, cart: populated };
     }
     static async updateItem(req, itemId, data) {
         const userId = req.user?.userId;
         if (!userId)
             return { ok: false, status: 401, message: "Unauthorized" };
-        const item = await CartItem_1.default.findByIdAndUpdate(itemId, { $set: { ...data } }, { new: true });
-        if (!item)
+        const cartItem = await CartItem_1.default.findById(itemId);
+        if (!cartItem)
             return {
                 ok: false,
                 status: 404,
                 message: "Cart item không tồn tại",
             };
-        const cart = await Cart_1.default.findOne({ userId }).populate({
-            path: "cartItems",
-            populate: [
-                {
-                    path: "productId",
-                    select: "name images price discount stock",
-                    populate: {
-                        path: "images",
-                        select: "url publicId",
-                    },
-                },
-                {
-                    path: "shopId",
-                    select: "name logo",
-                },
-            ],
-        });
+        const updatePayload = {};
+        if (typeof data.quantity === "number") {
+            updatePayload.quantity = data.quantity;
+        }
+        if (data.variantId) {
+            const product = await ProductModal_1.default.findById(cartItem.productId)
+                .select("variants price discount images name")
+                .lean();
+            if (!product)
+                return {
+                    ok: false,
+                    status: 400,
+                    message: "Không tìm thấy sản phẩm cho cart item",
+                };
+            const variantDetails = CartService.extractVariantDetails(product, data.variantId);
+            if (!variantDetails)
+                return {
+                    ok: false,
+                    status: 400,
+                    message: "Biến thể sản phẩm không hợp lệ",
+                };
+            updatePayload.variantId = variantDetails.variantObjectId;
+            updatePayload.variantSnapshot = variantDetails.snapshot;
+            updatePayload.priceAtTime =
+                typeof data.priceAtTime === "number"
+                    ? data.priceAtTime
+                    : variantDetails.snapshot?.price ?? cartItem.priceAtTime;
+        }
+        else if (typeof data.priceAtTime === "number") {
+            updatePayload.priceAtTime = data.priceAtTime;
+        }
+        await CartItem_1.default.findByIdAndUpdate(itemId, { $set: updatePayload }, { new: true });
+        const cart = await Cart_1.default.findOne({ userId }).populate(CART_ITEM_POPULATE);
         return { ok: true, cart };
     }
     static async removeItem(req, itemId) {
@@ -151,6 +196,22 @@ class CartService {
             ],
         });
         return { ok: true, cart: refreshed };
+    }
+    static extractVariantDetails(product, variantId) {
+        if (!variantId || !product?.variants)
+            return null;
+        const variant = product.variants.find((v) => v?._id?.toString() === variantId.toString());
+        if (!variant)
+            return null;
+        return {
+            variantObjectId: variant._id,
+            snapshot: {
+                attributes: variant.attributes || {},
+                sku: variant.sku,
+                price: variant.price,
+                image: extractImageUrl(variant.image),
+            },
+        };
     }
 }
 exports.default = CartService;

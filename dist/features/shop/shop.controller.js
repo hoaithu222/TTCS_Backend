@@ -45,13 +45,17 @@ const deleteShopController = async (req, res) => {
 };
 exports.deleteShopController = deleteShopController;
 const listShopController = async (req, res) => {
-    const { page, limit, userId, search, status } = req.query;
+    const { page, limit, userId, search, status, isActive, isVerified } = req.query;
+    const parsedIsActive = typeof isActive === "string" ? isActive === "true" : undefined;
+    const parsedIsVerified = typeof isVerified === "string" ? isVerified === "true" : undefined;
     const result = await shop_service_1.default.list({
         page: Number(page) || 1,
         limit: Number(limit) || 10,
         userId,
         search,
         status,
+        isActive: parsedIsActive,
+        isVerified: parsedIsVerified,
     });
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);

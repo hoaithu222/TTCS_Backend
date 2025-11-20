@@ -17,6 +17,7 @@ export enum PaymentMethod {
   VNPAY = "vnpay",
   MOMO = "momo",
   ZALOPAY = "zalopay",
+  WALLET = "wallet", // Thanh toán bằng ví
   TEST = "test", // Test payment method for development
 }
 

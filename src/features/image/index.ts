@@ -19,12 +19,7 @@ const imageRouter = Router();
 
 imageRouter.get("/", listImageController);
 imageRouter.get("/:id", getImageController);
-imageRouter.post(
-  "/",
-  authenticateToken,
-  authorize(["admin"]),
-  createImageController
-);
+imageRouter.post("/", createImageController);
 imageRouter.post("/upload", uploadImageMiddleware, uploadImageController);
 imageRouter.put(
   "/:id",

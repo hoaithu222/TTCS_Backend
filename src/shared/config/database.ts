@@ -16,7 +16,7 @@ export const postgresConfig = {
 };
 
 export const mongoConfig = {
-  uri: process.env.MONGODB_URI || "mongodb://localhost:27017/mylove",
+  uri: process.env.MONGODB_URI || "mongodb+srv://thu601925_db_user:m7EyEOeLez1YIk0Q@cluster0.ayg2z2y.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
   options: {
     // Mongoose v8+ defaults
     maxPoolSize: 10,

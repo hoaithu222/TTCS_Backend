@@ -1,6 +1,8 @@
-import ShopModel from "../../models/ShopModel";
+import ShopModel, { ShopStatus } from "../../models/ShopModel";
 import ShopFollowerModel from "../../models/ShopFollower";
 import { CreateShopRequest, UpdateShopRequest, ListShopQuery } from "./types";
+import UserModel, { UserStatus } from "../../models/UserModel";
+import { notificationService } from "../../shared/services/notification.service";
 
 export default class ShopService {
   static async get(id: string) {
@@ -26,6 +28,17 @@ export default class ShopService {
   static async create(data: CreateShopRequest) {
     try {
       const item = await ShopModel.create(data as any);
+      if (item?.userId) {
+        notificationService
+          .notifyAdminsShopRegistrationPending({
+            shopId: item._id.toString(),
+            shopName: item.name,
+            ownerId: item.userId.toString(),
+          })
+          .catch((error) =>
+            console.error("[shop] notify admin pending failed:", error)
+          );
+      }
       return { ok: true as const, item };
     } catch (error) {
       return {
@@ -66,6 +79,9 @@ export default class ShopService {
       const filter: any = {};
       if (query.userId) filter.userId = query.userId;
       if (query.status) filter.status = query.status;
+      if (typeof query.isActive === "boolean") filter.isActive = query.isActive;
+      if (typeof query.isVerified === "boolean")
+        filter.isVerified = query.isVerified;
       if (query.search) filter.name = { $regex: query.search, $options: "i" };
       const [items, total] = await Promise.all([
         ShopModel.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
@@ -82,7 +98,9 @@ export default class ShopService {
   }
 
   static async follow(shopId: string, userId: string) {
-    const shop = await ShopModel.findById(shopId).select("_id followCount userId");
+    const shop = await ShopModel.findById(shopId).select(
+      "_id followCount userId name"
+    );
     if (!shop)
       return { ok: false as const, status: 404, message: "Shop không tồn tại" };
     if (shop.userId && shop.userId.toString() === userId) {
@@ -106,6 +124,22 @@ export default class ShopService {
     }
     const followersCount = await ShopFollowerModel.countDocuments({ shopId });
     await ShopModel.findByIdAndUpdate(shopId, { followCount: followersCount });
+    if (shop.userId) {
+      const follower = await UserModel.findById(userId)
+        .select("name fullName email")
+        .lean();
+      notificationService
+        .notifyShopOwnerNewFollower({
+          ownerId: shop.userId.toString(),
+          shopId: shop._id.toString(),
+          shopName: shop.name,
+          followerName:
+            follower?.fullName || follower?.name || follower?.email,
+        })
+        .catch((error) =>
+          console.error("[shop] notify new follower failed:", error)
+        );
+    }
     return { ok: true as const, isFollowing: true, followersCount };
   }
 
@@ -190,9 +224,16 @@ export default class ShopService {
   // Approve shop (admin only)
   static async approveShop(id: string) {
     try {
+      const now = new Date();
       const item = await ShopModel.findByIdAndUpdate(
         id,
-        { status: "active" },
+        {
+          status: ShopStatus.ACTIVE,
+          isActive: true,
+          activatedAt: now,
+          isVerified: true,
+          verifiedAt: now,
+        },
         { new: true }
       );
       if (!item) {
@@ -201,6 +242,24 @@ export default class ShopService {
           status: 404,
           message: "Shop không tồn tại",
         };
+      }
+      if (item.userId) {
+        await UserModel.findByIdAndUpdate(item.userId, {
+          role: "shop",
+          status: UserStatus.ACTIVE,
+        });
+      }
+      if (item.userId) {
+        notificationService
+          .notifyShopOwnerApproval({
+            ownerId: item.userId.toString(),
+            shopId: item._id.toString(),
+            shopName: item.name,
+            status: "approved",
+          })
+          .catch((error) =>
+            console.error("[shop] notify approve failed:", error)
+          );
       }
       return { ok: true as const, item };
     } catch (error) {
@@ -217,7 +276,11 @@ export default class ShopService {
     try {
       const item = await ShopModel.findByIdAndUpdate(
         id,
-        { status: "blocked" },
+        {
+          status: ShopStatus.BLOCKED,
+          isActive: false,
+          isVerified: false,
+        },
         { new: true }
       );
       if (!item) {
@@ -226,6 +289,18 @@ export default class ShopService {
           status: 404,
           message: "Shop không tồn tại",
         };
+      }
+      if (item.userId) {
+        notificationService
+          .notifyShopOwnerApproval({
+            ownerId: item.userId.toString(),
+            shopId: item._id.toString(),
+            shopName: item.name,
+            status: "rejected",
+          })
+          .catch((error) =>
+            console.error("[shop] notify reject failed:", error)
+          );
       }
       return { ok: true as const, item };
     } catch (error) {
@@ -242,7 +317,10 @@ export default class ShopService {
     try {
       const item = await ShopModel.findByIdAndUpdate(
         id,
-        { status: "blocked" },
+        {
+          status: ShopStatus.BLOCKED,
+          isActive: false,
+        },
         { new: true }
       );
       if (!item) {
@@ -251,6 +329,18 @@ export default class ShopService {
           status: 404,
           message: "Shop không tồn tại",
         };
+      }
+      if (item.userId) {
+        notificationService
+          .notifyShopOwnerApproval({
+            ownerId: item.userId.toString(),
+            shopId: item._id.toString(),
+            shopName: item.name,
+            status: "suspended",
+          })
+          .catch((error) =>
+            console.error("[shop] notify suspend failed:", error)
+          );
       }
       return { ok: true as const, item };
     } catch (error) {

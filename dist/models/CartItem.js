@@ -19,7 +19,27 @@ exports.cartItemSchema = new mongoose_1.default.Schema({
     variantId: {
         type: mongoose_1.default.Schema.Types.ObjectId,
         ref: "ProductVariant",
-        required: true,
+        required: false,
+        default: null,
+    },
+    variantSnapshot: {
+        type: {
+            attributes: {
+                type: mongoose_1.default.Schema.Types.Mixed,
+            },
+            sku: {
+                type: String,
+                trim: true,
+            },
+            price: {
+                type: Number,
+            },
+            image: {
+                type: String,
+                trim: true,
+            },
+        },
+        default: undefined,
     },
     quantity: {
         type: Number,

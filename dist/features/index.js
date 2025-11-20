@@ -25,6 +25,7 @@ const address_1 = __importDefault(require("./address"));
 const reviews_1 = __importDefault(require("./reviews"));
 const home_1 = __importDefault(require("./home"));
 const payment_1 = __importDefault(require("./payment"));
+const wallet_1 = __importDefault(require("./wallet"));
 const admin_1 = __importDefault(require("./admin"));
 const router = (0, express_1.Router)();
 /**
@@ -56,6 +57,7 @@ const router = (0, express_1.Router)();
  *   - name: Reviews
  *   - name: Home
  *   - name: Payments
+ *   - name: Wallets
  */
 // Mount feature routes
 router.use("/health", health_1.default);
@@ -80,5 +82,6 @@ router.use("/addresses", address_1.default);
 router.use("/reviews", reviews_1.default);
 router.use("/home", home_1.default);
 router.use("/payments", payment_1.default);
+router.use("/wallets", wallet_1.default);
 router.use("/admin", admin_1.default);
 exports.default = router;

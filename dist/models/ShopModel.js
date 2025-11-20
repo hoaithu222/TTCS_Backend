@@ -58,11 +58,24 @@ exports.shopSchema = new mongoose_1.default.Schema({
         type: Number,
         default: 0,
     },
-    // isActive
     status: {
         type: String,
         default: ShopStatus.PENDING,
         enum: Object.values(ShopStatus),
+    },
+    isActive: {
+        type: Boolean,
+        default: false,
+    },
+    activatedAt: {
+        type: Date,
+    },
+    isVerified: {
+        type: Boolean,
+        default: false,
+    },
+    verifiedAt: {
+        type: Date,
     },
     //   Liên kết với product
     products: {

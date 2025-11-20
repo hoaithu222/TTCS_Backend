@@ -23,6 +23,7 @@ var PaymentMethod;
     PaymentMethod["VNPAY"] = "vnpay";
     PaymentMethod["MOMO"] = "momo";
     PaymentMethod["ZALOPAY"] = "zalopay";
+    PaymentMethod["WALLET"] = "wallet";
     PaymentMethod["TEST"] = "test";
 })(PaymentMethod || (exports.PaymentMethod = PaymentMethod = {}));
 exports.paymentSchema = new mongoose_1.default.Schema({

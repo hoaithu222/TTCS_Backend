@@ -1,10 +1,45 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const ShopModel_1 = __importDefault(require("../../models/ShopModel"));
+const ShopModel_1 = __importStar(require("../../models/ShopModel"));
 const ShopFollower_1 = __importDefault(require("../../models/ShopFollower"));
+const UserModel_1 = __importStar(require("../../models/UserModel"));
+const notification_service_1 = require("../../shared/services/notification.service");
 class ShopService {
     static async get(id) {
         // Check if id is a valid ObjectId (24 hex characters)
@@ -25,6 +60,15 @@ class ShopService {
     static async create(data) {
         try {
             const item = await ShopModel_1.default.create(data);
+            if (item?.userId) {
+                notification_service_1.notificationService
+                    .notifyAdminsShopRegistrationPending({
+                    shopId: item._id.toString(),
+                    shopName: item.name,
+                    ownerId: item.userId.toString(),
+                })
+                    .catch((error) => console.error("[shop] notify admin pending failed:", error));
+            }
             return { ok: true, item };
         }
         catch (error) {
@@ -63,6 +107,10 @@ class ShopService {
                 filter.userId = query.userId;
             if (query.status)
                 filter.status = query.status;
+            if (typeof query.isActive === "boolean")
+                filter.isActive = query.isActive;
+            if (typeof query.isVerified === "boolean")
+                filter.isVerified = query.isVerified;
             if (query.search)
                 filter.name = { $regex: query.search, $options: "i" };
             const [items, total] = await Promise.all([
@@ -80,7 +128,7 @@ class ShopService {
         }
     }
     static async follow(shopId, userId) {
-        const shop = await ShopModel_1.default.findById(shopId).select("_id followCount userId");
+        const shop = await ShopModel_1.default.findById(shopId).select("_id followCount userId name");
         if (!shop)
             return { ok: false, status: 404, message: "Shop không tồn tại" };
         if (shop.userId && shop.userId.toString() === userId) {
@@ -105,6 +153,19 @@ class ShopService {
         }
         const followersCount = await ShopFollower_1.default.countDocuments({ shopId });
         await ShopModel_1.default.findByIdAndUpdate(shopId, { followCount: followersCount });
+        if (shop.userId) {
+            const follower = await UserModel_1.default.findById(userId)
+                .select("name fullName email")
+                .lean();
+            notification_service_1.notificationService
+                .notifyShopOwnerNewFollower({
+                ownerId: shop.userId.toString(),
+                shopId: shop._id.toString(),
+                shopName: shop.name,
+                followerName: follower?.fullName || follower?.name || follower?.email,
+            })
+                .catch((error) => console.error("[shop] notify new follower failed:", error));
+        }
         return { ok: true, isFollowing: true, followersCount };
     }
     static async unfollow(shopId, userId) {
@@ -178,13 +239,36 @@ class ShopService {
     // Approve shop (admin only)
     static async approveShop(id) {
         try {
-            const item = await ShopModel_1.default.findByIdAndUpdate(id, { status: "active" }, { new: true });
+            const now = new Date();
+            const item = await ShopModel_1.default.findByIdAndUpdate(id, {
+                status: ShopModel_1.ShopStatus.ACTIVE,
+                isActive: true,
+                activatedAt: now,
+                isVerified: true,
+                verifiedAt: now,
+            }, { new: true });
             if (!item) {
                 return {
                     ok: false,
                     status: 404,
                     message: "Shop không tồn tại",
                 };
+            }
+            if (item.userId) {
+                await UserModel_1.default.findByIdAndUpdate(item.userId, {
+                    role: "shop",
+                    status: UserModel_1.UserStatus.ACTIVE,
+                });
+            }
+            if (item.userId) {
+                notification_service_1.notificationService
+                    .notifyShopOwnerApproval({
+                    ownerId: item.userId.toString(),
+                    shopId: item._id.toString(),
+                    shopName: item.name,
+                    status: "approved",
+                })
+                    .catch((error) => console.error("[shop] notify approve failed:", error));
             }
             return { ok: true, item };
         }
@@ -199,13 +283,27 @@ class ShopService {
     // Reject shop (admin only)
     static async rejectShop(id) {
         try {
-            const item = await ShopModel_1.default.findByIdAndUpdate(id, { status: "blocked" }, { new: true });
+            const item = await ShopModel_1.default.findByIdAndUpdate(id, {
+                status: ShopModel_1.ShopStatus.BLOCKED,
+                isActive: false,
+                isVerified: false,
+            }, { new: true });
             if (!item) {
                 return {
                     ok: false,
                     status: 404,
                     message: "Shop không tồn tại",
                 };
+            }
+            if (item.userId) {
+                notification_service_1.notificationService
+                    .notifyShopOwnerApproval({
+                    ownerId: item.userId.toString(),
+                    shopId: item._id.toString(),
+                    shopName: item.name,
+                    status: "rejected",
+                })
+                    .catch((error) => console.error("[shop] notify reject failed:", error));
             }
             return { ok: true, item };
         }
@@ -220,13 +318,26 @@ class ShopService {
     // Suspend shop (admin only)
     static async suspendShop(id) {
         try {
-            const item = await ShopModel_1.default.findByIdAndUpdate(id, { status: "blocked" }, { new: true });
+            const item = await ShopModel_1.default.findByIdAndUpdate(id, {
+                status: ShopModel_1.ShopStatus.BLOCKED,
+                isActive: false,
+            }, { new: true });
             if (!item) {
                 return {
                     ok: false,
                     status: 404,
                     message: "Shop không tồn tại",
                 };
+            }
+            if (item.userId) {
+                notification_service_1.notificationService
+                    .notifyShopOwnerApproval({
+                    ownerId: item.userId.toString(),
+                    shopId: item._id.toString(),
+                    shopName: item.name,
+                    status: "suspended",
+                })
+                    .catch((error) => console.error("[shop] notify suspend failed:", error));
             }
             return { ok: true, item };
         }

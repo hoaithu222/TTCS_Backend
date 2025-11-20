@@ -11,31 +11,41 @@ exports.userNotificationSchema = new mongoose_1.default.Schema({
         ref: "User",
         required: true,
     },
-    // title
     title: {
         type: String,
         required: true,
     },
-    // content
     content: {
         type: String,
         required: true,
     },
-    // isRead
+    type: {
+        type: String,
+        default: "system",
+    },
+    icon: {
+        type: String,
+    },
+    actionUrl: {
+        type: String,
+    },
+    metadata: {
+        type: mongoose_1.default.Schema.Types.Mixed,
+        default: {},
+    },
+    priority: {
+        type: String,
+        enum: ["low", "normal", "high"],
+        default: "normal",
+    },
     isRead: {
         type: Boolean,
         default: false,
     },
-    // createdAt
-    createdAt: {
+    readAt: {
         type: Date,
-        default: Date.now,
     },
-    // updatedAt
-    updatedAt: {
-        type: Date,
-        default: Date.now,
-    },
-});
+}, { timestamps: true });
+exports.userNotificationSchema.index({ userId: 1, isRead: 1, createdAt: -1 });
 const UserNotificationModel = mongoose_1.default.model("UserNotification", exports.userNotificationSchema);
 exports.default = UserNotificationModel;

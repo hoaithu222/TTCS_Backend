@@ -35,6 +35,8 @@ export interface CreateShopRequest {
   facebook?: string;
   zalo?: string;
   instagram?: string;
+  isActive?: boolean;
+  isVerified?: boolean;
 }
 
 export interface UpdateShopRequest extends Partial<CreateShopRequest> {
@@ -48,6 +50,8 @@ export interface ListShopQuery {
   userId?: string;
   search?: string; // by name
   status?: "pending" | "active" | "blocked";
+  isActive?: boolean;
+  isVerified?: boolean;
 }
 
 

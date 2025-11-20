@@ -71,8 +71,9 @@ export const productSchema = new mongoose.Schema(
     },
     warrantyInfo: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
+      default: "",
     },
     weight: {
       type: Number,
@@ -82,14 +83,16 @@ export const productSchema = new mongoose.Schema(
     },
     dimensions: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
+      default: "",
     },
     metaKeywords: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
       lowercase: true,
+      default: "",
     },
     viewCount: {
       type: Number,

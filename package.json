@@ -8,7 +8,11 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test:connections": "ts-node src/test-connections.ts"
+    "test:connections": "ts-node src/test-connections.ts",
+    "seed:attributes": "ts-node scripts/seed-attributes.ts",
+    "seed:sub-categories": "ts-node scripts/seed-sub-categories.ts",
+    "seed:products": "ts-node scripts/seed-products.ts",
+    "seed:products:extra": "ts-node scripts/seed-products-techzone-extra.ts"
   },
   "keywords": [],
   "author": "",

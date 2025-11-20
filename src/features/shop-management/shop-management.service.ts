@@ -660,6 +660,42 @@ export default class ShopManagementService {
         };
       }
 
+      // Create order history
+      const OrderHistoryModel = (await import("../../models/OrderHistory")).default;
+      const history = await OrderHistoryModel.create({
+        orderId: order._id,
+        status: data.orderStatus,
+        description: data.notes || `Order status changed to ${data.orderStatus}`,
+      });
+      await OrderModel.findByIdAndUpdate(order._id, {
+        $push: { orderHistory: history._id },
+      });
+
+      // Handle wallet transfer based on order status
+      try {
+        const { default: WalletHelperService } = await import("../wallet/wallet-helper.service");
+        const PaymentModel = (await import("../../models/PaymentModel")).default;
+        
+        if (data.orderStatus === "delivered" && order.isPay && !order.walletTransferred) {
+          // Transfer money to shop wallet when order is delivered
+          const payment = await PaymentModel.findOne({ orderId: order._id }).sort({ createdAt: -1 });
+          await WalletHelperService.transferToShopWallet(
+            order._id.toString(),
+            order.totalAmount,
+            payment?._id.toString()
+          );
+        } else if (data.orderStatus === "cancelled" && order.isPay) {
+          // Refund money when order is cancelled
+          await WalletHelperService.refundOrder(
+            order._id.toString(),
+            data.notes || "Đơn hàng bị hủy"
+          );
+        }
+      } catch (walletError) {
+        console.error("[shop-management] wallet operation failed:", walletError);
+        // Don't fail the order status update if wallet operation fails
+      }
+
       return { ok: true as const, order };
     } catch (error) {
       return {

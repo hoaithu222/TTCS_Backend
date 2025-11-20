@@ -132,6 +132,7 @@ class TestPaymentGateway {
                     isPay: true,
                     status: OrderModel_1.OrderStatus.PROCESSING,
                 });
+                // Note: Money will be transferred to shop wallet when order status = DELIVERED
             }
             return {
                 ok: true,
@@ -180,6 +181,7 @@ class PaymentWebhookHandler {
                     isPay: true,
                     status: OrderModel_1.OrderStatus.PROCESSING,
                 });
+                // Note: Money will be transferred to shop wallet when order status = DELIVERED
             }
             return { ok: true, message: "Webhook processed" };
         }
@@ -213,6 +215,9 @@ class PaymentWebhookHandler {
                     isPay: true,
                     status: OrderModel_1.OrderStatus.PROCESSING,
                 });
+                // Transfer money to shop wallet
+                const { default: WalletHelperService } = await Promise.resolve().then(() => __importStar(require("../wallet/wallet-helper.service")));
+                await WalletHelperService.transferToShopWallet(payment.orderId.toString(), payment.amount, payment._id.toString());
             }
             return { ok: true, message: "Webhook processed" };
         }
@@ -246,6 +251,9 @@ class PaymentWebhookHandler {
                     isPay: true,
                     status: OrderModel_1.OrderStatus.PROCESSING,
                 });
+                // Transfer money to shop wallet
+                const { default: WalletHelperService } = await Promise.resolve().then(() => __importStar(require("../wallet/wallet-helper.service")));
+                await WalletHelperService.transferToShopWallet(payment.orderId.toString(), payment.amount, payment._id.toString());
             }
             return { ok: true, message: "Webhook processed" };
         }
