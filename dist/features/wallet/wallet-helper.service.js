@@ -1,43 +1,11 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const OrderModel_1 = __importDefault(require("../../models/OrderModel"));
 const WalletModel_1 = require("../../models/WalletModel");
+const mongoose_1 = __importDefault(require("mongoose"));
 /**
  * Helper service for wallet operations
  */
@@ -64,22 +32,22 @@ class WalletHelperService {
                 };
             }
             const shopId = order.shopId;
-            // Get or create shop wallet
-            let shopWallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId });
-            if (!shopWallet) {
-                shopWallet = await WalletModel_1.WalletBalanceModel.create({
-                    shopId,
-                    balance: 0,
-                });
+            // Validate shopId
+            if (!shopId || !mongoose_1.default.Types.ObjectId.isValid(shopId)) {
+                return {
+                    ok: false,
+                    message: "Invalid shop ID",
+                };
             }
+            // Get or create shop wallet using findOneAndUpdate to avoid race conditions
+            const shopWallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ shopId }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
             // Add to shop wallet
             shopWallet.balance += amount;
             shopWallet.lastTransactionAt = new Date();
             await shopWallet.save();
             // Create revenue transaction for shop
-            const mongoose = await Promise.resolve().then(() => __importStar(require("mongoose")));
-            const paymentObjectId = paymentId && mongoose.default.Types.ObjectId.isValid(paymentId)
-                ? new mongoose.default.Types.ObjectId(paymentId)
+            const paymentObjectId = paymentId && mongoose_1.default.Types.ObjectId.isValid(paymentId)
+                ? new mongoose_1.default.Types.ObjectId(paymentId)
                 : undefined;
             await WalletModel_1.WalletTransactionModel.create({
                 shopId,
@@ -148,14 +116,15 @@ class WalletHelperService {
             }
             // Refund to user wallet (only if payment was made)
             if (order.isPay) {
-                // Get or create user wallet
-                let userWallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
-                if (!userWallet) {
-                    userWallet = await WalletModel_1.WalletBalanceModel.create({
-                        userId,
-                        balance: 0,
-                    });
+                // Validate userId
+                if (!userId || !mongoose_1.default.Types.ObjectId.isValid(userId)) {
+                    return {
+                        ok: false,
+                        message: "Invalid user ID",
+                    };
                 }
+                // Get or create user wallet using findOneAndUpdate to avoid race conditions
+                const userWallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ userId }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
                 // Add to user wallet
                 userWallet.balance += amount;
                 userWallet.lastTransactionAt = new Date();

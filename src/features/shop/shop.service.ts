@@ -1,5 +1,6 @@
 import ShopModel, { ShopStatus } from "../../models/ShopModel";
 import ShopFollowerModel from "../../models/ShopFollower";
+import ProductModel from "../../models/ProductModal";
 import { CreateShopRequest, UpdateShopRequest, ListShopQuery } from "./types";
 import UserModel, { UserStatus } from "../../models/UserModel";
 import { notificationService } from "../../shared/services/notification.service";
@@ -22,6 +23,16 @@ export default class ShopService {
 
     if (!item)
       return { ok: false as const, status: 404, message: "Shop không tồn tại" };
+
+    // Count actual products for this shop
+    const productCount = await ProductModel.countDocuments({ shopId: item._id, isActive: true });
+    
+    // Update productCount in shop if different
+    if (item.productCount !== productCount) {
+      item.productCount = productCount;
+      await item.save();
+    }
+
     return { ok: true as const, item };
   }
 

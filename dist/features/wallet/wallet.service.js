@@ -32,8 +32,12 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const WalletModel_1 = require("../../models/WalletModel");
+const mongoose_1 = __importDefault(require("mongoose"));
 /**
  * Get client IP address from request
  */
@@ -67,44 +71,40 @@ class WalletService {
         try {
             const userId = req.user?.userId;
             const shopId = req.shopId || req.query.shopId; // Support shop wallet query
+            // Validate userId if provided - must be a valid ObjectId string
+            if (userId && (!mongoose_1.default.Types.ObjectId.isValid(userId) || userId === 'null' || userId === 'undefined')) {
+                return { ok: false, status: 401, message: "Invalid user ID" };
+            }
+            // Validate shopId if provided
+            if (shopId && (!mongoose_1.default.Types.ObjectId.isValid(shopId) || shopId === 'null' || shopId === 'undefined')) {
+                return { ok: false, status: 400, message: "Invalid shop ID" };
+            }
             if (!userId && !shopId) {
                 return { ok: false, status: 401, message: "Unauthorized" };
             }
             // If shopId is provided, return shop wallet only
             if (shopId) {
-                let wallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId });
-                if (!wallet) {
-                    wallet = await WalletModel_1.WalletBalanceModel.create({
-                        shopId,
-                        balance: 0,
-                    });
-                }
+                // Use findOneAndUpdate with upsert to avoid race conditions
+                const wallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ shopId }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
                 return {
                     ok: true,
                     balance: wallet.balance,
                     wallet: wallet.toObject(),
                 };
             }
-            // Get user wallet
-            let userWallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
-            if (!userWallet) {
-                userWallet = await WalletModel_1.WalletBalanceModel.create({
-                    userId,
-                    balance: 0,
-                });
+            // Ensure userId is valid before proceeding
+            if (!userId || !mongoose_1.default.Types.ObjectId.isValid(userId)) {
+                return { ok: false, status: 401, message: "Invalid or missing user ID" };
             }
+            // Get user wallet using findOneAndUpdate to avoid race conditions
+            const userWallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ userId }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
             // Check if user is shop owner
             const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
             const shop = await ShopModel.findOne({ userId }).lean();
             let shopWallet = null;
-            if (shop) {
-                shopWallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId: shop._id });
-                if (!shopWallet) {
-                    shopWallet = await WalletModel_1.WalletBalanceModel.create({
-                        shopId: shop._id,
-                        balance: 0,
-                    });
-                }
+            if (shop && shop._id) {
+                // Use findOneAndUpdate with upsert to avoid race conditions
+                shopWallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ shopId: shop._id }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
             }
             return {
                 ok: true,
@@ -115,6 +115,45 @@ class WalletService {
             };
         }
         catch (error) {
+            // Handle duplicate key errors specifically
+            if (error.code === 11000 || error.message?.includes('duplicate key')) {
+                // Retry once if duplicate key error (race condition)
+                try {
+                    const userId = req.user?.userId;
+                    const shopId = req.shopId || req.query.shopId;
+                    if (shopId) {
+                        const wallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId });
+                        if (wallet) {
+                            return {
+                                ok: true,
+                                balance: wallet.balance,
+                                wallet: wallet.toObject(),
+                            };
+                        }
+                    }
+                    if (userId) {
+                        const userWallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
+                        if (userWallet) {
+                            const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
+                            const shop = await ShopModel.findOne({ userId }).lean();
+                            let shopWallet = null;
+                            if (shop && shop._id) {
+                                shopWallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId: shop._id });
+                            }
+                            return {
+                                ok: true,
+                                balance: userWallet.balance,
+                                wallet: userWallet.toObject(),
+                                shopWallet: shopWallet ? shopWallet.toObject() : null,
+                                shop: shop ? { _id: shop._id, name: shop.name } : null,
+                            };
+                        }
+                    }
+                }
+                catch (retryError) {
+                    // If retry also fails, return error
+                }
+            }
             return {
                 ok: false,
                 status: 500,

@@ -38,6 +38,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const ShopModel_1 = __importStar(require("../../models/ShopModel"));
 const ShopFollower_1 = __importDefault(require("../../models/ShopFollower"));
+const ProductModal_1 = __importDefault(require("../../models/ProductModal"));
 const UserModel_1 = __importStar(require("../../models/UserModel"));
 const notification_service_1 = require("../../shared/services/notification.service");
 class ShopService {
@@ -55,6 +56,13 @@ class ShopService {
         }
         if (!item)
             return { ok: false, status: 404, message: "Shop không tồn tại" };
+        // Count actual products for this shop
+        const productCount = await ProductModal_1.default.countDocuments({ shopId: item._id, isActive: true });
+        // Update productCount in shop if different
+        if (item.productCount !== productCount) {
+            item.productCount = productCount;
+            await item.save();
+        }
         return { ok: true, item };
     }
     static async create(data) {

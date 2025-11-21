@@ -5,6 +5,7 @@ import {
   WalletTransactionType,
   WalletTransactionStatus,
 } from "../../models/WalletModel";
+import mongoose from "mongoose";
 
 /**
  * Helper service for wallet operations
@@ -39,14 +40,20 @@ export default class WalletHelperService {
 
       const shopId = order.shopId;
 
-      // Get or create shop wallet
-      let shopWallet = await WalletBalanceModel.findOne({ shopId });
-      if (!shopWallet) {
-        shopWallet = await WalletBalanceModel.create({
-          shopId,
-          balance: 0,
-        });
+      // Validate shopId
+      if (!shopId || !mongoose.Types.ObjectId.isValid(shopId)) {
+        return {
+          ok: false as const,
+          message: "Invalid shop ID",
+        };
       }
+
+      // Get or create shop wallet using findOneAndUpdate to avoid race conditions
+      const shopWallet = await WalletBalanceModel.findOneAndUpdate(
+        { shopId },
+        { $setOnInsert: { balance: 0 } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
 
       // Add to shop wallet
       shopWallet.balance += amount;
@@ -54,9 +61,8 @@ export default class WalletHelperService {
       await shopWallet.save();
 
       // Create revenue transaction for shop
-      const mongoose = await import("mongoose");
-      const paymentObjectId = paymentId && mongoose.default.Types.ObjectId.isValid(paymentId)
-        ? new mongoose.default.Types.ObjectId(paymentId)
+      const paymentObjectId = paymentId && mongoose.Types.ObjectId.isValid(paymentId)
+        ? new mongoose.Types.ObjectId(paymentId)
         : undefined;
       
       await WalletTransactionModel.create({
@@ -135,14 +141,20 @@ export default class WalletHelperService {
 
       // Refund to user wallet (only if payment was made)
       if (order.isPay) {
-        // Get or create user wallet
-        let userWallet = await WalletBalanceModel.findOne({ userId });
-        if (!userWallet) {
-          userWallet = await WalletBalanceModel.create({
-            userId,
-            balance: 0,
-          });
+        // Validate userId
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+          return {
+            ok: false as const,
+            message: "Invalid user ID",
+          };
         }
+
+        // Get or create user wallet using findOneAndUpdate to avoid race conditions
+        const userWallet = await WalletBalanceModel.findOneAndUpdate(
+          { userId },
+          { $setOnInsert: { balance: 0 } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
 
         // Add to user wallet
         userWallet.balance += amount;

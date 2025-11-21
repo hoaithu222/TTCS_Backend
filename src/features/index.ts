@@ -22,6 +22,7 @@ import homeRoutes from "./home";
 import paymentRoutes from "./payment";
 import walletRoutes from "./wallet";
 import adminRoutes from "./admin";
+import wishlistRoutes from "./wishlist";
 const router = Router();
 
 /**
@@ -55,6 +56,7 @@ const router = Router();
  *   - name: Home
  *   - name: Payments
  *   - name: Wallets
+ *   - name: Wishlist
  */
 
 // Mount feature routes
@@ -82,4 +84,5 @@ router.use("/home", homeRoutes);
 router.use("/payments", paymentRoutes);
 router.use("/wallets", walletRoutes);
 router.use("/admin", adminRoutes);
+router.use("/wishlist", wishlistRoutes);
 export default router;

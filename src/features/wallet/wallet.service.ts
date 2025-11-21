@@ -5,6 +5,7 @@ import {
   WalletTransactionType,
   WalletTransactionStatus,
 } from "../../models/WalletModel";
+import mongoose from "mongoose";
 
 /**
  * Get client IP address from request
@@ -44,19 +45,28 @@ export default class WalletService {
       const userId = (req as any).user?.userId;
       const shopId = (req as any).shopId || (req.query as any).shopId; // Support shop wallet query
       
+      // Validate userId if provided - must be a valid ObjectId string
+      if (userId && (!mongoose.Types.ObjectId.isValid(userId) || userId === 'null' || userId === 'undefined')) {
+        return { ok: false as const, status: 401, message: "Invalid user ID" };
+      }
+      
+      // Validate shopId if provided
+      if (shopId && (!mongoose.Types.ObjectId.isValid(shopId) || shopId === 'null' || shopId === 'undefined')) {
+        return { ok: false as const, status: 400, message: "Invalid shop ID" };
+      }
+      
       if (!userId && !shopId) {
         return { ok: false as const, status: 401, message: "Unauthorized" };
       }
 
       // If shopId is provided, return shop wallet only
       if (shopId) {
-        let wallet = await WalletBalanceModel.findOne({ shopId });
-        if (!wallet) {
-          wallet = await WalletBalanceModel.create({
-            shopId,
-            balance: 0,
-          });
-        }
+        // Use findOneAndUpdate with upsert to avoid race conditions
+        const wallet = await WalletBalanceModel.findOneAndUpdate(
+          { shopId },
+          { $setOnInsert: { balance: 0 } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
         return {
           ok: true as const,
           balance: wallet.balance,
@@ -64,28 +74,30 @@ export default class WalletService {
         };
       }
 
-      // Get user wallet
-      let userWallet = await WalletBalanceModel.findOne({ userId });
-      if (!userWallet) {
-        userWallet = await WalletBalanceModel.create({
-          userId,
-          balance: 0,
-        });
+      // Ensure userId is valid before proceeding
+      if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        return { ok: false as const, status: 401, message: "Invalid or missing user ID" };
       }
+
+      // Get user wallet using findOneAndUpdate to avoid race conditions
+      const userWallet = await WalletBalanceModel.findOneAndUpdate(
+        { userId },
+        { $setOnInsert: { balance: 0 } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
 
       // Check if user is shop owner
       const ShopModel = (await import("../../models/ShopModel")).default;
       const shop = await ShopModel.findOne({ userId }).lean();
       
       let shopWallet = null;
-      if (shop) {
-        shopWallet = await WalletBalanceModel.findOne({ shopId: shop._id });
-        if (!shopWallet) {
-          shopWallet = await WalletBalanceModel.create({
-            shopId: shop._id,
-            balance: 0,
-          });
-        }
+      if (shop && shop._id) {
+        // Use findOneAndUpdate with upsert to avoid race conditions
+        shopWallet = await WalletBalanceModel.findOneAndUpdate(
+          { shopId: shop._id },
+          { $setOnInsert: { balance: 0 } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
       }
 
       return {
@@ -96,6 +108,47 @@ export default class WalletService {
         shop: shop ? { _id: shop._id, name: shop.name } : null,
       };
     } catch (error: any) {
+      // Handle duplicate key errors specifically
+      if (error.code === 11000 || error.message?.includes('duplicate key')) {
+        // Retry once if duplicate key error (race condition)
+        try {
+          const userId = (req as any).user?.userId;
+          const shopId = (req as any).shopId || (req.query as any).shopId;
+          
+          if (shopId) {
+            const wallet = await WalletBalanceModel.findOne({ shopId });
+            if (wallet) {
+              return {
+                ok: true as const,
+                balance: wallet.balance,
+                wallet: wallet.toObject(),
+              };
+            }
+          }
+          
+          if (userId) {
+            const userWallet = await WalletBalanceModel.findOne({ userId });
+            if (userWallet) {
+              const ShopModel = (await import("../../models/ShopModel")).default;
+              const shop = await ShopModel.findOne({ userId }).lean();
+              let shopWallet = null;
+              if (shop && shop._id) {
+                shopWallet = await WalletBalanceModel.findOne({ shopId: shop._id });
+              }
+              return {
+                ok: true as const,
+                balance: userWallet.balance,
+                wallet: userWallet.toObject(),
+                shopWallet: shopWallet ? shopWallet.toObject() : null,
+                shop: shop ? { _id: shop._id, name: shop.name } : null,
+              };
+            }
+          }
+        } catch (retryError: any) {
+          // If retry also fails, return error
+        }
+      }
+      
       return {
         ok: false as const,
         status: 500,
