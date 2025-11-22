@@ -243,6 +243,7 @@ export const chatService = {
 
   /**
    * Emit conversation update to participants
+   * Calculates unread count for each participant separately
    */
   async emitConversationUpdate(options: EmitConversationUpdateOptions) {
     const { channel, conversationId } = options;
@@ -255,18 +256,46 @@ export const chatService = {
       return;
     }
 
-    // Get unread count
-    const unreadCount = await ChatMessageModel.countDocuments({
-      conversationId,
-      isRead: false,
-    });
+    const participants = conversation.participants || [];
+    const namespacePath = getNamespaceForChannel(channel);
+    if (!namespacePath) return;
 
-    const conversationResponse = await transformConversation({
-      ...conversation,
-      unreadCount,
-    });
+    const io = getSocketServer();
+    if (!io) return;
 
-    emitConversationUpdate(channel, conversationResponse);
+    const namespace = io.of(namespacePath);
+    const room = buildChatConversationRoom(channel as any, conversationId);
+
+    // Emit conversation update for each participant with their own unread count
+    for (const participant of participants) {
+      const userId = participant.userId ? String(participant.userId) : '';
+      if (!userId) continue;
+
+      // Calculate unread count for this specific user (only messages from others)
+      const unreadCount = await ChatMessageModel.countDocuments({
+        conversationId,
+        isRead: false,
+        senderId: { $ne: userId as any },
+      });
+
+      const conversationResponse = await transformConversation({
+        ...conversation,
+        unreadCount, // Use calculated unread count for this user
+      });
+
+      // Emit to this specific user's direct room
+      const userRoom = buildDirectUserRoom(userId);
+      namespace.to(userRoom).emit(SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
+        conversationId: conversationResponse._id,
+        conversation: conversationResponse,
+      });
+
+      // Also emit to conversation room
+      namespace.to(room).emit(SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
+        conversationId: conversationResponse._id,
+        conversation: conversationResponse,
+      });
+    }
   },
 
   /**

@@ -149,7 +149,9 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                     let conversationType = "direct";
                     let channel = options.channel;
                     let metadata = payload.metadata || {};
-                    if (payload.type === "admin") {
+                    // Use conversationType from payload, fallback to type for backward compatibility
+                    const convType = payload.conversationType || payload.type;
+                    if (convType === "admin") {
                         // Find an admin user
                         const admin = await UserModel.findOne({ role: { $in: ["admin", "moderator"] } })
                             .select("_id name fullName email avatar role")
@@ -168,7 +170,7 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                         channel = "admin";
                         metadata.context = metadata.context || "CSKH";
                     }
-                    else if (payload.type === "shop" && payload.targetId) {
+                    else if (convType === "shop" && payload.targetId) {
                         // Find shop owner
                         const shop = await ShopModel.findById(payload.targetId)
                             .populate("userId", "name fullName email avatar role")
@@ -219,7 +221,7 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                         "participants.userId": { $all: participants.map((p) => p.userId) },
                         type: conversationType,
                         channel: channel,
-                        ...(payload.type === "shop" && payload.targetId
+                        ...(convType === "shop" && payload.targetId
                             ? { "metadata.shopId": payload.targetId }
                             : {}),
                     }).lean();
@@ -250,6 +252,12 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                 const sender = await UserModel.findById(socketUser.userId)
                     .select("name fullName email avatar role")
                     .lean();
+                // Determine message type
+                let messageType = payload.type || "text";
+                // Auto-detect type from metadata if not provided
+                if (!payload.type && payload.metadata?.productId) {
+                    messageType = "product";
+                }
                 // Create message in database
                 const message = await ChatMessageModel.create({
                     conversationId,
@@ -257,6 +265,7 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                     senderName: sender?.fullName || sender?.name || sender?.email,
                     senderAvatar: sender?.avatar,
                     message: payload.message,
+                    type: messageType,
                     attachments: payload.attachments || [],
                     metadata: payload.metadata || {},
                     isDelivered: false,
@@ -279,6 +288,7 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                     senderName: sender?.fullName || sender?.name || sender?.email,
                     senderAvatar: sender?.avatar,
                     message: payload.message,
+                    type: messageType, // Include message type
                     attachments: payload.attachments || [],
                     metadata: payload.metadata || {},
                     isRead: false,

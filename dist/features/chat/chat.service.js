@@ -128,6 +128,16 @@ class ChatService {
         let conversationType = "direct";
         let channel = undefined;
         let metadata = data.metadata || {};
+        // Process and preserve product metadata if provided
+        if (data.metadata?.productId) {
+            console.log(`[Chat] Creating conversation with product metadata:`, {
+                productId: data.metadata.productId,
+                productName: data.metadata.productName,
+                shopId: data.metadata.shopId,
+            });
+            // Product metadata will be preserved in conversation metadata
+            // but product-specific info should be sent as message, not stored in conversation
+        }
         if (data.type === "admin") {
             // Find an admin user
             const admin = await UserModel_1.default.findOne({ role: { $in: ["admin", "moderator"] } })
@@ -178,8 +188,12 @@ class ChatService {
             });
             conversationType = "shop";
             channel = "shop";
+            // Store shop info in metadata (always)
             metadata.shopId = data.targetId;
             metadata.shopName = shop.name;
+            // Note: Product info from data.metadata will be preserved
+            // but should be sent as a message, not stored in conversation metadata
+            // to avoid creating separate conversations for each product
         }
         else {
             return {
@@ -249,12 +263,19 @@ class ChatService {
         });
         // Send initial message if provided
         if (data.initialMessage) {
+            // Determine type for initial message
+            let initialMessageType = "text";
+            if (metadata.productId) {
+                initialMessageType = "product";
+            }
             const message = await ChatMessage_1.default.create({
                 conversationId: conversation._id,
                 senderId: userId,
                 senderName: currentUser.fullName || currentUser.name || currentUser.email,
                 senderAvatar: currentUser.avatar,
                 message: data.initialMessage,
+                type: initialMessageType,
+                metadata: metadata, // Include metadata for initial message
                 isDelivered: false,
                 isRead: false,
             });
@@ -296,6 +317,13 @@ class ChatService {
             createdAt: conversation.createdAt?.toISOString() || new Date().toISOString(),
             updatedAt: conversation.updatedAt?.toISOString() || new Date().toISOString(),
         };
+        // Emit conversation update to all participants so they receive the new conversation
+        if (channel) {
+            await chat_service_1.chatService.emitConversationUpdate({
+                channel,
+                conversationId: conversation._id.toString(),
+            });
+        }
         return { ok: true, data: response };
     }
     // Get conversation detail
@@ -437,6 +465,24 @@ class ChatService {
         }
         // Get sender info
         const sender = await UserModel_1.default.findById(userId).select("name fullName email avatar role").lean();
+        // Process metadata - ensure product info is preserved
+        const messageMetadata = data.metadata || {};
+        // If metadata contains product info, ensure it's properly structured
+        if (messageMetadata.productId) {
+            // Log product metadata for tracking (optional)
+            console.log(`[Chat] Message with product metadata:`, {
+                conversationId,
+                productId: messageMetadata.productId,
+                productName: messageMetadata.productName,
+                shopId: messageMetadata.shopId,
+            });
+        }
+        // Determine message type based on metadata
+        let messageType = data.type || "text";
+        // Auto-detect type from metadata if not provided
+        if (!data.type && messageMetadata.productId) {
+            messageType = "product";
+        }
         // Create message
         const message = await ChatMessage_1.default.create({
             conversationId,
@@ -444,8 +490,9 @@ class ChatService {
             senderName: sender?.fullName || sender?.name || sender?.email,
             senderAvatar: sender?.avatar,
             message: data.message,
+            type: messageType,
             attachments: data.attachments || [],
-            metadata: data.metadata || {},
+            metadata: messageMetadata, // Store metadata including product info
             isDelivered: false,
             isRead: false,
         });
@@ -546,6 +593,7 @@ class ChatService {
             senderName,
             senderAvatar,
             message: msg.message || "",
+            type: msg.type || "text", // Include message type
             attachments: msg.attachments || [],
             metadata: msg.metadata || {},
             isRead: msg.isRead || false,

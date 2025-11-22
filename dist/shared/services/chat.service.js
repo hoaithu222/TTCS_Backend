@@ -21,18 +21,58 @@ const emitChatMessage = (channel, conversationId, message, senderId) => {
         return;
     const namespace = io.of(namespacePath);
     const room = (0, socket_1.buildChatConversationRoom)(channel, conversationId);
+    // Emit to conversation room
     namespace.to(room).emit(socket_1.SOCKET_EVENTS.CHAT_MESSAGE_RECEIVE, {
         conversationId,
-        messageId: message._id,
-        _id: message._id,
-        senderId: message.senderId,
-        senderName: message.senderName,
-        senderAvatar: message.senderAvatar,
-        message: message.message,
-        attachments: message.attachments,
-        metadata: message.metadata,
-        sentAt: message.createdAt,
-        createdAt: message.createdAt,
+        message: {
+            _id: message._id,
+            conversationId: message.conversationId,
+            senderId: message.senderId,
+            senderName: message.senderName,
+            senderAvatar: message.senderAvatar,
+            message: message.message,
+            attachments: message.attachments || [],
+            metadata: message.metadata || {},
+            isRead: message.isRead || false,
+            isDelivered: message.isDelivered || false,
+            createdAt: message.createdAt,
+            updatedAt: message.updatedAt,
+        },
+    });
+    // Also emit to each participant's direct room to ensure they receive it
+    // Get conversation to find participants
+    ChatConversation_1.default.findById(conversationId)
+        .select("participants")
+        .lean()
+        .then((conversation) => {
+        if (conversation) {
+            conversation.participants.forEach((p) => {
+                const userId = p.userId?.toString() || p.userId;
+                if (userId && userId !== senderId) {
+                    const userRoom = (0, socket_1.buildDirectUserRoom)(userId);
+                    namespace.to(userRoom).emit(socket_1.SOCKET_EVENTS.CHAT_MESSAGE_RECEIVE, {
+                        conversationId,
+                        message: {
+                            _id: message._id,
+                            conversationId: message.conversationId,
+                            senderId: message.senderId,
+                            senderName: message.senderName,
+                            senderAvatar: message.senderAvatar,
+                            message: message.message,
+                            attachments: message.attachments || [],
+                            metadata: message.metadata || {},
+                            isRead: message.isRead || false,
+                            isDelivered: message.isDelivered || false,
+                            createdAt: message.createdAt,
+                            updatedAt: message.updatedAt,
+                        },
+                    });
+                }
+            });
+        }
+    })
+        .catch(() => {
+        // Ignore errors
     });
 };
 /**
@@ -48,17 +88,17 @@ const emitConversationUpdate = (channel, conversation) => {
     const namespace = io.of(namespacePath);
     const room = (0, socket_1.buildChatConversationRoom)(channel, conversation._id);
     // Emit to conversation room
-    namespace.to(room).emit(socket_1.SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
+    const conversationPayload = {
         conversationId: conversation._id,
         conversation,
-    });
+    };
+    namespace.to(room).emit(socket_1.SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, conversationPayload);
+    console.log(`[Chat Service] Emitted conversation update to room ${room} for conversation ${conversation._id}`);
     // Also emit to each participant's direct room
     conversation.participants.forEach((participant) => {
         const userRoom = (0, socket_1.buildDirectUserRoom)(participant.userId);
-        namespace.to(userRoom).emit(socket_1.SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
-            conversationId: conversation._id,
-            conversation,
-        });
+        namespace.to(userRoom).emit(socket_1.SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, conversationPayload);
+        console.log(`[Chat Service] Emitted conversation update to user room ${userRoom} for user ${participant.userId}`);
     });
 };
 /**
@@ -160,6 +200,7 @@ exports.chatService = {
     },
     /**
      * Emit conversation update to participants
+     * Calculates unread count for each participant separately
      */
     async emitConversationUpdate(options) {
         const { channel, conversationId } = options;
@@ -169,16 +210,42 @@ exports.chatService = {
         if (!conversation) {
             return;
         }
-        // Get unread count
-        const unreadCount = await ChatMessage_1.default.countDocuments({
-            conversationId,
-            isRead: false,
-        });
-        const conversationResponse = await transformConversation({
-            ...conversation,
-            unreadCount,
-        });
-        emitConversationUpdate(channel, conversationResponse);
+        const participants = conversation.participants || [];
+        const namespacePath = getNamespaceForChannel(channel);
+        if (!namespacePath)
+            return;
+        const io = (0, socket_server_1.getSocketServer)();
+        if (!io)
+            return;
+        const namespace = io.of(namespacePath);
+        const room = (0, socket_1.buildChatConversationRoom)(channel, conversationId);
+        // Emit conversation update for each participant with their own unread count
+        for (const participant of participants) {
+            const userId = participant.userId ? String(participant.userId) : '';
+            if (!userId)
+                continue;
+            // Calculate unread count for this specific user (only messages from others)
+            const unreadCount = await ChatMessage_1.default.countDocuments({
+                conversationId,
+                isRead: false,
+                senderId: { $ne: userId },
+            });
+            const conversationResponse = await transformConversation({
+                ...conversation,
+                unreadCount, // Use calculated unread count for this user
+            });
+            // Emit to this specific user's direct room
+            const userRoom = (0, socket_1.buildDirectUserRoom)(userId);
+            namespace.to(userRoom).emit(socket_1.SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
+                conversationId: conversationResponse._id,
+                conversation: conversationResponse,
+            });
+            // Also emit to conversation room
+            namespace.to(room).emit(socket_1.SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
+                conversationId: conversationResponse._id,
+                conversation: conversationResponse,
+            });
+        }
     },
     /**
      * Emit message and update conversation after sending a message
