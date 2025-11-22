@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markAsDeliveredController = exports.markAsReadController = exports.sendMessageController = exports.getMessagesController = exports.getConversationController = exports.getConversationsController = void 0;
+exports.markAsDeliveredController = exports.markAsReadController = exports.sendMessageController = exports.getMessagesController = exports.getConversationController = exports.createConversationController = exports.getConversationsController = void 0;
 const chat_service_1 = __importDefault(require("./chat.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 const getConversationsController = async (req, res) => {
@@ -14,6 +14,14 @@ const getConversationsController = async (req, res) => {
     return response_util_1.ResponseUtil.success(res, result.data);
 };
 exports.getConversationsController = getConversationsController;
+const createConversationController = async (req, res) => {
+    const data = req.body;
+    const result = await chat_service_1.default.createConversation(req, data);
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.success(res, result.data, "Tạo cuộc trò chuyện thành công");
+};
+exports.createConversationController = createConversationController;
 const getConversationController = async (req, res) => {
     const { id } = req.params;
     const result = await chat_service_1.default.getConversation(req, id);

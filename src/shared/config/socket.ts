@@ -42,7 +42,7 @@ export type SocketChatChannel =
 export const SOCKET_ROLE_GROUPS = {
   ANY_AUTHENTICATED: ["admin", "moderator", "shop", "user"],
   ADMIN_STAFF: ["admin", "moderator"],
-  ADMIN_CHAT_PARTICIPANTS: ["admin", "moderator", "user"],
+  ADMIN_CHAT_PARTICIPANTS: ["admin", "moderator", "user", "shop"], // Shop và user đều có thể chat với admin
   SHOP_CHAT_PARTICIPANTS: ["shop", "admin", "moderator", "user"],
   AI_CHAT_PARTICIPANTS: ["admin", "moderator", "shop", "user"],
 } as const;

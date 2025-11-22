@@ -1,7 +1,9 @@
 import ChatConversationModel from "../../models/ChatConversation";
 import ChatMessageModel from "../../models/ChatMessage";
 import UserModel from "../../models/UserModel";
+import ShopModel from "../../models/ShopModel";
 import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
+import { chatService } from "../../shared/services/chat.service";
 import type {
   ChatConversationResponse,
   ChatMessageResponse,
@@ -10,6 +12,7 @@ import type {
   SendMessageRequest,
   ConversationListResponse,
   MessageListResponse,
+  CreateConversationRequest,
 } from "./types";
 
 export default class ChatService {
@@ -126,6 +129,269 @@ export default class ChatService {
         totalPages: Math.ceil(total / limit),
       },
     };
+
+    return { ok: true as const, data: response };
+  }
+
+  // Create a new conversation
+  static async createConversation(
+    req: AuthenticatedRequest,
+    data: CreateConversationRequest
+  ) {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return { ok: false as const, status: 401, message: "Unauthorized" };
+    }
+
+    const currentUser = await UserModel.findById(userId)
+      .select("name fullName email avatar role")
+      .lean();
+
+    if (!currentUser) {
+      return { ok: false as const, status: 404, message: "User not found" };
+    }
+
+    let participants: any[] = [
+      {
+        userId: userId,
+        name: currentUser.fullName || currentUser.name || currentUser.email,
+        avatar: currentUser.avatar,
+        role: currentUser.role,
+      },
+    ];
+
+    let conversationType: "admin" | "shop" | "direct" = "direct";
+    let channel: "admin" | "shop" | "ai" | undefined = undefined;
+    let metadata = data.metadata || {};
+
+    // Process and preserve product metadata if provided
+    if (data.metadata?.productId) {
+      console.log(`[Chat] Creating conversation with product metadata:`, {
+        productId: data.metadata.productId,
+        productName: data.metadata.productName,
+        shopId: data.metadata.shopId,
+      });
+      // Product metadata will be preserved in conversation metadata
+      // but product-specific info should be sent as message, not stored in conversation
+    }
+
+    if (data.type === "admin") {
+      // Find an admin user
+      const admin = await UserModel.findOne({ role: { $in: ["admin", "moderator"] } })
+        .select("_id name fullName email avatar role")
+        .lean();
+
+      if (!admin) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Không tìm thấy admin để chat",
+        };
+      }
+
+      participants.push({
+        userId: admin._id,
+        name: admin.fullName || admin.name || admin.email,
+        avatar: admin.avatar,
+        role: admin.role,
+      });
+
+      conversationType = "admin";
+      channel = "admin";
+      metadata.context = metadata.context || "CSKH";
+    } else if (data.type === "shop" && data.targetId) {
+      // Find shop owner
+      const shop = await ShopModel.findById(data.targetId)
+        .populate("userId", "name fullName email avatar role")
+        .lean();
+
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Cửa hàng không tồn tại",
+        };
+      }
+
+      const shopOwner = shop.userId as any;
+      if (!shopOwner) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Chủ cửa hàng không tồn tại",
+        };
+      }
+
+      participants.push({
+        userId: shopOwner._id,
+        name: shopOwner.fullName || shopOwner.name || shopOwner.email,
+        avatar: shopOwner.avatar,
+        role: shopOwner.role,
+      });
+
+      conversationType = "shop";
+      channel = "shop";
+      // Store shop info in metadata (always)
+      metadata.shopId = data.targetId;
+      metadata.shopName = shop.name;
+      
+      // Note: Product info from data.metadata will be preserved
+      // but should be sent as a message, not stored in conversation metadata
+      // to avoid creating separate conversations for each product
+    } else {
+      return {
+        ok: false as const,
+        status: 400,
+        message: "Invalid conversation type or missing targetId",
+      };
+    }
+
+    // Check if conversation already exists
+    const existingConversation = await ChatConversationModel.findOne({
+      "participants.userId": { $all: participants.map((p) => p.userId) },
+      type: conversationType,
+      channel: channel,
+      ...(data.type === "shop" && data.targetId
+        ? { "metadata.shopId": data.targetId }
+        : {}),
+    }).lean();
+
+    if (existingConversation) {
+      // Return existing conversation - use getConversation logic
+      const lastMessage = existingConversation.lastMessageId
+        ? await this.transformMessage(existingConversation.lastMessageId)
+        : undefined;
+
+      const unreadCount = await ChatMessageModel.countDocuments({
+        conversationId: existingConversation._id,
+        isRead: false,
+        senderId: { $ne: userId as any },
+      });
+
+      // Populate participants
+      const populatedParticipants = await Promise.all(
+        existingConversation.participants.map(async (p: any) => {
+          if (p.userId.toString() === userId) {
+            return {
+              userId: p.userId.toString(),
+              name: p.name,
+              avatar: p.avatar,
+              role: p.role,
+            };
+          }
+          const user = await UserModel.findById(p.userId)
+            .select("name fullName email avatar role")
+            .lean();
+          return {
+            userId: p.userId.toString(),
+            name: user?.fullName || user?.name || user?.email,
+            avatar: user?.avatar || p.avatar,
+            role: user?.role || p.role,
+          };
+        })
+      );
+
+      const response: ChatConversationResponse = {
+        _id: existingConversation._id.toString(),
+        participants: populatedParticipants,
+        lastMessage,
+        unreadCount,
+        type: existingConversation.type || "direct",
+        channel: existingConversation.channel ? String(existingConversation.channel) : undefined,
+        metadata: existingConversation.metadata || {},
+        createdAt: existingConversation.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: existingConversation.updatedAt?.toISOString() || new Date().toISOString(),
+      };
+
+      return { ok: true as const, data: response };
+    }
+
+    // Create new conversation
+    const conversation = await ChatConversationModel.create({
+      participants,
+      type: conversationType,
+      channel,
+      metadata,
+    });
+
+    // Send initial message if provided
+    if (data.initialMessage) {
+      // Determine type for initial message
+      let initialMessageType: "text" | "product" | "call" | "image" | "file" = "text";
+      if (metadata.productId) {
+        initialMessageType = "product";
+      }
+
+      const message = await ChatMessageModel.create({
+        conversationId: conversation._id,
+        senderId: userId,
+        senderName: currentUser.fullName || currentUser.name || currentUser.email,
+        senderAvatar: currentUser.avatar,
+        message: data.initialMessage,
+        type: initialMessageType,
+        metadata: metadata, // Include metadata for initial message
+        isDelivered: false,
+        isRead: false,
+      });
+
+      await ChatConversationModel.findByIdAndUpdate(conversation._id, {
+        lastMessageId: message._id,
+        lastMessageAt: new Date(),
+      });
+
+      // Emit message via socket
+      const messageResponse = await this.transformMessage(message.toObject());
+      await chatService.emitMessageAndUpdateConversation(
+        channel!,
+        conversation._id.toString(),
+        messageResponse,
+        userId
+      );
+    }
+
+    // Get the created conversation with populated data
+    const createdConversation = await ChatConversationModel.findById(conversation._id)
+      .populate("lastMessageId")
+      .lean();
+
+    const lastMessage = createdConversation?.lastMessageId
+      ? await this.transformMessage(createdConversation.lastMessageId)
+      : undefined;
+
+    // Populate participants with user info
+    const populatedParticipants = await Promise.all(
+      participants.map(async (p: any) => {
+        const user = await UserModel.findById(p.userId)
+          .select("name fullName email avatar role")
+          .lean();
+        return {
+          userId: p.userId.toString(),
+          name: user?.fullName || user?.name || user?.email || p.name,
+          avatar: user?.avatar || p.avatar,
+          role: user?.role || p.role,
+        };
+      })
+    );
+
+    const response: ChatConversationResponse = {
+      _id: conversation._id.toString(),
+      participants: populatedParticipants,
+      lastMessage,
+      unreadCount: 0,
+      type: conversationType,
+      channel: channel,
+      metadata: metadata,
+      createdAt: conversation.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: conversation.updatedAt?.toISOString() || new Date().toISOString(),
+    };
+
+    // Emit conversation update to all participants so they receive the new conversation
+    if (channel) {
+      await chatService.emitConversationUpdate({
+        channel,
+        conversationId: conversation._id.toString(),
+      });
+    }
 
     return { ok: true as const, data: response };
   }
@@ -303,6 +569,28 @@ export default class ChatService {
     // Get sender info
     const sender = await UserModel.findById(userId).select("name fullName email avatar role").lean();
 
+    // Process metadata - ensure product info is preserved
+    const messageMetadata = data.metadata || {};
+    
+    // If metadata contains product info, ensure it's properly structured
+    if (messageMetadata.productId) {
+      // Log product metadata for tracking (optional)
+      console.log(`[Chat] Message with product metadata:`, {
+        conversationId,
+        productId: messageMetadata.productId,
+        productName: messageMetadata.productName,
+        shopId: messageMetadata.shopId,
+      });
+    }
+
+    // Determine message type based on metadata
+    let messageType: "text" | "product" | "call" | "image" | "file" = data.type || "text";
+    
+    // Auto-detect type from metadata if not provided
+    if (!data.type && messageMetadata.productId) {
+      messageType = "product";
+    }
+
     // Create message
     const message = await ChatMessageModel.create({
       conversationId,
@@ -310,8 +598,9 @@ export default class ChatService {
       senderName: sender?.fullName || sender?.name || sender?.email,
       senderAvatar: sender?.avatar,
       message: data.message,
+      type: messageType,
       attachments: data.attachments || [],
-      metadata: data.metadata || {},
+      metadata: messageMetadata, // Store metadata including product info
       isDelivered: false,
       isRead: false,
     });
@@ -324,6 +613,15 @@ export default class ChatService {
     });
 
     const response: ChatMessageResponse = await this.transformMessage(message.toObject());
+
+    // Emit message via socket
+    const channel = conversation.channel || "shop";
+    await chatService.emitMessageAndUpdateConversation(
+      channel,
+      conversationId,
+      response,
+      userId
+    );
 
     return { ok: true as const, data: response };
   }
@@ -350,7 +648,7 @@ export default class ChatService {
     }
 
     // Mark all messages as read
-    await ChatMessageModel.updateMany(
+    const updateResult = await ChatMessageModel.updateMany(
       {
         conversationId,
         senderId: { $ne: userId as any },
@@ -361,6 +659,10 @@ export default class ChatService {
         readAt: new Date(),
       }
     );
+
+    // Emit conversation update via socket
+    const channel = conversation.channel || "shop";
+    await chatService.emitConversationUpdate({ channel, conversationId });
 
     return { ok: true as const };
   }
@@ -387,7 +689,7 @@ export default class ChatService {
     }
 
     // Mark all messages as delivered
-    await ChatMessageModel.updateMany(
+    const updateResult = await ChatMessageModel.updateMany(
       {
         conversationId,
         senderId: { $ne: userId as any },
@@ -398,6 +700,10 @@ export default class ChatService {
         deliveredAt: new Date(),
       }
     );
+
+    // Emit conversation update via socket
+    const channel = conversation.channel || "shop";
+    await chatService.emitConversationUpdate({ channel, conversationId });
 
     return { ok: true as const };
   }
@@ -425,6 +731,7 @@ export default class ChatService {
       senderName,
       senderAvatar,
       message: msg.message || "",
+      type: msg.type || "text", // Include message type
       attachments: msg.attachments || [],
       metadata: msg.metadata || {},
       isRead: msg.isRead || false,

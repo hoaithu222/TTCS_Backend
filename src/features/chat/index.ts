@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getConversationsController,
+  createConversationController,
   getConversationController,
   getMessagesController,
   sendMessageController,
@@ -10,6 +11,9 @@ import {
 import { authenticateToken } from "../../shared/middlewares/auth.middleware";
 
 const chatRouter = Router();
+
+// Create a new conversation (POST must be before GET with :id parameter)
+chatRouter.post("/conversations", authenticateToken, createConversationController);
 
 // Get conversations list
 chatRouter.get("/conversations", authenticateToken, getConversationsController);

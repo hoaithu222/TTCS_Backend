@@ -5,6 +5,7 @@ export interface ChatMessageResponse {
   senderName?: string;
   senderAvatar?: string;
   message: string;
+  type?: "text" | "product" | "call" | "image" | "file";
   attachments?: Array<{
     id?: string;
     url: string;
@@ -51,12 +52,42 @@ export interface MessageListQuery {
 
 export interface SendMessageRequest {
   message: string;
+  type?: "text" | "product" | "call" | "image" | "file";
   attachments?: Array<{
     url: string;
     type: string;
     name?: string;
   }>;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, any> | ProductMetadata;
+}
+
+// Product metadata structure for shop chat
+export interface ProductMetadata {
+  productId?: string;
+  productName?: string;
+  productImage?: string;
+  productPrice?: number;
+  shopId?: string;
+  shopName?: string;
+  [key: string]: any; // Allow additional fields
+}
+
+export interface CreateConversationRequest {
+  type: "admin" | "shop";
+  targetId?: string; // shopId nếu type là "shop"
+  metadata?: Record<string, any> | ShopConversationMetadata; // context: productId, orderId, etc.
+  initialMessage?: string;
+}
+
+// Shop conversation metadata structure
+export interface ShopConversationMetadata {
+  shopId?: string;
+  shopName?: string;
+  productId?: string; // Optional: for initial product context
+  productName?: string;
+  productImage?: string;
+  productPrice?: number;
+  [key: string]: any; // Allow additional fields
 }
 
 export interface ConversationListResponse {

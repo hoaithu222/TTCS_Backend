@@ -6,6 +6,7 @@ import type {
   ConversationListQuery,
   MessageListQuery,
   SendMessageRequest,
+  CreateConversationRequest,
 } from "./types";
 
 export const getConversationsController = async (req: Request, res: Response) => {
@@ -13,6 +14,13 @@ export const getConversationsController = async (req: Request, res: Response) =>
   const result = await ChatService.getConversations(req as AuthenticatedRequest, query);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
   return ResponseUtil.success(res, result.data);
+};
+
+export const createConversationController = async (req: Request, res: Response) => {
+  const data = req.body as CreateConversationRequest;
+  const result = await ChatService.createConversation(req as AuthenticatedRequest, data);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.data, "Tạo cuộc trò chuyện thành công");
 };
 
 export const getConversationController = async (req: Request, res: Response) => {

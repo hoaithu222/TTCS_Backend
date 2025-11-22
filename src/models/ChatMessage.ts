@@ -18,6 +18,11 @@ export const chatMessageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    type: {
+      type: String,
+      enum: ["text", "product", "call", "image", "file"],
+      default: "text",
+    },
     attachments: [
       {
         id: String,
