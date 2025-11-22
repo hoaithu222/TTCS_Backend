@@ -23,6 +23,8 @@ import paymentRoutes from "./payment";
 import walletRoutes from "./wallet";
 import adminRoutes from "./admin";
 import wishlistRoutes from "./wishlist";
+import notificationRoutes from "./notifications";
+import chatRoutes from "./chat";
 const router = Router();
 
 /**
@@ -57,6 +59,8 @@ const router = Router();
  *   - name: Payments
  *   - name: Wallets
  *   - name: Wishlist
+ *   - name: Notifications
+ *   - name: Chat
  */
 
 // Mount feature routes
@@ -85,4 +89,6 @@ router.use("/payments", paymentRoutes);
 router.use("/wallets", walletRoutes);
 router.use("/admin", adminRoutes);
 router.use("/wishlist", wishlistRoutes);
+router.use("/notifications", notificationRoutes);
+router.use("/chat", chatRoutes);
 export default router;

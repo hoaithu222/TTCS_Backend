@@ -28,6 +28,8 @@ const payment_1 = __importDefault(require("./payment"));
 const wallet_1 = __importDefault(require("./wallet"));
 const admin_1 = __importDefault(require("./admin"));
 const wishlist_1 = __importDefault(require("./wishlist"));
+const notifications_1 = __importDefault(require("./notifications"));
+const chat_1 = __importDefault(require("./chat"));
 const router = (0, express_1.Router)();
 /**
  * @swagger
@@ -60,6 +62,8 @@ const router = (0, express_1.Router)();
  *   - name: Payments
  *   - name: Wallets
  *   - name: Wishlist
+ *   - name: Notifications
+ *   - name: Chat
  */
 // Mount feature routes
 router.use("/health", health_1.default);
@@ -87,4 +91,6 @@ router.use("/payments", payment_1.default);
 router.use("/wallets", wallet_1.default);
 router.use("/admin", admin_1.default);
 router.use("/wishlist", wishlist_1.default);
+router.use("/notifications", notifications_1.default);
+router.use("/chat", chat_1.default);
 exports.default = router;

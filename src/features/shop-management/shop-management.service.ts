@@ -1,6 +1,6 @@
 import ShopModel from "../../models/ShopModel";
 import ProductModel from "../../models/ProductModal";
-import OrderModel from "../../models/OrderModel";
+import OrderModel, { OrderStatus } from "../../models/OrderModel";
 import ShopFollowerModel from "../../models/ShopFollower";
 import ReviewModel from "../../models/ReviewModel";
 import {
@@ -12,6 +12,7 @@ import {
   GetFollowersQuery,
 } from "./types";
 import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
+import { notificationService } from "../../shared/services/notification.service";
 
 export default class ShopManagementService {
   // Lấy thông tin shop của user hiện tại
@@ -95,7 +96,7 @@ export default class ShopManagementService {
         return { ok: false as const, status: 401, message: "Unauthorized" };
       }
 
-      const shop = await ShopModel.findOne({ userId }).select("_id");
+      const shop = await ShopModel.findOne({ userId }).select("_id name");
       if (!shop) {
         return {
           ok: false as const,
@@ -160,7 +161,7 @@ export default class ShopManagementService {
         return { ok: false as const, status: 401, message: "Unauthorized" };
       }
 
-      const shop = await ShopModel.findOne({ userId }).select("_id");
+      const shop = await ShopModel.findOne({ userId }).select("_id name");
       if (!shop) {
         return {
           ok: false as const,
@@ -609,6 +610,8 @@ export default class ShopManagementService {
         };
       }
 
+
+
       return { ok: true as const, order };
     } catch (error) {
       return {
@@ -694,6 +697,20 @@ export default class ShopManagementService {
       } catch (walletError) {
         console.error("[shop-management] wallet operation failed:", walletError);
         // Don't fail the order status update if wallet operation fails
+      }
+
+      try {
+        await notificationService.notifyUserOrderStatus({
+          userId: order.userId.toString(),
+          orderId: order._id.toString(),
+          status: (data.orderStatus || order.status) as OrderStatus,
+          shopName: shop.name,
+        });
+      } catch (notifyError) {
+        console.error(
+          "[shop-management] notify user order status failed:",
+          notifyError
+        );
       }
 
       return { ok: true as const, order };
