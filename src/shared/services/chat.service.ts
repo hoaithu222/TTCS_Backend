@@ -137,15 +137,57 @@ const getNamespaceForChannel = (channel: string): string | null => {
 
 /**
  * Transform conversation to response format
+ * @param conversation - Conversation data
+ * @param userId - Optional userId to calculate unreadCountMe and unreadCountTo for specific user
  */
 const transformConversation = async (
-  conversation: any
+  conversation: any,
+  userId?: string
 ): Promise<ChatConversationResponse> => {
-  // Get unread count
-  const unreadCount = await ChatMessageModel.countDocuments({
-    conversationId: conversation._id,
-    isRead: false,
-  });
+  // Calculate unread counts for specific user if userId is provided
+  let unreadCountMe = 0;
+  let unreadCountTo = 0;
+  
+  if (userId) {
+    // Ensure conversationId and userId are properly formatted
+    const conversationId = conversation._id?.toString() || conversation._id;
+    // Convert userId to string to ensure consistent comparison with senderId (ObjectId)
+    const userIdStr = String(userId);
+    
+    // unreadCountMe: messages from others that current user hasn't read
+    // senderId != userId means messages from other participants
+    unreadCountMe = await ChatMessageModel.countDocuments({
+      conversationId: conversationId,
+      isRead: false,
+      senderId: { $ne: userIdStr as any },
+    });
+    
+    // unreadCountTo: messages from current user that others haven't read
+    // This counts messages sent by current user that are still unread
+    // Note: This is a simplified approach - in a multi-user chat, isRead is global
+    // For accurate per-user read status, you'd need a readBy array in the message model
+    unreadCountTo = await ChatMessageModel.countDocuments({
+      conversationId: conversationId,
+      isRead: false,
+      senderId: userIdStr as any,
+    });
+  } else if (conversation.unreadCountMe !== undefined && conversation.unreadCountTo !== undefined) {
+    // Use provided counts if available
+    unreadCountMe = conversation.unreadCountMe;
+    unreadCountTo = conversation.unreadCountTo;
+  } else if (conversation.unreadCount !== undefined) {
+    // Fallback: use unreadCount as unreadCountMe (backward compatibility)
+    unreadCountMe = conversation.unreadCount;
+    unreadCountTo = 0;
+  } else {
+    // Fallback: count all unread messages (should be avoided, but kept for backward compatibility)
+    const conversationId = conversation._id?.toString() || conversation._id;
+    unreadCountMe = await ChatMessageModel.countDocuments({
+      conversationId: conversationId,
+      isRead: false,
+    });
+    unreadCountTo = 0;
+  }
 
   const lastMessage = conversation.lastMessageId
     ? await transformMessage(conversation.lastMessageId)
@@ -178,7 +220,9 @@ const transformConversation = async (
     _id: conversation._id.toString(),
     participants: populatedParticipants,
     lastMessage,
-    unreadCount,
+    unreadCountMe,
+    unreadCountTo,
+    unreadCount: unreadCountMe, // Backward compatibility
     type: conversation.type || "direct",
     channel: conversation.channel ? String(conversation.channel) : undefined,
     metadata: conversation.metadata || {},
@@ -268,30 +312,34 @@ export const chatService = {
 
     // Emit conversation update for each participant with their own unread count
     for (const participant of participants) {
-      const userId = participant.userId ? String(participant.userId) : '';
+      // Handle both ObjectId and string formats
+      let userId: string;
+      if (!participant.userId) continue;
+      
+      if (typeof participant.userId === 'object' && participant.userId._id) {
+        userId = participant.userId._id.toString();
+      } else if (typeof participant.userId === 'object') {
+        userId = participant.userId.toString();
+      } else {
+        userId = String(participant.userId);
+      }
+      
       if (!userId) continue;
 
-      // Calculate unread count for this specific user (only messages from others)
-      const unreadCount = await ChatMessageModel.countDocuments({
-        conversationId,
-        isRead: false,
-        senderId: { $ne: userId as any },
-      });
+      // Transform conversation with userId to calculate correct unreadCount for this user
+      const conversationResponse = await transformConversation(conversation, userId);
 
-      const conversationResponse = await transformConversation({
-        ...conversation,
-        unreadCount, // Use calculated unread count for this user
+      // Debug logging
+      console.log(`[Chat Service] Emitting conversation update for user ${userId}:`, {
+        conversationId: conversationResponse._id,
+        unreadCountMe: conversationResponse.unreadCountMe,
+        unreadCountTo: conversationResponse.unreadCountTo,
+        unreadCount: conversationResponse.unreadCount,
       });
 
       // Emit to this specific user's direct room
       const userRoom = buildDirectUserRoom(userId);
       namespace.to(userRoom).emit(SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
-        conversationId: conversationResponse._id,
-        conversation: conversationResponse,
-      });
-
-      // Also emit to conversation room
-      namespace.to(room).emit(SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
         conversationId: conversationResponse._id,
         conversation: conversationResponse,
       });

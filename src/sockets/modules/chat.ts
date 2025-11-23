@@ -156,8 +156,10 @@ export const registerChatNamespace = (
     socket.on(
       SOCKET_EVENTS.CHAT_MESSAGE_SEND,
       async (payload: ChatMessagePayload) => {
-        if (!payload?.message) {
-          socket.emit(SOCKET_EVENTS.ERROR, { message: "Message is required" });
+        // Allow empty message if there are attachments
+        const hasAttachments = payload.attachments && payload.attachments.length > 0;
+        if (!payload?.message && !hasAttachments) {
+          socket.emit(SOCKET_EVENTS.ERROR, { message: "Message or attachment is required" });
           return;
         }
 
@@ -219,6 +221,7 @@ export const registerChatNamespace = (
               conversationType = "admin";
               channel = "admin";
               metadata.context = metadata.context || "CSKH";
+              metadata.isSupport = true;
             } else if (convType === "shop" && payload.targetId) {
               // Find shop owner
               const shop = await ShopModel.findById(payload.targetId)
@@ -263,6 +266,7 @@ export const registerChatNamespace = (
                 conversationType = "admin";
                 channel = "admin";
                 metadata.context = "CSKH";
+                metadata.isSupport = true;
               } else {
                 socket.emit(SOCKET_EVENTS.ERROR, { message: "Không thể tạo cuộc trò chuyện" });
                 return;
@@ -290,6 +294,9 @@ export const registerChatNamespace = (
                 metadata,
               });
               conversationId = conversation._id.toString();
+              
+              // Emit conversationId back to sender when creating new conversation via CHAT_CONVERSATION_JOIN
+              // This will be handled by the conversation update emit below
             }
           }
 
@@ -317,13 +324,16 @@ export const registerChatNamespace = (
             messageType = "product";
           }
 
+          // Ensure message has a value (empty string is allowed if attachments exist)
+          const messageText = payload.message != null ? String(payload.message) : "";
+          
           // Create message in database
           const message = await ChatMessageModel.create({
             conversationId,
             senderId: socketUser.userId,
             senderName: sender?.fullName || sender?.name || sender?.email,
             senderAvatar: sender?.avatar,
-            message: payload.message,
+            message: messageText, // Can be empty string if attachments exist
             type: messageType,
             attachments: payload.attachments || [],
             metadata: payload.metadata || {},
@@ -349,7 +359,7 @@ export const registerChatNamespace = (
             senderId: socketUser.userId,
             senderName: sender?.fullName || sender?.name || sender?.email,
             senderAvatar: sender?.avatar,
-            message: payload.message,
+            message: messageText, // Can be empty string if attachments exist
             type: messageType, // Include message type
             attachments: payload.attachments || [],
             metadata: payload.metadata || {},
@@ -377,13 +387,6 @@ export const registerChatNamespace = (
             .lean();
 
           if (updatedConversation) {
-            // Get unread count
-            const unreadCount = await ChatMessageModel.countDocuments({
-              conversationId,
-              isRead: false,
-              senderId: { $ne: socketUser.userId as any },
-            });
-
             // Populate participants
             const populatedParticipants = await Promise.all(
               updatedConversation.participants.map(async (p: any) => {
@@ -399,31 +402,49 @@ export const registerChatNamespace = (
               })
             );
 
-            const conversationResponse = {
-              _id: updatedConversation._id.toString(),
-              participants: populatedParticipants,
-              lastMessage: messageResponse,
-              unreadCount,
-              type: updatedConversation.type || "direct",
-              channel: updatedConversation.channel ? String(updatedConversation.channel) : undefined,
-              metadata: updatedConversation.metadata || {},
-              createdAt: updatedConversation.createdAt?.toISOString() || new Date().toISOString(),
-              updatedAt: updatedConversation.updatedAt?.toISOString() || new Date().toISOString(),
-            };
+            // Emit conversation update for each participant with their own unread counts
+            for (const participant of populatedParticipants) {
+              const participantUserId = participant.userId;
+              
+              // Calculate unreadCountMe: messages from others that this participant hasn't read
+              const unreadCountMe = await ChatMessageModel.countDocuments({
+                conversationId,
+                isRead: false,
+                senderId: { $ne: participantUserId as any },
+              });
 
-            namespace.to(room).emit(SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
-              conversationId,
-              conversation: conversationResponse,
-            });
+              // Calculate unreadCountTo: messages from this participant that others haven't read
+              const unreadCountTo = await ChatMessageModel.countDocuments({
+                conversationId,
+                isRead: false,
+                senderId: participantUserId as any,
+              });
 
-            // Also emit to each participant's direct room
-            populatedParticipants.forEach((participant) => {
-              const userRoom = buildDirectUserRoom(participant.userId);
+              const conversationResponse = {
+                _id: updatedConversation._id.toString(),
+                participants: populatedParticipants,
+                lastMessage: messageResponse,
+                unreadCountMe, // Messages from others that this user hasn't read
+                unreadCountTo, // Messages from this user that others haven't read
+                unreadCount: unreadCountMe, // Backward compatibility
+                type: updatedConversation.type || "direct",
+                channel: updatedConversation.channel ? String(updatedConversation.channel) : undefined,
+                metadata: updatedConversation.metadata || {},
+                createdAt: updatedConversation.createdAt?.toISOString() || new Date().toISOString(),
+                updatedAt: updatedConversation.updatedAt?.toISOString() || new Date().toISOString(),
+              };
+
+              // Emit to this specific user's direct room
+              const userRoom = buildDirectUserRoom(participantUserId);
               namespace.to(userRoom).emit(SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
                 conversationId,
                 conversation: conversationResponse,
               });
-            });
+            }
+            
+            // DON'T emit to conversation room with unreadCount
+            // Each user already receives correct unreadCount via their direct room above
+            // Emitting to conversation room would cause all users to receive wrong unreadCount
           }
         } catch (error: any) {
           console.error("[Chat Socket] Error sending message:", error);

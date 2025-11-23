@@ -28,7 +28,9 @@ export interface ChatConversationResponse {
     role?: string;
   }>;
   lastMessage?: ChatMessageResponse;
-  unreadCount?: number;
+  unreadCountMe?: number; // Messages from others that current user hasn't read
+  unreadCountTo?: number; // Messages from current user that others haven't read
+  unreadCount?: number; // Deprecated: kept for backward compatibility, same as unreadCountMe
   type?: "direct" | "group" | "admin" | "shop" | "ai";
   channel?: string;
   metadata?: Record<string, any>;

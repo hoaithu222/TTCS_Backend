@@ -9,9 +9,9 @@ const response_util_1 = require("../../shared/utils/response.util");
 const getBannerController = async (req, res) => {
     const result = await home_service_1.default.getBanner();
     if (!result.ok) {
-        return response_util_1.ResponseUtil.error(res, "Failed to fetch banners", 500);
+        return response_util_1.ResponseUtil.error(res, result.message || "Failed to fetch banners", result.status || 500);
     }
-    return response_util_1.ResponseUtil.success(res, { banners: result.banners });
+    return response_util_1.ResponseUtil.success(res, result.banners);
 };
 exports.getBannerController = getBannerController;
 const getHomeCategoriesController = async (req, res) => {

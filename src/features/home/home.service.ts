@@ -53,14 +53,87 @@ const mapHomeProduct = (product: any) => {
 };
 
 export default class HomeService {
-  // Get home banner (for now, return empty array - can be extended with banner model)
+  // Get home banner
   static async getBanner() {
-    // TODO: Implement banner model and logic
-    // For now, return empty banners array
-    return {
-      ok: true as const,
-      banners: [],
-    };
+    try {
+      const HomeConfigurationModel = (await import("../../models/HomeConfigurationModel")).default;
+      const config = await HomeConfigurationModel.findOne({ isActive: true })
+        .populate({
+          path: "sideBanners.categoryId",
+          select: "name image_Background _id",
+        })
+        .lean()
+        .sort({ createdAt: -1 });
+
+      if (!config) {
+        return {
+          ok: true as const,
+          banners: {
+            mainBanners: [],
+            sideBanners: [],
+            features: [],
+            settings: {
+              autoSlideInterval: 5000,
+              showCounter: true,
+              showDots: true,
+            },
+          },
+        };
+      }
+
+      // Map sideBanners to include category image
+      const mappedSideBanners = (config.sideBanners || [])
+        .filter((b: any) => b.isActive)
+        .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+        .map((b: any) => {
+          const category = b.categoryId;
+          return {
+            _id: b._id?.toString(),
+            image: category?.image_Background || null,
+            categoryId: category?._id || b.categoryId,
+            category: category
+              ? {
+                  _id: category._id,
+                  name: category.name,
+                }
+              : null,
+          };
+        });
+
+      // Sort and filter active items
+      const banners = {
+        mainBanners: (config.mainBanners || [])
+          .filter((b: any) => b.isActive)
+          .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+          .map((b: any) => ({
+            _id: b._id?.toString(),
+            image: b.image,
+            title: b.title,
+            description: b.description,
+            link: b.link,
+          })),
+        sideBanners: mappedSideBanners,
+        features: (config.features || [])
+          .filter((f: any) => f.isActive)
+          .sort((a: any, b: any) => (a.order || 0) - (b.order || 0)),
+        settings: config.settings || {
+          autoSlideInterval: 5000,
+          showCounter: true,
+          showDots: true,
+        },
+      };
+
+      return {
+        ok: true as const,
+        banners,
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
   }
 
   // Get home categories

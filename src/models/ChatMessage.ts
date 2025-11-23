@@ -16,7 +16,8 @@ export const chatMessageSchema = new mongoose.Schema(
     senderAvatar: String,
     message: {
       type: String,
-      required: true,
+      required: false, // Not strictly required - will validate in code
+      default: "",
     },
     type: {
       type: String,

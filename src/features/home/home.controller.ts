@@ -5,9 +5,9 @@ import { ResponseUtil } from "../../shared/utils/response.util";
 export const getBannerController = async (req: Request, res: Response) => {
   const result = await HomeService.getBanner();
   if (!result.ok) {
-    return ResponseUtil.error(res, "Failed to fetch banners", 500);
+    return ResponseUtil.error(res, result.message || "Failed to fetch banners", result.status || 500);
   }
-  return ResponseUtil.success(res, { banners: result.banners });
+  return ResponseUtil.success(res, result.banners);
 };
 
 export const getHomeCategoriesController = async (

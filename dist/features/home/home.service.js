@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -53,14 +86,84 @@ const mapHomeProduct = (product) => {
     };
 };
 class HomeService {
-    // Get home banner (for now, return empty array - can be extended with banner model)
+    // Get home banner
     static async getBanner() {
-        // TODO: Implement banner model and logic
-        // For now, return empty banners array
-        return {
-            ok: true,
-            banners: [],
-        };
+        try {
+            const HomeConfigurationModel = (await Promise.resolve().then(() => __importStar(require("../../models/HomeConfigurationModel")))).default;
+            const config = await HomeConfigurationModel.findOne({ isActive: true })
+                .populate({
+                path: "sideBanners.categoryId",
+                select: "name image_Background _id",
+            })
+                .lean()
+                .sort({ createdAt: -1 });
+            if (!config) {
+                return {
+                    ok: true,
+                    banners: {
+                        mainBanners: [],
+                        sideBanners: [],
+                        features: [],
+                        settings: {
+                            autoSlideInterval: 5000,
+                            showCounter: true,
+                            showDots: true,
+                        },
+                    },
+                };
+            }
+            // Map sideBanners to include category image
+            const mappedSideBanners = (config.sideBanners || [])
+                .filter((b) => b.isActive)
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                .map((b) => {
+                const category = b.categoryId;
+                return {
+                    _id: b._id?.toString(),
+                    image: category?.image_Background || null,
+                    categoryId: category?._id || b.categoryId,
+                    category: category
+                        ? {
+                            _id: category._id,
+                            name: category.name,
+                        }
+                        : null,
+                };
+            });
+            // Sort and filter active items
+            const banners = {
+                mainBanners: (config.mainBanners || [])
+                    .filter((b) => b.isActive)
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .map((b) => ({
+                    _id: b._id?.toString(),
+                    image: b.image,
+                    title: b.title,
+                    description: b.description,
+                    link: b.link,
+                })),
+                sideBanners: mappedSideBanners,
+                features: (config.features || [])
+                    .filter((f) => f.isActive)
+                    .sort((a, b) => (a.order || 0) - (b.order || 0)),
+                settings: config.settings || {
+                    autoSlideInterval: 5000,
+                    showCounter: true,
+                    showDots: true,
+                },
+            };
+            return {
+                ok: true,
+                banners,
+            };
+        }
+        catch (error) {
+            return {
+                ok: false,
+                status: 500,
+                message: error.message,
+            };
+        }
     }
     // Get home categories
     static async getHomeCategories(params) {

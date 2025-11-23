@@ -52,9 +52,11 @@ export default class ChatService {
       ChatConversationModel.countDocuments(filter),
     ]);
 
-    // Get unread counts and last messages for each conversation
+    // Get unread counts for each conversation
     const conversationIds = conversations.map((c: any) => c._id);
-    const unreadCounts = await ChatMessageModel.aggregate([
+    
+    // unreadCountMe: messages from others that current user hasn't read
+    const unreadCountsMe = await ChatMessageModel.aggregate([
       {
         $match: {
           conversationId: { $in: conversationIds },
@@ -70,8 +72,28 @@ export default class ChatService {
       },
     ]);
 
-    const unreadCountMap = new Map(
-      unreadCounts.map((item) => [item._id.toString(), item.count])
+    // unreadCountTo: messages from current user that others haven't read
+    const unreadCountsTo = await ChatMessageModel.aggregate([
+      {
+        $match: {
+          conversationId: { $in: conversationIds },
+          isRead: false,
+          senderId: userId as any,
+        },
+      },
+      {
+        $group: {
+          _id: "$conversationId",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const unreadCountMeMap = new Map(
+      unreadCountsMe.map((item) => [item._id.toString(), item.count])
+    );
+    const unreadCountToMap = new Map(
+      unreadCountsTo.map((item) => [item._id.toString(), item.count])
     );
 
     // Transform conversations
@@ -81,7 +103,8 @@ export default class ChatService {
           ? await this.transformMessage(conv.lastMessageId)
           : undefined;
 
-        const unreadCount = unreadCountMap.get(conv._id.toString()) || 0;
+        const unreadCountMe = unreadCountMeMap.get(conv._id.toString()) || 0;
+        const unreadCountTo = unreadCountToMap.get(conv._id.toString()) || 0;
 
         // Populate participants with user info
         const populatedParticipants = await Promise.all(
@@ -110,7 +133,9 @@ export default class ChatService {
           _id: conv._id.toString(),
           participants: populatedParticipants,
           lastMessage,
-          unreadCount,
+          unreadCountMe,
+          unreadCountTo,
+          unreadCount: unreadCountMe, // Backward compatibility
           type: conv.type || "direct",
           channel: conv.channel ? String(conv.channel) : undefined,
           metadata: conv.metadata || {},
@@ -199,6 +224,7 @@ export default class ChatService {
       conversationType = "admin";
       channel = "admin";
       metadata.context = metadata.context || "CSKH";
+      metadata.isSupport = true;
     } else if (data.type === "shop" && data.targetId) {
       // Find shop owner
       const shop = await ShopModel.findById(data.targetId)
@@ -262,10 +288,18 @@ export default class ChatService {
         ? await this.transformMessage(existingConversation.lastMessageId)
         : undefined;
 
-      const unreadCount = await ChatMessageModel.countDocuments({
+      // Calculate unreadCountMe: messages from others that current user hasn't read
+      const unreadCountMe = await ChatMessageModel.countDocuments({
         conversationId: existingConversation._id,
         isRead: false,
         senderId: { $ne: userId as any },
+      });
+
+      // Calculate unreadCountTo: messages from current user that others haven't read
+      const unreadCountTo = await ChatMessageModel.countDocuments({
+        conversationId: existingConversation._id,
+        isRead: false,
+        senderId: userId as any,
       });
 
       // Populate participants
@@ -295,7 +329,9 @@ export default class ChatService {
         _id: existingConversation._id.toString(),
         participants: populatedParticipants,
         lastMessage,
-        unreadCount,
+        unreadCountMe,
+        unreadCountTo,
+        unreadCount: unreadCountMe, // Backward compatibility
         type: existingConversation.type || "direct",
         channel: existingConversation.channel ? String(existingConversation.channel) : undefined,
         metadata: existingConversation.metadata || {},
@@ -373,11 +409,28 @@ export default class ChatService {
       })
     );
 
+    // Calculate unread counts for the conversation
+    // unreadCountMe: messages from others that current user hasn't read
+    const unreadCountMe = await ChatMessageModel.countDocuments({
+      conversationId: conversation._id,
+      isRead: false,
+      senderId: { $ne: userId as any },
+    });
+
+    // unreadCountTo: messages from current user that others haven't read
+    const unreadCountTo = await ChatMessageModel.countDocuments({
+      conversationId: conversation._id,
+      isRead: false,
+      senderId: userId as any,
+    });
+
     const response: ChatConversationResponse = {
       _id: conversation._id.toString(),
       participants: populatedParticipants,
       lastMessage,
-      unreadCount: 0,
+      unreadCountMe,
+      unreadCountTo,
+      unreadCount: unreadCountMe, // Backward compatibility
       type: conversationType,
       channel: channel,
       metadata: metadata,
@@ -422,10 +475,18 @@ export default class ChatService {
       ? await this.transformMessage(conversation.lastMessageId)
       : undefined;
 
-    const unreadCount = await ChatMessageModel.countDocuments({
+    // Calculate unreadCountMe: messages from others that current user hasn't read
+    const unreadCountMe = await ChatMessageModel.countDocuments({
       conversationId,
       isRead: false,
       senderId: { $ne: userId as any },
+    });
+
+    // Calculate unreadCountTo: messages from current user that others haven't read
+    const unreadCountTo = await ChatMessageModel.countDocuments({
+      conversationId,
+      isRead: false,
+      senderId: userId as any,
     });
 
     // Populate participants
@@ -455,7 +516,9 @@ export default class ChatService {
       _id: conversation._id.toString(),
       participants: populatedParticipants,
       lastMessage,
-      unreadCount,
+      unreadCountMe,
+      unreadCountTo,
+      unreadCount: unreadCountMe, // Backward compatibility
       type: conversation.type || "direct",
       channel: conversation.channel ? String(conversation.channel) : undefined,
       metadata: conversation.metadata || {},
@@ -591,13 +654,16 @@ export default class ChatService {
       messageType = "product";
     }
 
+    // Ensure message has a value (empty string is allowed if attachments exist)
+    const messageText = data.message != null ? String(data.message) : "";
+    
     // Create message
     const message = await ChatMessageModel.create({
       conversationId,
       senderId: userId,
       senderName: sender?.fullName || sender?.name || sender?.email,
       senderAvatar: sender?.avatar,
-      message: data.message,
+      message: messageText, // Can be empty string if attachments exist
       type: messageType,
       attachments: data.attachments || [],
       metadata: messageMetadata, // Store metadata including product info
