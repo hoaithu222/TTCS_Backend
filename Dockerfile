@@ -19,4 +19,4 @@ RUN npm prune --production
 EXPOSE 5000
 
 # Command to run the app
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server.js"]
