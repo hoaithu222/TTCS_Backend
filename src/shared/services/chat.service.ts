@@ -10,6 +10,7 @@ import {
 import { getSocketServer } from "../config/socket-server";
 import UserModel from "../../models/UserModel";
 import type { ChatMessageResponse, ChatConversationResponse } from "../../features/chat/types";
+import { Types } from "mongoose";
 
 /**
  * Emit chat message to conversation room
@@ -151,15 +152,14 @@ const transformConversation = async (
   if (userId) {
     // Ensure conversationId and userId are properly formatted
     const conversationId = conversation._id?.toString() || conversation._id;
-    // Convert userId to string to ensure consistent comparison with senderId (ObjectId)
-    const userIdStr = String(userId);
+    const filters = buildSenderIdFilters(userId);
     
     // unreadCountMe: messages from others that current user hasn't read
     // senderId != userId means messages from other participants
     unreadCountMe = await ChatMessageModel.countDocuments({
       conversationId: conversationId,
       isRead: false,
-      senderId: { $ne: userIdStr as any },
+      senderId: filters.senderIsNotUser,
     });
     
     // unreadCountTo: messages from current user that others haven't read
@@ -169,7 +169,7 @@ const transformConversation = async (
     unreadCountTo = await ChatMessageModel.countDocuments({
       conversationId: conversationId,
       isRead: false,
-      senderId: userIdStr as any,
+      senderId: filters.senderIsUser,
     });
   } else if (conversation.unreadCountMe !== undefined && conversation.unreadCountTo !== undefined) {
     // Use provided counts if available
@@ -261,6 +261,20 @@ const transformMessage = async (msg: any): Promise<ChatMessageResponse> => {
     isDelivered: msg.isDelivered || false,
     createdAt: msg.createdAt?.toISOString() || new Date().toISOString(),
     updatedAt: msg.updatedAt?.toISOString(),
+  };
+};
+
+const buildSenderIdFilters = (userId: string) => {
+  const userIdStr = String(userId);
+  const variants: (string | Types.ObjectId)[] = [userIdStr];
+
+  if (Types.ObjectId.isValid(userIdStr)) {
+    variants.push(new Types.ObjectId(userIdStr));
+  }
+
+  return {
+    senderIsUser: { $in: variants },
+    senderIsNotUser: { $nin: variants },
   };
 };
 

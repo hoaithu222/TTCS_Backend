@@ -7,6 +7,7 @@ const ChatConversation_1 = __importDefault(require("../../models/ChatConversatio
 const ChatMessage_1 = __importDefault(require("../../models/ChatMessage"));
 const UserModel_1 = __importDefault(require("../../models/UserModel"));
 const ShopModel_1 = __importDefault(require("../../models/ShopModel"));
+const mongoose_1 = require("mongoose");
 const chat_service_1 = require("../../shared/services/chat.service");
 class ChatService {
     // Get conversations list with pagination
@@ -15,6 +16,8 @@ class ChatService {
         if (!userId) {
             return { ok: false, status: 401, message: "Unauthorized" };
         }
+        const userIdFilters = this.buildUserIdMatchingFilters(userId);
+        const currentUserId = userIdFilters.userIdStr;
         const page = Math.max(1, parseInt(String(query.page || 1)));
         const limit = Math.min(100, Math.max(1, parseInt(String(query.limit || 10))));
         const skip = (page - 1) * limit;
@@ -46,7 +49,7 @@ class ChatService {
                 $match: {
                     conversationId: { $in: conversationIds },
                     isRead: false,
-                    senderId: { $ne: userId },
+                    senderId: userIdFilters.senderIsNotUser,
                 },
             },
             {
@@ -62,7 +65,7 @@ class ChatService {
                 $match: {
                     conversationId: { $in: conversationIds },
                     isRead: false,
-                    senderId: userId,
+                    senderId: userIdFilters.senderIsUser,
                 },
             },
             {
@@ -83,7 +86,7 @@ class ChatService {
             const unreadCountTo = unreadCountToMap.get(conv._id.toString()) || 0;
             // Populate participants with user info
             const populatedParticipants = await Promise.all(conv.participants.map(async (p) => {
-                if (p.userId.toString() === userId) {
+                if (p.userId.toString() === currentUserId) {
                     return {
                         userId: p.userId.toString(),
                         name: p.name,
@@ -138,9 +141,11 @@ class ChatService {
         if (!currentUser) {
             return { ok: false, status: 404, message: "User not found" };
         }
+        const userIdFilters = this.buildUserIdMatchingFilters(userId);
+        const currentUserId = userIdFilters.userIdStr;
         let participants = [
             {
-                userId: userId,
+                userId: userIdFilters.normalizedUserId,
                 name: currentUser.fullName || currentUser.name || currentUser.email,
                 avatar: currentUser.avatar,
                 role: currentUser.role,
@@ -242,17 +247,17 @@ class ChatService {
             const unreadCountMe = await ChatMessage_1.default.countDocuments({
                 conversationId: existingConversation._id,
                 isRead: false,
-                senderId: { $ne: userId },
+                senderId: userIdFilters.senderIsNotUser,
             });
             // Calculate unreadCountTo: messages from current user that others haven't read
             const unreadCountTo = await ChatMessage_1.default.countDocuments({
                 conversationId: existingConversation._id,
                 isRead: false,
-                senderId: userId,
+                senderId: userIdFilters.senderIsUser,
             });
             // Populate participants
             const populatedParticipants = await Promise.all(existingConversation.participants.map(async (p) => {
-                if (p.userId.toString() === userId) {
+                if (p.userId.toString() === currentUserId) {
                     return {
                         userId: p.userId.toString(),
                         name: p.name,
@@ -301,7 +306,7 @@ class ChatService {
             }
             const message = await ChatMessage_1.default.create({
                 conversationId: conversation._id,
-                senderId: userId,
+                senderId: userIdFilters.normalizedUserId,
                 senderName: currentUser.fullName || currentUser.name || currentUser.email,
                 senderAvatar: currentUser.avatar,
                 message: data.initialMessage,
@@ -316,7 +321,7 @@ class ChatService {
             });
             // Emit message via socket
             const messageResponse = await this.transformMessage(message.toObject());
-            await chat_service_1.chatService.emitMessageAndUpdateConversation(channel, conversation._id.toString(), messageResponse, userId);
+            await chat_service_1.chatService.emitMessageAndUpdateConversation(channel, conversation._id.toString(), messageResponse, currentUserId);
         }
         // Get the created conversation with populated data
         const createdConversation = await ChatConversation_1.default.findById(conversation._id)
@@ -342,13 +347,13 @@ class ChatService {
         const unreadCountMe = await ChatMessage_1.default.countDocuments({
             conversationId: conversation._id,
             isRead: false,
-            senderId: { $ne: userId },
+            senderId: userIdFilters.senderIsNotUser,
         });
         // unreadCountTo: messages from current user that others haven't read
         const unreadCountTo = await ChatMessage_1.default.countDocuments({
             conversationId: conversation._id,
             isRead: false,
-            senderId: userId,
+            senderId: userIdFilters.senderIsUser,
         });
         const response = {
             _id: conversation._id.toString(),
@@ -378,6 +383,8 @@ class ChatService {
         if (!userId) {
             return { ok: false, status: 401, message: "Unauthorized" };
         }
+        const userIdFilters = this.buildUserIdMatchingFilters(userId);
+        const currentUserId = userIdFilters.userIdStr;
         const conversation = await ChatConversation_1.default.findOne({
             _id: conversationId,
             "participants.userId": userId,
@@ -398,17 +405,17 @@ class ChatService {
         const unreadCountMe = await ChatMessage_1.default.countDocuments({
             conversationId,
             isRead: false,
-            senderId: { $ne: userId },
+            senderId: userIdFilters.senderIsNotUser,
         });
         // Calculate unreadCountTo: messages from current user that others haven't read
         const unreadCountTo = await ChatMessage_1.default.countDocuments({
             conversationId,
             isRead: false,
-            senderId: userId,
+            senderId: userIdFilters.senderIsUser,
         });
         // Populate participants
         const populatedParticipants = await Promise.all(conversation.participants.map(async (p) => {
-            if (p.userId.toString() === userId) {
+            if (p.userId.toString() === currentUserId) {
                 return {
                     userId: p.userId.toString(),
                     name: p.name,
@@ -506,6 +513,8 @@ class ChatService {
         if (!userId) {
             return { ok: false, status: 401, message: "Unauthorized" };
         }
+        const userIdFilters = this.buildUserIdMatchingFilters(userId);
+        const currentUserId = userIdFilters.userIdStr;
         // Verify user is participant
         const conversation = await ChatConversation_1.default.findOne({
             _id: conversationId,
@@ -543,7 +552,7 @@ class ChatService {
         // Create message
         const message = await ChatMessage_1.default.create({
             conversationId,
-            senderId: userId,
+            senderId: userIdFilters.normalizedUserId,
             senderName: sender?.fullName || sender?.name || sender?.email,
             senderAvatar: sender?.avatar,
             message: messageText, // Can be empty string if attachments exist
@@ -562,7 +571,7 @@ class ChatService {
         const response = await this.transformMessage(message.toObject());
         // Emit message via socket
         const channel = conversation.channel || "shop";
-        await chat_service_1.chatService.emitMessageAndUpdateConversation(channel, conversationId, response, userId);
+        await chat_service_1.chatService.emitMessageAndUpdateConversation(channel, conversationId, response, currentUserId);
         return { ok: true, data: response };
     }
     // Mark conversation as read
@@ -571,6 +580,7 @@ class ChatService {
         if (!userId) {
             return { ok: false, status: 401, message: "Unauthorized" };
         }
+        const userIdFilters = this.buildUserIdMatchingFilters(userId);
         // Verify user is participant
         const conversation = await ChatConversation_1.default.findOne({
             _id: conversationId,
@@ -586,7 +596,7 @@ class ChatService {
         // Mark all messages as read
         const updateResult = await ChatMessage_1.default.updateMany({
             conversationId,
-            senderId: { $ne: userId },
+            senderId: userIdFilters.senderIsNotUser,
             isRead: false,
         }, {
             isRead: true,
@@ -603,6 +613,7 @@ class ChatService {
         if (!userId) {
             return { ok: false, status: 401, message: "Unauthorized" };
         }
+        const userIdFilters = this.buildUserIdMatchingFilters(userId);
         // Verify user is participant
         const conversation = await ChatConversation_1.default.findOne({
             _id: conversationId,
@@ -618,7 +629,7 @@ class ChatService {
         // Mark all messages as delivered
         const updateResult = await ChatMessage_1.default.updateMany({
             conversationId,
-            senderId: { $ne: userId },
+            senderId: userIdFilters.senderIsNotUser,
             isDelivered: false,
         }, {
             isDelivered: true,
@@ -657,6 +668,20 @@ class ChatService {
             isDelivered: msg.isDelivered || false,
             createdAt: msg.createdAt?.toISOString() || new Date().toISOString(),
             updatedAt: msg.updatedAt?.toISOString(),
+        };
+    }
+    static buildUserIdMatchingFilters(userId) {
+        const userIdStr = String(userId);
+        const variants = [userIdStr];
+        const isValidObjectId = mongoose_1.Types.ObjectId.isValid(userIdStr);
+        if (isValidObjectId) {
+            variants.push(new mongoose_1.Types.ObjectId(userIdStr));
+        }
+        return {
+            userIdStr,
+            normalizedUserId: isValidObjectId ? new mongoose_1.Types.ObjectId(userIdStr) : userIdStr,
+            senderIsUser: { $in: variants },
+            senderIsNotUser: { $nin: variants },
         };
     }
 }

@@ -9,6 +9,7 @@ const ChatMessage_1 = __importDefault(require("../../models/ChatMessage"));
 const socket_1 = require("../config/socket");
 const socket_server_1 = require("../config/socket-server");
 const UserModel_1 = __importDefault(require("../../models/UserModel"));
+const mongoose_1 = require("mongoose");
 /**
  * Emit chat message to conversation room
  */
@@ -128,14 +129,13 @@ const transformConversation = async (conversation, userId) => {
     if (userId) {
         // Ensure conversationId and userId are properly formatted
         const conversationId = conversation._id?.toString() || conversation._id;
-        // Convert userId to string to ensure consistent comparison with senderId (ObjectId)
-        const userIdStr = String(userId);
+        const filters = buildSenderIdFilters(userId);
         // unreadCountMe: messages from others that current user hasn't read
         // senderId != userId means messages from other participants
         unreadCountMe = await ChatMessage_1.default.countDocuments({
             conversationId: conversationId,
             isRead: false,
-            senderId: { $ne: userIdStr },
+            senderId: filters.senderIsNotUser,
         });
         // unreadCountTo: messages from current user that others haven't read
         // This counts messages sent by current user that are still unread
@@ -144,7 +144,7 @@ const transformConversation = async (conversation, userId) => {
         unreadCountTo = await ChatMessage_1.default.countDocuments({
             conversationId: conversationId,
             isRead: false,
-            senderId: userIdStr,
+            senderId: filters.senderIsUser,
         });
     }
     else if (conversation.unreadCountMe !== undefined && conversation.unreadCountTo !== undefined) {
@@ -231,6 +231,17 @@ const transformMessage = async (msg) => {
         isDelivered: msg.isDelivered || false,
         createdAt: msg.createdAt?.toISOString() || new Date().toISOString(),
         updatedAt: msg.updatedAt?.toISOString(),
+    };
+};
+const buildSenderIdFilters = (userId) => {
+    const userIdStr = String(userId);
+    const variants = [userIdStr];
+    if (mongoose_1.Types.ObjectId.isValid(userIdStr)) {
+        variants.push(new mongoose_1.Types.ObjectId(userIdStr));
+    }
+    return {
+        senderIsUser: { $in: variants },
+        senderIsNotUser: { $nin: variants },
     };
 };
 exports.chatService = {
