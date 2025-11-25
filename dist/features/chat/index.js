@@ -14,6 +14,8 @@ chatRouter.get("/conversations/:id", auth_middleware_1.authenticateToken, chat_c
 chatRouter.get("/conversations/:id/messages", auth_middleware_1.authenticateToken, chat_controller_1.getMessagesController);
 // Send a message
 chatRouter.post("/conversations/:id/messages", auth_middleware_1.authenticateToken, chat_controller_1.sendMessageController);
+// Get or create shop-customer conversation
+chatRouter.post("/conversations/shop", auth_middleware_1.authenticateToken, chat_controller_1.getOrCreateConversationForShopController);
 // Mark conversation as read
 chatRouter.patch("/conversations/:id/read", auth_middleware_1.authenticateToken, chat_controller_1.markAsReadController);
 // Mark conversation as delivered

@@ -6,6 +6,10 @@ const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
 const ordersRouter = (0, express_1.Router)();
 // List orders (admin, shop, or owner filtered via query)
 ordersRouter.get("/", auth_middleware_1.authenticateToken, orders_controller_1.listOrdersController);
+// Order tracking detail
+ordersRouter.get("/:id/track", auth_middleware_1.authenticateToken, orders_controller_1.trackOrderController);
+// Reorder: add order items back to cart
+ordersRouter.post("/:id/reorder", auth_middleware_1.authenticateToken, orders_controller_1.reorderOrderController);
 // Get order by id (owner or admin)
 ordersRouter.get("/:id", auth_middleware_1.authenticateToken, orders_controller_1.getOrderController);
 // Create new order (authenticated user)

@@ -266,3 +266,55 @@
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
+/**
+ * @swagger
+ * /orders/{id}/track:
+ *   get:
+ *     summary: Xem tiến trình vận chuyển của đơn hàng
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lấy thông tin tracking thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       404:
+ *         description: Không tìm thấy đơn hàng
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+/**
+ * @swagger
+ * /orders/{id}/reorder:
+ *   post:
+ *     summary: Thêm lại toàn bộ sản phẩm của đơn vào giỏ hàng
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Thêm sản phẩm vào giỏ hàng thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiSuccess'
+ *       404:
+ *         description: Không tìm thấy đơn hàng
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */ 

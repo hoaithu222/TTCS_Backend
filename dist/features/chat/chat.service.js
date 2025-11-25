@@ -129,6 +129,22 @@ class ChatService {
         };
         return { ok: true, data: response };
     }
+    static async getOrCreateConversationForShop(shopUserId, customerId) {
+        const existing = await ChatConversation_1.default.findOne({
+            "participants.userId": { $all: [shopUserId, customerId] },
+            type: "direct",
+        });
+        if (existing)
+            return existing;
+        const conversation = await ChatConversation_1.default.create({
+            type: "direct",
+            participants: [
+                { userId: shopUserId, role: "shop" },
+                { userId: customerId, role: "customer" },
+            ],
+        });
+        return conversation;
+    }
     // Create a new conversation
     static async createConversation(req, data) {
         const userId = req.user?.userId;

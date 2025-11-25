@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelOrderByUserController = exports.deleteOrderController = exports.updateOrderStatusController = exports.updateOrderController = exports.listOrdersController = exports.getOrderController = exports.createOrderController = void 0;
+exports.reorderOrderController = exports.trackOrderController = exports.cancelOrderByUserController = exports.deleteOrderController = exports.updateOrderStatusController = exports.updateOrderController = exports.listOrdersController = exports.getOrderController = exports.createOrderController = void 0;
 const orders_service_1 = __importDefault(require("./orders.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 const createOrderController = async (req, res) => {
@@ -67,3 +67,22 @@ const cancelOrderByUserController = async (req, res) => {
     return response_util_1.ResponseUtil.success(res, result.order);
 };
 exports.cancelOrderByUserController = cancelOrderByUserController;
+const trackOrderController = async (req, res) => {
+    const { id } = req.params;
+    const result = await orders_service_1.default.track(req, id);
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.success(res, {
+        order: result.order,
+        trackingHistory: result.trackingHistory,
+    });
+};
+exports.trackOrderController = trackOrderController;
+const reorderOrderController = async (req, res) => {
+    const { id } = req.params;
+    const result = await orders_service_1.default.reorder(req, id);
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.success(res, null, "Thêm sản phẩm vào giỏ hàng thành công");
+};
+exports.reorderOrderController = reorderOrderController;

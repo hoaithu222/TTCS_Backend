@@ -1,3 +1,4 @@
+
 import ChatConversationModel from "../../models/ChatConversation";
 import ChatMessageModel from "../../models/ChatMessage";
 import UserModel from "../../models/UserModel";
@@ -159,6 +160,23 @@ export default class ChatService {
     };
 
     return { ok: true as const, data: response };
+  }
+
+  static async getOrCreateConversationForShop(shopUserId: string, customerId: string) {
+    const existing = await ChatConversationModel.findOne({
+      "participants.userId": { $all: [shopUserId, customerId] },
+      type: "direct",
+    });
+    if (existing) return existing;
+
+    const conversation = await ChatConversationModel.create({
+      type: "direct",
+      participants: [
+        { userId: shopUserId, role: "shop" },
+        { userId: customerId, role: "customer" },
+      ],
+    });
+    return conversation;
   }
 
   // Create a new conversation

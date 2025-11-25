@@ -182,3 +182,78 @@ export const getMyShopFollowersController = async (req: Request, res: Response) 
   });
 };
 
+// Batch print orders
+export const batchPrintOrdersController = async (req: Request, res: Response) => {
+  const { orderIds } = req.body as { orderIds: string[] };
+  const { type } = req.query as { type?: "packing" | "invoice" };
+  if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+    return ResponseUtil.error(res, "Danh sách đơn hàng không hợp lệ", 400);
+  }
+  const result = await ShopManagementService.batchPrintOrders(
+    req as AuthenticatedRequest,
+    orderIds,
+    type || "packing"
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, result);
+};
+
+// Add internal note
+export const addInternalNoteController = async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const { note } = req.body as { note: string };
+  if (!note || !note.trim()) {
+    return ResponseUtil.error(res, "Ghi chú không được để trống", 400);
+  }
+  const result = await ShopManagementService.addInternalNote(
+    req as AuthenticatedRequest,
+    orderId,
+    note
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, result.note);
+};
+
+// Get internal notes
+export const getInternalNotesController = async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const result = await ShopManagementService.getInternalNotes(
+    req as AuthenticatedRequest,
+    orderId
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, result.notes);
+};
+
+// Delete internal note
+export const deleteInternalNoteController = async (req: Request, res: Response) => {
+  const { noteId } = req.params;
+  const result = await ShopManagementService.deleteInternalNote(
+    req as AuthenticatedRequest,
+    noteId
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, { message: result.message });
+};
+
+// Get order timeline
+export const getOrderTimelineController = async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const result = await ShopManagementService.getOrderTimeline(
+    req as AuthenticatedRequest,
+    orderId
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, result.timeline);
+};
+

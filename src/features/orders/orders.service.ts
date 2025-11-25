@@ -10,6 +10,7 @@ import UserModel from "../../models/UserModel";
 import { notificationService } from "../../shared/services/notification.service";
 import CartItemModel from "../../models/CartItem";
 import CartModel from "../../models/Cart";
+import CartService, { AddCartItemRequest } from "../cart/cart.service";
 
 export interface CreateOrderItemInput {
   productId: string;
@@ -557,6 +558,103 @@ export default class OrdersService {
         message: "Order không tồn tại",
       };
     return { ok: true as const, order: deleted };
+  }
+
+  static async track(req: AuthenticatedRequest, id: string) {
+    const currentUser = (req as any).currentUser as any;
+    if (!currentUser)
+      return { ok: false as const, status: 401, message: "Unauthorized" };
+
+    const order = await OrderModel.findById(id)
+      .populate({
+        path: "shopId",
+        select: "_id name logo slug description",
+      })
+      .populate({
+        path: "orderItems",
+        populate: {
+          path: "productId",
+          select: "_id name images price discount",
+          populate: {
+            path: "images",
+            select: "_id url publicId",
+          },
+        },
+      })
+      .populate({
+        path: "addressId",
+        select: "_id fullName phone address city district ward",
+      });
+
+    if (!order)
+      return { ok: false as const, status: 404, message: "Order không tồn tại" };
+
+    const isOwner = order.userId.toString() === currentUser.id?.toString();
+    if (currentUser.role !== "admin" && !isOwner) {
+      return { ok: false as const, status: 403, message: "Forbidden" };
+    }
+
+    const historyDocs = await OrderHistoryModel.find({ orderId: order._id })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const trackingHistory = historyDocs.map((entry) => ({
+      status: entry.status,
+      timestamp: entry.createdAt,
+      note: entry.description,
+    }));
+
+    return { ok: true as const, order, trackingHistory };
+  }
+
+  static async reorder(req: AuthenticatedRequest, id: string) {
+    const userId = (req as any).user?.userId;
+    if (!userId)
+      return { ok: false as const, status: 401, message: "Unauthorized" };
+
+    const order = await OrderModel.findById(id)
+      .select("userId shopId orderItems")
+      .lean();
+    if (!order)
+      return { ok: false as const, status: 404, message: "Order không tồn tại" };
+    if (order.userId.toString() !== userId.toString()) {
+      return { ok: false as const, status: 403, message: "Forbidden" };
+    }
+
+    const orderItems = await OrderItemModel.find({
+      _id: { $in: order.orderItems },
+    })
+      .select("productId variantId quantity price")
+      .lean();
+
+    if (!orderItems.length) {
+      return {
+        ok: false as const,
+        status: 400,
+        message: "Đơn hàng không có sản phẩm để mua lại",
+      };
+    }
+
+    for (const item of orderItems) {
+      const payload: AddCartItemRequest = {
+        productId: item.productId.toString(),
+        variantId: item.variantId?.toString(),
+        quantity: item.quantity || 1,
+        priceAtTime: item.price,
+        shopId: order.shopId.toString(),
+      };
+      const result = await CartService.addItem(req, payload);
+
+      if (!result.ok) {
+        return {
+          ok: false as const,
+          status: result.status ?? 400,
+          message: result.message || "Không thể thêm sản phẩm vào giỏ hàng",
+        };
+      }
+    }
+
+    return { ok: true as const };
   }
 
   private static async restoreInventory(order: any) {

@@ -3,6 +3,8 @@ import ProductModel from "../../models/ProductModal";
 import OrderModel, { OrderStatus } from "../../models/OrderModel";
 import ShopFollowerModel from "../../models/ShopFollower";
 import ReviewModel from "../../models/ReviewModel";
+import OrderHistoryModel from "../../models/OrderHistory";
+import OrderInternalNoteModel from "../../models/OrderInternalNote";
 import {
   GetMyShopProductsQuery,
   GetMyShopOrdersQuery,
@@ -512,6 +514,129 @@ export default class ShopManagementService {
     }
   }
 
+  // Calculate trust score based on user order history
+  private static async calculateTrustScore(userId: string, shopId: string): Promise<number> {
+    try {
+      const userOrders = await OrderModel.find({ userId, shopId }).lean();
+      if (userOrders.length === 0) return 50; // Default for new customers
+
+      const totalOrders = userOrders.length;
+      const cancelledOrders = userOrders.filter((o) => o.status === OrderStatus.CANCELLED).length;
+      const deliveredOrders = userOrders.filter((o) => o.status === OrderStatus.DELIVERED).length;
+      const avgOrderValue = userOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0) / totalOrders;
+
+      // Base score: 50
+      let score = 50;
+
+      // Positive factors
+      if (deliveredOrders > 0) {
+        const deliveryRate = deliveredOrders / totalOrders;
+        score += deliveryRate * 30; // Up to +30 for good delivery rate
+      }
+
+      if (totalOrders >= 5) {
+        score += 10; // +10 for repeat customers
+      }
+
+      if (avgOrderValue > 1000000) {
+        score += 10; // +10 for high-value customers
+      }
+
+      // Negative factors
+      if (cancelledOrders > 0) {
+        const cancelRate = cancelledOrders / totalOrders;
+        score -= cancelRate * 40; // Up to -40 for high cancellation rate
+      }
+
+      // Clamp between 0-100
+      return Math.max(0, Math.min(100, Math.round(score)));
+    } catch (error) {
+      return 50; // Default on error
+    }
+  }
+
+  // Internal note helper
+  private static async formatOrderForShop(orderDoc: any, shopId?: string) {
+    const address = orderDoc.addressId as any;
+    const user = orderDoc.userId as any;
+    const orderItemsDetails = Array.isArray(orderDoc.orderItems)
+      ? orderDoc.orderItems.map((item: any) => {
+          const product = item.productId as any;
+          const images = Array.isArray(product?.images) ? product.images : [];
+          let imageUrl: string | undefined;
+          if (images.length > 0) {
+            const firstImage = images[0];
+            if (typeof firstImage === "object" && firstImage?.url) {
+              imageUrl = firstImage.url;
+            } else if (typeof firstImage === "string") {
+              imageUrl = firstImage;
+            }
+          }
+          return {
+            productId: product?._id?.toString?.() || item.productId,
+            productName: product?.name || "Sản phẩm",
+            quantity: item.quantity,
+            price: item.price,
+            totalPrice: item.totalPrice,
+            productImage: imageUrl,
+          };
+        })
+      : [];
+
+    // Get timeline from OrderHistory
+    const orderHistory = await OrderHistoryModel.find({ orderId: orderDoc._id })
+      .sort({ createdAt: 1 })
+      .lean();
+    const timeline = orderHistory.map((h: any) => ({
+      status: h.status,
+      description: h.description,
+      createdAt: h.createdAt,
+    }));
+
+    // Get internal notes
+    const internalNotes = shopId
+      ? await OrderInternalNoteModel.find({ orderId: orderDoc._id, shopId })
+          .sort({ createdAt: -1 })
+          .select("note createdAt createdBy")
+          .lean()
+      : [];
+
+    // Calculate trust score
+    const trustScore = user?._id && shopId
+      ? await ShopManagementService.calculateTrustScore(user._id.toString(), shopId)
+      : 50;
+
+    return {
+      ...orderDoc,
+      user: user
+        ? {
+            _id: user._id?.toString?.() || user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+          }
+        : undefined,
+      shippingAddress: address
+        ? {
+            name: address.fullName,
+            phone: address.phone,
+            address: address.address,
+            city: address.city,
+            district: address.district,
+            ward: address.ward,
+          }
+        : undefined,
+      orderItemsDetails,
+      trustScore,
+      timeline,
+      internalNotes: internalNotes.map((n: any) => ({
+        note: n.note,
+        createdAt: n.createdAt,
+        createdBy: n.createdBy,
+      })),
+    };
+  }
+
   // Lấy danh sách đơn hàng của shop
   static async getMyShopOrders(
     req: AuthenticatedRequest,
@@ -557,10 +682,36 @@ export default class ShopManagementService {
       const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
       const sort: any = { [sortField]: sortDir };
 
-      const [orders, total] = await Promise.all([
-        OrderModel.find(filter).skip(skip).limit(limit).sort(sort),
+      const [ordersDocs, total] = await Promise.all([
+        OrderModel.find(filter)
+          .skip(skip)
+          .limit(limit)
+          .sort(sort)
+          .populate({
+            path: "orderItems",
+            populate: {
+              path: "productId",
+              select: "_id name images price discount",
+              populate: { path: "images", select: "_id url publicId" },
+            },
+          })
+          .populate({
+            path: "addressId",
+            select: "_id fullName phone address city district ward",
+          })
+          .populate({
+            path: "userId",
+            select: "_id name email phone",
+          })
+          .lean(),
         OrderModel.countDocuments(filter),
       ]);
+
+      const orders = await Promise.all(
+        ordersDocs.map((orderDoc) =>
+          ShopManagementService.formatOrderForShop(orderDoc, shop._id.toString())
+        )
+      );
 
       return {
         ok: true as const,
@@ -597,12 +748,29 @@ export default class ShopManagementService {
         };
       }
 
-      const order = await OrderModel.findOne({
+      const orderDoc = await OrderModel.findOne({
         _id: orderId,
         shopId: shop._id,
-      });
+      })
+        .populate({
+          path: "orderItems",
+          populate: {
+            path: "productId",
+            select: "_id name images price discount",
+            populate: { path: "images", select: "_id url publicId" },
+          },
+        })
+        .populate({
+          path: "addressId",
+          select: "_id fullName phone address city district ward",
+        })
+        .populate({
+          path: "userId",
+          select: "_id name email phone",
+        })
+        .lean();
 
-      if (!order) {
+      if (!orderDoc) {
         return {
           ok: false as const,
           status: 404,
@@ -610,7 +778,7 @@ export default class ShopManagementService {
         };
       }
 
-
+      const order = await ShopManagementService.formatOrderForShop(orderDoc, shop._id.toString());
 
       return { ok: true as const, order };
     } catch (error) {
@@ -984,6 +1152,286 @@ export default class ShopManagementService {
         total,
         page,
         limit,
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Batch printing - Generate PDF links for multiple orders
+  static async batchPrintOrders(
+    req: AuthenticatedRequest,
+    orderIds: string[],
+    type: "packing" | "invoice" = "packing"
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id name");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Shop không tồn tại",
+        };
+      }
+
+      const orders = await OrderModel.find({
+        _id: { $in: orderIds },
+        shopId: shop._id,
+      })
+        .populate({
+          path: "orderItems",
+          populate: {
+            path: "productId",
+            select: "_id name images",
+            populate: { path: "images", select: "url" },
+          },
+        })
+        .populate({
+          path: "addressId",
+          select: "_id fullName phone address city district ward",
+        })
+        .populate({
+          path: "userId",
+          select: "_id name email phone",
+        })
+        .lean();
+
+      if (orders.length === 0) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Không tìm thấy đơn hàng",
+        };
+      }
+
+      // Generate PDF links (in production, use actual PDF generation library)
+      const baseUrl = process.env.API_URL || "http://localhost:5000";
+      const pdfLinks = orders.map((order: any) => ({
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber || `#${order._id.toString().slice(-6)}`,
+        pdfUrl: `${baseUrl}/api/v1/shops/my-shop/orders/${order._id}/print?type=${type}`,
+        downloadUrl: `${baseUrl}/api/v1/shops/my-shop/orders/${order._id}/print?type=${type}&download=true`,
+      }));
+
+      // For ZIP download
+      const zipUrl = `${baseUrl}/api/v1/shops/my-shop/orders/batch-print?orderIds=${orderIds.join(",")}&type=${type}&format=zip`;
+
+      return {
+        ok: true as const,
+        pdfLinks,
+        zipUrl,
+        count: orders.length,
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Add internal note
+  static async addInternalNote(
+    req: AuthenticatedRequest,
+    orderId: string,
+    note: string
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Shop không tồn tại",
+        };
+      }
+
+      const order = await OrderModel.findOne({
+        _id: orderId,
+        shopId: shop._id,
+      });
+
+      if (!order) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Đơn hàng không tồn tại",
+        };
+      }
+
+      const internalNote = await OrderInternalNoteModel.create({
+        orderId: order._id,
+        shopId: shop._id,
+        note: note.trim(),
+        createdBy: userId,
+      });
+
+      return {
+        ok: true as const,
+        note: {
+          _id: internalNote._id.toString(),
+          note: internalNote.note,
+          createdAt: internalNote.createdAt,
+          createdBy: internalNote.createdBy.toString(),
+        },
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Get internal notes for an order
+  static async getInternalNotes(req: AuthenticatedRequest, orderId: string) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Shop không tồn tại",
+        };
+      }
+
+      const notes = await OrderInternalNoteModel.find({
+        orderId,
+        shopId: shop._id,
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return {
+        ok: true as const,
+        notes: notes.map((n: any) => ({
+          _id: n._id.toString(),
+          note: n.note,
+          createdAt: n.createdAt,
+          createdBy: n.createdBy.toString(),
+        })),
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Delete internal note
+  static async deleteInternalNote(
+    req: AuthenticatedRequest,
+    noteId: string
+  ) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Shop không tồn tại",
+        };
+      }
+
+      const note = await OrderInternalNoteModel.findOneAndDelete({
+        _id: noteId,
+        shopId: shop._id,
+        createdBy: userId, // Only creator can delete
+      });
+
+      if (!note) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Ghi chú không tồn tại",
+        };
+      }
+
+      return { ok: true as const, message: "Đã xóa ghi chú" };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Get detailed timeline for an order
+  static async getOrderTimeline(req: AuthenticatedRequest, orderId: string) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Shop không tồn tại",
+        };
+      }
+
+      const order = await OrderModel.findOne({
+        _id: orderId,
+        shopId: shop._id,
+      });
+
+      if (!order) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Đơn hàng không tồn tại",
+        };
+      }
+
+      const timeline = await OrderHistoryModel.find({ orderId: order._id })
+        .sort({ createdAt: 1 })
+        .lean();
+
+      return {
+        ok: true as const,
+        timeline: timeline.map((t: any) => ({
+          _id: t._id.toString(),
+          status: t.status,
+          description: t.description,
+          createdAt: t.createdAt,
+        })),
       };
     } catch (error) {
       return {

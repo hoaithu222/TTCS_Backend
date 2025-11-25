@@ -1,3 +1,15 @@
+export const getOrCreateConversationForShopController = async (req: Request, res: Response) => {
+  const { customerId } = req.body as { customerId: string };
+  const shopUserId = (req as AuthenticatedRequest).user?.userId;
+  if (!shopUserId) {
+    return ResponseUtil.unauthorized(res, "Unauthorized");
+  }
+  if (!customerId) {
+    return ResponseUtil.badRequest(res, "customerId is required");
+  }
+  const conversation = await ChatService.getOrCreateConversationForShop(shopUserId, customerId);
+  return ResponseUtil.success(res, { conversation });
+};
 import { Request, Response } from "express";
 import ChatService from "./chat.service";
 import { ResponseUtil } from "../../shared/utils/response.util";

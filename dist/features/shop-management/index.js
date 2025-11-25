@@ -27,4 +27,12 @@ shopManagementRouter.get("/my-shop/analytics", shop_management_controller_1.getM
 shopManagementRouter.get("/my-shop/reviews", shop_management_controller_1.getMyShopReviewsController);
 // Followers
 shopManagementRouter.get("/my-shop/followers", shop_management_controller_1.getMyShopFollowersController);
+// Batch printing
+shopManagementRouter.post("/my-shop/orders/batch-print", shop_management_controller_1.batchPrintOrdersController);
+// Internal notes
+shopManagementRouter.post("/my-shop/orders/:orderId/notes", shop_management_controller_1.addInternalNoteController);
+shopManagementRouter.get("/my-shop/orders/:orderId/notes", shop_management_controller_1.getInternalNotesController);
+shopManagementRouter.delete("/my-shop/orders/notes/:noteId", shop_management_controller_1.deleteInternalNoteController);
+// Order timeline
+shopManagementRouter.get("/my-shop/orders/:orderId/timeline", shop_management_controller_1.getOrderTimelineController);
 exports.default = shopManagementRouter;

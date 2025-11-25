@@ -7,6 +7,8 @@ import {
   updateOrderController,
   updateOrderStatusController,
   cancelOrderByUserController,
+  trackOrderController,
+  reorderOrderController,
 } from "./orders.controller";
 import {
   authenticateToken,
@@ -17,6 +19,12 @@ const ordersRouter = Router();
 
 // List orders (admin, shop, or owner filtered via query)
 ordersRouter.get("/", authenticateToken, listOrdersController);
+
+// Order tracking detail
+ordersRouter.get("/:id/track", authenticateToken, trackOrderController);
+
+// Reorder: add order items back to cart
+ordersRouter.post("/:id/reorder", authenticateToken, reorderOrderController);
 
 // Get order by id (owner or admin)
 ordersRouter.get("/:id", authenticateToken, getOrderController);

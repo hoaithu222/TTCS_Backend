@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMyShopFollowersController = exports.getMyShopReviewsController = exports.getMyShopAnalyticsController = exports.updateMyShopOrderStatusController = exports.getMyShopOrderController = exports.getMyShopOrdersController = exports.deleteMyShopProductController = exports.getMyShopProductController = exports.updateMyShopProductController = exports.createMyShopProductController = exports.getMyShopProductsController = exports.updateMyShopController = exports.getMyShopController = void 0;
+exports.getOrderTimelineController = exports.deleteInternalNoteController = exports.getInternalNotesController = exports.addInternalNoteController = exports.batchPrintOrdersController = exports.getMyShopFollowersController = exports.getMyShopReviewsController = exports.getMyShopAnalyticsController = exports.updateMyShopOrderStatusController = exports.getMyShopOrderController = exports.getMyShopOrdersController = exports.deleteMyShopProductController = exports.getMyShopProductController = exports.updateMyShopProductController = exports.createMyShopProductController = exports.getMyShopProductsController = exports.updateMyShopController = exports.getMyShopController = void 0;
 const shop_management_service_1 = __importDefault(require("./shop-management.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 // Lấy thông tin shop của user hiện tại
@@ -160,3 +160,61 @@ const getMyShopFollowersController = async (req, res) => {
     });
 };
 exports.getMyShopFollowersController = getMyShopFollowersController;
+// Batch print orders
+const batchPrintOrdersController = async (req, res) => {
+    const { orderIds } = req.body;
+    const { type } = req.query;
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+        return response_util_1.ResponseUtil.error(res, "Danh sách đơn hàng không hợp lệ", 400);
+    }
+    const result = await shop_management_service_1.default.batchPrintOrders(req, orderIds, type || "packing");
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
+    return response_util_1.ResponseUtil.success(res, result);
+};
+exports.batchPrintOrdersController = batchPrintOrdersController;
+// Add internal note
+const addInternalNoteController = async (req, res) => {
+    const { orderId } = req.params;
+    const { note } = req.body;
+    if (!note || !note.trim()) {
+        return response_util_1.ResponseUtil.error(res, "Ghi chú không được để trống", 400);
+    }
+    const result = await shop_management_service_1.default.addInternalNote(req, orderId, note);
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
+    return response_util_1.ResponseUtil.success(res, result.note);
+};
+exports.addInternalNoteController = addInternalNoteController;
+// Get internal notes
+const getInternalNotesController = async (req, res) => {
+    const { orderId } = req.params;
+    const result = await shop_management_service_1.default.getInternalNotes(req, orderId);
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
+    return response_util_1.ResponseUtil.success(res, result.notes);
+};
+exports.getInternalNotesController = getInternalNotesController;
+// Delete internal note
+const deleteInternalNoteController = async (req, res) => {
+    const { noteId } = req.params;
+    const result = await shop_management_service_1.default.deleteInternalNote(req, noteId);
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
+    return response_util_1.ResponseUtil.success(res, { message: result.message });
+};
+exports.deleteInternalNoteController = deleteInternalNoteController;
+// Get order timeline
+const getOrderTimelineController = async (req, res) => {
+    const { orderId } = req.params;
+    const result = await shop_management_service_1.default.getOrderTimeline(req, orderId);
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
+    return response_util_1.ResponseUtil.success(res, result.timeline);
+};
+exports.getOrderTimelineController = getOrderTimelineController;

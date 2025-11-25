@@ -7,6 +7,7 @@ import {
   sendMessageController,
   markAsReadController,
   markAsDeliveredController,
+  getOrCreateConversationForShopController,
 } from "./chat.controller";
 import { authenticateToken } from "../../shared/middlewares/auth.middleware";
 
@@ -26,6 +27,13 @@ chatRouter.get("/conversations/:id/messages", authenticateToken, getMessagesCont
 
 // Send a message
 chatRouter.post("/conversations/:id/messages", authenticateToken, sendMessageController);
+
+// Get or create shop-customer conversation
+chatRouter.post(
+  "/conversations/shop",
+  authenticateToken,
+  getOrCreateConversationForShopController
+);
 
 // Mark conversation as read
 chatRouter.patch("/conversations/:id/read", authenticateToken, markAsReadController);

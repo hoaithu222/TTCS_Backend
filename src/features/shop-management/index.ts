@@ -13,6 +13,11 @@ import {
   getMyShopAnalyticsController,
   getMyShopReviewsController,
   getMyShopFollowersController,
+  batchPrintOrdersController,
+  addInternalNoteController,
+  getInternalNotesController,
+  deleteInternalNoteController,
+  getOrderTimelineController,
 } from "./shop-management.controller";
 import {
   authenticateToken,
@@ -59,5 +64,16 @@ shopManagementRouter.get("/my-shop/reviews", getMyShopReviewsController);
 
 // Followers
 shopManagementRouter.get("/my-shop/followers", getMyShopFollowersController);
+
+// Batch printing
+shopManagementRouter.post("/my-shop/orders/batch-print", batchPrintOrdersController);
+
+// Internal notes
+shopManagementRouter.post("/my-shop/orders/:orderId/notes", addInternalNoteController);
+shopManagementRouter.get("/my-shop/orders/:orderId/notes", getInternalNotesController);
+shopManagementRouter.delete("/my-shop/orders/notes/:noteId", deleteInternalNoteController);
+
+// Order timeline
+shopManagementRouter.get("/my-shop/orders/:orderId/timeline", getOrderTimelineController);
 
 export default shopManagementRouter;

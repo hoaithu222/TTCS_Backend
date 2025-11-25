@@ -81,3 +81,20 @@ export const cancelOrderByUserController = async (
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
   return ResponseUtil.success(res, result.order);
 };
+
+export const trackOrderController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await OrdersService.track(req as AuthenticatedRequest, id);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, {
+    order: result.order,
+    trackingHistory: result.trackingHistory,
+  });
+};
+
+export const reorderOrderController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await OrdersService.reorder(req as AuthenticatedRequest, id);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, null, "Thêm sản phẩm vào giỏ hàng thành công");
+};

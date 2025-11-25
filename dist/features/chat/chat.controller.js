@@ -3,7 +3,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markAsDeliveredController = exports.markAsReadController = exports.sendMessageController = exports.getMessagesController = exports.getConversationController = exports.createConversationController = exports.getConversationsController = void 0;
+exports.markAsDeliveredController = exports.markAsReadController = exports.sendMessageController = exports.getMessagesController = exports.getConversationController = exports.createConversationController = exports.getConversationsController = exports.getOrCreateConversationForShopController = void 0;
+const getOrCreateConversationForShopController = async (req, res) => {
+    const { customerId } = req.body;
+    const shopUserId = req.user?.userId;
+    if (!shopUserId) {
+        return response_util_1.ResponseUtil.unauthorized(res, "Unauthorized");
+    }
+    if (!customerId) {
+        return response_util_1.ResponseUtil.badRequest(res, "customerId is required");
+    }
+    const conversation = await chat_service_1.default.getOrCreateConversationForShop(shopUserId, customerId);
+    return response_util_1.ResponseUtil.success(res, { conversation });
+};
+exports.getOrCreateConversationForShopController = getOrCreateConversationForShopController;
 const chat_service_1 = __importDefault(require("./chat.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 const getConversationsController = async (req, res) => {
