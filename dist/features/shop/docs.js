@@ -97,6 +97,27 @@
  */
 /**
  * @swagger
+ * /shops/{id}/reviews:
+ *   get:
+ *     summary: Danh sách đánh giá của cửa hàng
+ *     tags: [Shops]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Thành công
+ */
+/**
+ * @swagger
  * /shops/{id}/follow:
  *   post:
  *     summary: Theo dõi cửa hàng (yêu cầu đăng nhập)

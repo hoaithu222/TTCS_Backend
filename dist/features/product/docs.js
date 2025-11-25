@@ -174,3 +174,45 @@
  *       200:
  *         description: Thành công
  */
+/**
+ * @swagger
+ * /products/{id}/reviews:
+ *   get:
+ *     summary: Danh sách đánh giá theo sản phẩm
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *   post:
+ *     summary: Tạo đánh giá (người mua)
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateReviewRequest'
+ *     responses:
+ *       201:
+ *         description: Tạo thành công
+ */ 

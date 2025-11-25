@@ -13,6 +13,7 @@ import {
   approveShopController,
   rejectShopController,
   suspendShopController,
+  getShopReviewsController,
 } from "./shop.controller";
 import {
   authenticateToken,
@@ -23,6 +24,7 @@ const shopRouter = Router();
 
 shopRouter.get("/", listShopController);
 shopRouter.get("/status/user/:userId", getShopStatusByUserIdController);
+shopRouter.get("/:id/reviews", getShopReviewsController);
 shopRouter.get("/:id", getShopController);
 shopRouter.post(
   "/",

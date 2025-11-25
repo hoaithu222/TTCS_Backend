@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import ProductService from "./product.service";
+import ReviewsService from "../reviews/reviews.service";
 import { ResponseUtil } from "../../shared/utils/response.util";
+import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
+import type { CreateReviewRequest } from "../reviews/types";
 
 export const getProductController = async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -183,4 +186,15 @@ export const getProductReviewsController = async (req: Request, res: Response) =
       totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
     },
   });
+};
+
+export const createProductReviewController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const payload = req.body as CreateReviewRequest;
+  const result = await ReviewsService.create(req as AuthenticatedRequest, {
+    ...payload,
+    productId: id,
+  });
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.created(res, result.review);
 };

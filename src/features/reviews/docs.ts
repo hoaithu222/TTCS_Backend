@@ -11,11 +11,15 @@
  *   schemas:
  *     CreateReviewRequest:
  *       type: object
- *       required: [productId, shopId, rating]
+ *       required: [productId, shopId, orderId, orderItemId, rating]
  *       properties:
  *         productId:
  *           type: string
  *         shopId:
+ *           type: string
+ *         orderId:
+ *           type: string
+ *         orderItemId:
  *           type: string
  *         rating:
  *           type: number

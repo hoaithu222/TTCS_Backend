@@ -11,6 +11,16 @@ exports.reviewSchema = new mongoose_1.default.Schema({
         ref: "User",
         required: true,
     },
+    orderId: {
+        type: mongoose_1.default.Schema.Types.ObjectId,
+        ref: "Order",
+        required: true,
+    },
+    orderItemId: {
+        type: mongoose_1.default.Schema.Types.ObjectId,
+        ref: "OrderItem",
+        required: true,
+    },
     shopId: {
         type: mongoose_1.default.Schema.Types.ObjectId,
         ref: "Shop",
@@ -31,6 +41,14 @@ exports.reviewSchema = new mongoose_1.default.Schema({
     images: {
         type: [mongoose_1.default.Schema.Types.ObjectId],
         ref: "Image",
+    },
+    isVerified: {
+        type: Boolean,
+        default: false,
+    },
+    helpfulCount: {
+        type: Number,
+        default: 0,
     },
 }, { timestamps: true });
 const ReviewModel = mongoose_1.default.model("Review", exports.reviewSchema);

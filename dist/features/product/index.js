@@ -11,6 +11,7 @@ productRouter.get("/recommended", product_controller_1.getRecommendedProductsCon
 productRouter.get("/", product_controller_1.listProductController);
 productRouter.get("/:id/related", product_controller_1.getRelatedProductsController);
 productRouter.get("/:id/reviews", product_controller_1.getProductReviewsController);
+productRouter.post("/:id/reviews", auth_middleware_1.authenticateToken, product_controller_1.createProductReviewController);
 productRouter.post("/:id/view", product_controller_1.trackProductViewController);
 productRouter.get("/:id", product_controller_1.getProductController);
 // Protected routes

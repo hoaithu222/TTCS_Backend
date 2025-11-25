@@ -3,8 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getProductReviewsController = exports.trackProductViewController = exports.getRelatedProductsController = exports.getRecommendedProductsController = exports.getFeaturedProductsController = exports.searchProductController = exports.listProductController = exports.deleteProductController = exports.updateProductController = exports.createProductController = exports.getProductController = void 0;
+exports.createProductReviewController = exports.getProductReviewsController = exports.trackProductViewController = exports.getRelatedProductsController = exports.getRecommendedProductsController = exports.getFeaturedProductsController = exports.searchProductController = exports.listProductController = exports.deleteProductController = exports.updateProductController = exports.createProductController = exports.getProductController = void 0;
 const product_service_1 = __importDefault(require("./product.service"));
+const reviews_service_1 = __importDefault(require("../reviews/reviews.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 const getProductController = async (req, res) => {
     const { id } = req.params;
@@ -165,3 +166,15 @@ const getProductReviewsController = async (req, res) => {
     });
 };
 exports.getProductReviewsController = getProductReviewsController;
+const createProductReviewController = async (req, res) => {
+    const { id } = req.params;
+    const payload = req.body;
+    const result = await reviews_service_1.default.create(req, {
+        ...payload,
+        productId: id,
+    });
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.created(res, result.review);
+};
+exports.createProductReviewController = createProductReviewController;

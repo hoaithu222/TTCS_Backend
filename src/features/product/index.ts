@@ -11,6 +11,7 @@ import {
   getRelatedProductsController,
   trackProductViewController,
   getProductReviewsController,
+  createProductReviewController,
 } from "./product.controller";
 import {
   authenticateToken,
@@ -26,6 +27,11 @@ productRouter.get("/recommended", getRecommendedProductsController);
 productRouter.get("/", listProductController);
 productRouter.get("/:id/related", getRelatedProductsController);
 productRouter.get("/:id/reviews", getProductReviewsController);
+productRouter.post(
+  "/:id/reviews",
+  authenticateToken,
+  createProductReviewController
+);
 productRouter.post("/:id/view", trackProductViewController);
 productRouter.get("/:id", getProductController);
 

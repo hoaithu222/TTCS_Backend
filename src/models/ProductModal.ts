@@ -63,6 +63,12 @@ export const productSchema = new mongoose.Schema(
       max: 5,
       default: 0,
     },
+    reviewCount: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
     salesCount: {
       type: Number,
       required: true,

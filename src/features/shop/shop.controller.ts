@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import ShopService from "./shop.service";
 import { ResponseUtil } from "../../shared/utils/response.util";
+import ReviewsService from "../reviews/reviews.service";
 
 export const getShopController = async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -140,4 +141,27 @@ export const suspendShopController = async (req: Request, res: Response) => {
   const result = await ShopService.suspendShop(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
   return ResponseUtil.success(res, result.item);
+};
+
+export const getShopReviewsController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { page, limit, sortBy } = req.query as any;
+  const result = await ReviewsService.getShopReviews(id, {
+    page: page ? Number(page) : 1,
+    limit: limit ? Number(limit) : 10,
+    sortBy,
+  });
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, {
+    reviews: result.reviews,
+    averageRating: result.averageRating,
+    totalReviews: result.totalReviews,
+    ratingDistribution: result.ratingDistribution,
+    pagination: {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
+    },
+  });
 };

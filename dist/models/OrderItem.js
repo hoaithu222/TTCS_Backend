@@ -41,6 +41,10 @@ exports.orderItemSchema = new mongoose_1.default.Schema({
         type: Number,
         required: true,
     },
+    isReviewed: {
+        type: Boolean,
+        default: false,
+    },
 }, { timestamps: true });
 const OrderItemModel = mongoose_1.default.model("OrderItem", exports.orderItemSchema);
 exports.default = OrderItemModel;

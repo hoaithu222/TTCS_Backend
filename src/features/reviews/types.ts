@@ -1,6 +1,8 @@
 export interface CreateReviewRequest {
   productId: string;
   shopId: string;
+  orderId: string;
+  orderItemId: string;
   rating: number; // 1..5
   comment?: string;
   images?: string[]; // Image IDs

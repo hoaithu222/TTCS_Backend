@@ -6,6 +6,7 @@ const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
 const shopRouter = (0, express_1.Router)();
 shopRouter.get("/", shop_controller_1.listShopController);
 shopRouter.get("/status/user/:userId", shop_controller_1.getShopStatusByUserIdController);
+shopRouter.get("/:id/reviews", shop_controller_1.getShopReviewsController);
 shopRouter.get("/:id", shop_controller_1.getShopController);
 shopRouter.post("/", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin", "user"]), shop_controller_1.createShopController);
 shopRouter.put("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin", "shop"]), shop_controller_1.updateShopController);

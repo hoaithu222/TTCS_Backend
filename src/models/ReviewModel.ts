@@ -7,6 +7,16 @@ export const reviewSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    orderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      required: true,
+    },
+    orderItemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "OrderItem",
+      required: true,
+    },
     shopId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Shop",
@@ -27,6 +37,14 @@ export const reviewSchema = new mongoose.Schema(
     images: {
       type: [mongoose.Schema.Types.ObjectId],
       ref: "Image",
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    helpfulCount: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }

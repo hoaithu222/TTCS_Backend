@@ -3,9 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.suspendShopController = exports.rejectShopController = exports.approveShopController = exports.getShopStatusByUserIdController = exports.followersCountController = exports.isFollowingShopController = exports.unfollowShopController = exports.followShopController = exports.listShopController = exports.deleteShopController = exports.updateShopController = exports.createShopController = exports.getShopController = void 0;
+exports.getShopReviewsController = exports.suspendShopController = exports.rejectShopController = exports.approveShopController = exports.getShopStatusByUserIdController = exports.followersCountController = exports.isFollowingShopController = exports.unfollowShopController = exports.followShopController = exports.listShopController = exports.deleteShopController = exports.updateShopController = exports.createShopController = exports.getShopController = void 0;
 const shop_service_1 = __importDefault(require("./shop.service"));
 const response_util_1 = require("../../shared/utils/response.util");
+const reviews_service_1 = __importDefault(require("../reviews/reviews.service"));
 const getShopController = async (req, res) => {
     const { id } = req.params;
     const result = await shop_service_1.default.get(id);
@@ -152,3 +153,27 @@ const suspendShopController = async (req, res) => {
     return response_util_1.ResponseUtil.success(res, result.item);
 };
 exports.suspendShopController = suspendShopController;
+const getShopReviewsController = async (req, res) => {
+    const { id } = req.params;
+    const { page, limit, sortBy } = req.query;
+    const result = await reviews_service_1.default.getShopReviews(id, {
+        page: page ? Number(page) : 1,
+        limit: limit ? Number(limit) : 10,
+        sortBy,
+    });
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.success(res, {
+        reviews: result.reviews,
+        averageRating: result.averageRating,
+        totalReviews: result.totalReviews,
+        ratingDistribution: result.ratingDistribution,
+        pagination: {
+            page: result.page,
+            limit: result.limit,
+            total: result.total,
+            totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
+        },
+    });
+};
+exports.getShopReviewsController = getShopReviewsController;
