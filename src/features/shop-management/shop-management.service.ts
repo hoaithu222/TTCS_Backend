@@ -557,10 +557,34 @@ export default class ShopManagementService {
 
   // Internal note helper
   private static async formatOrderForShop(orderDoc: any, shopId?: string) {
-    const address = orderDoc.addressId as any;
-    const user = orderDoc.userId as any;
+    // Check if addressId is populated (object) or just an ID (string)
+    let address = null;
+    if (orderDoc.addressId) {
+      if (typeof orderDoc.addressId === "object" && orderDoc.addressId._id) {
+        // Already populated
+        address = orderDoc.addressId;
+      } else if (typeof orderDoc.addressId === "string") {
+        // Need to populate - but this shouldn't happen if populate worked
+        // For now, return null and log warning
+        console.warn("addressId not populated for order", orderDoc._id);
+      }
+    }
+    
+    // Check if userId is populated
+    let user = null;
+    if (orderDoc.userId) {
+      if (typeof orderDoc.userId === "object" && orderDoc.userId._id) {
+        // Already populated
+        user = orderDoc.userId;
+      } else if (typeof orderDoc.userId === "string") {
+        console.warn("userId not populated for order", orderDoc._id);
+      }
+    }
+    
+    // Process orderItems - they are already populated with productId and images
     const orderItemsDetails = Array.isArray(orderDoc.orderItems)
       ? orderDoc.orderItems.map((item: any) => {
+          // item is an OrderItem document, productId is already populated
           const product = item.productId as any;
           const images = Array.isArray(product?.images) ? product.images : [];
           let imageUrl: string | undefined;
@@ -573,11 +597,11 @@ export default class ShopManagementService {
             }
           }
           return {
-            productId: product?._id?.toString?.() || item.productId,
+            productId: product?._id?.toString?.() || (typeof item.productId === "string" ? item.productId : item.productId?._id?.toString?.()),
             productName: product?.name || "Sản phẩm",
-            quantity: item.quantity,
-            price: item.price,
-            totalPrice: item.totalPrice,
+            quantity: item.quantity || 0,
+            price: item.price || 0,
+            totalPrice: item.totalPrice || item.price || 0,
             productImage: imageUrl,
           };
         })
@@ -682,30 +706,64 @@ export default class ShopManagementService {
       const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
       const sort: any = { [sortField]: sortDir };
 
-      const [ordersDocs, total] = await Promise.all([
-        OrderModel.find(filter)
-          .skip(skip)
-          .limit(limit)
-          .sort(sort)
-          .populate({
-            path: "orderItems",
-            populate: {
-              path: "productId",
-              select: "_id name images price discount",
-              populate: { path: "images", select: "_id url publicId" },
+      // Get orders with populate (without lean to ensure populate works correctly)
+      const ordersQuery = OrderModel.find(filter)
+        .skip(skip)
+        .limit(limit)
+        .sort(sort)
+        .populate({
+          path: "orderItems",
+          select: "_id productId variantId quantity price totalPrice discount tax",
+          populate: {
+            path: "productId",
+            select: "_id name images price discount",
+            populate: { 
+              path: "images", 
+              select: "_id url publicId"
             },
-          })
-          .populate({
-            path: "addressId",
-            select: "_id fullName phone address city district ward",
-          })
-          .populate({
-            path: "userId",
-            select: "_id name email phone",
-          })
-          .lean(),
+          },
+        })
+        .populate({
+          path: "addressId",
+          select: "_id fullName phone address city district ward"
+        })
+        .populate({
+          path: "userId",
+          select: "_id name email phone"
+        });
+
+      const [ordersRaw, total] = await Promise.all([
+        ordersQuery.exec(),
         OrderModel.countDocuments(filter),
       ]);
+
+      // Convert Mongoose documents to plain objects while preserving populated fields
+      const ordersDocs = ordersRaw.map((order: any) => {
+        const obj = order.toObject ? order.toObject() : order;
+        // Ensure populated fields are properly converted
+        if (obj.addressId && typeof obj.addressId === "object") {
+          obj.addressId = typeof obj.addressId.toObject === "function" 
+            ? obj.addressId.toObject() 
+            : obj.addressId;
+        }
+        if (obj.userId && typeof obj.userId === "object") {
+          obj.userId = typeof obj.userId.toObject === "function" 
+            ? obj.userId.toObject() 
+            : obj.userId;
+        }
+        if (Array.isArray(obj.orderItems)) {
+          obj.orderItems = obj.orderItems.map((item: any) => {
+            const itemObj = typeof item.toObject === "function" ? item.toObject() : item;
+            if (itemObj.productId && typeof itemObj.productId === "object") {
+              itemObj.productId = typeof itemObj.productId.toObject === "function" 
+                ? itemObj.productId.toObject() 
+                : itemObj.productId;
+            }
+            return itemObj;
+          });
+        }
+        return obj;
+      });
 
       const orders = await Promise.all(
         ordersDocs.map((orderDoc) =>

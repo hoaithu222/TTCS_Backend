@@ -19,20 +19,19 @@ shopManagementRouter.put("/my-shop/products/:productId", shop_management_control
 shopManagementRouter.delete("/my-shop/products/:productId", shop_management_controller_1.deleteMyShopProductController);
 // Orders
 shopManagementRouter.get("/my-shop/orders", shop_management_controller_1.getMyShopOrdersController);
+// Batch printing must be before :orderId route to avoid route conflict
+shopManagementRouter.post("/my-shop/orders/batch-print", shop_management_controller_1.batchPrintOrdersController);
 shopManagementRouter.get("/my-shop/orders/:orderId", shop_management_controller_1.getMyShopOrderController);
 shopManagementRouter.put("/my-shop/orders/:orderId/status", shop_management_controller_1.updateMyShopOrderStatusController);
+// Internal notes and timeline - must be after :orderId route
+shopManagementRouter.post("/my-shop/orders/:orderId/notes", shop_management_controller_1.addInternalNoteController);
+shopManagementRouter.get("/my-shop/orders/:orderId/notes", shop_management_controller_1.getInternalNotesController);
+shopManagementRouter.get("/my-shop/orders/:orderId/timeline", shop_management_controller_1.getOrderTimelineController);
+shopManagementRouter.delete("/my-shop/orders/notes/:noteId", shop_management_controller_1.deleteInternalNoteController);
 // Analytics
 shopManagementRouter.get("/my-shop/analytics", shop_management_controller_1.getMyShopAnalyticsController);
 // Reviews
 shopManagementRouter.get("/my-shop/reviews", shop_management_controller_1.getMyShopReviewsController);
 // Followers
 shopManagementRouter.get("/my-shop/followers", shop_management_controller_1.getMyShopFollowersController);
-// Batch printing
-shopManagementRouter.post("/my-shop/orders/batch-print", shop_management_controller_1.batchPrintOrdersController);
-// Internal notes
-shopManagementRouter.post("/my-shop/orders/:orderId/notes", shop_management_controller_1.addInternalNoteController);
-shopManagementRouter.get("/my-shop/orders/:orderId/notes", shop_management_controller_1.getInternalNotesController);
-shopManagementRouter.delete("/my-shop/orders/notes/:noteId", shop_management_controller_1.deleteInternalNoteController);
-// Order timeline
-shopManagementRouter.get("/my-shop/orders/:orderId/timeline", shop_management_controller_1.getOrderTimelineController);
 exports.default = shopManagementRouter;

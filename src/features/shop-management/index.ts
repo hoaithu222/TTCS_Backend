@@ -50,11 +50,18 @@ shopManagementRouter.delete(
 
 // Orders
 shopManagementRouter.get("/my-shop/orders", getMyShopOrdersController);
+// Batch printing must be before :orderId route to avoid route conflict
+shopManagementRouter.post("/my-shop/orders/batch-print", batchPrintOrdersController);
 shopManagementRouter.get("/my-shop/orders/:orderId", getMyShopOrderController);
 shopManagementRouter.put(
   "/my-shop/orders/:orderId/status",
   updateMyShopOrderStatusController
 );
+// Internal notes and timeline - must be after :orderId route
+shopManagementRouter.post("/my-shop/orders/:orderId/notes", addInternalNoteController);
+shopManagementRouter.get("/my-shop/orders/:orderId/notes", getInternalNotesController);
+shopManagementRouter.get("/my-shop/orders/:orderId/timeline", getOrderTimelineController);
+shopManagementRouter.delete("/my-shop/orders/notes/:noteId", deleteInternalNoteController);
 
 // Analytics
 shopManagementRouter.get("/my-shop/analytics", getMyShopAnalyticsController);
@@ -64,16 +71,5 @@ shopManagementRouter.get("/my-shop/reviews", getMyShopReviewsController);
 
 // Followers
 shopManagementRouter.get("/my-shop/followers", getMyShopFollowersController);
-
-// Batch printing
-shopManagementRouter.post("/my-shop/orders/batch-print", batchPrintOrdersController);
-
-// Internal notes
-shopManagementRouter.post("/my-shop/orders/:orderId/notes", addInternalNoteController);
-shopManagementRouter.get("/my-shop/orders/:orderId/notes", getInternalNotesController);
-shopManagementRouter.delete("/my-shop/orders/notes/:noteId", deleteInternalNoteController);
-
-// Order timeline
-shopManagementRouter.get("/my-shop/orders/:orderId/timeline", getOrderTimelineController);
 
 export default shopManagementRouter;
