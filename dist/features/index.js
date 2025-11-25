@@ -30,6 +30,7 @@ const admin_1 = __importDefault(require("./admin"));
 const wishlist_1 = __importDefault(require("./wishlist"));
 const notifications_1 = __importDefault(require("./notifications"));
 const chat_1 = __importDefault(require("./chat"));
+const ai_1 = __importDefault(require("./ai"));
 const router = (0, express_1.Router)();
 /**
  * @swagger
@@ -93,4 +94,5 @@ router.use("/admin", admin_1.default);
 router.use("/wishlist", wishlist_1.default);
 router.use("/notifications", notifications_1.default);
 router.use("/chat", chat_1.default);
+router.use("/ai", ai_1.default);
 exports.default = router;

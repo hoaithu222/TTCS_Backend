@@ -25,6 +25,7 @@ import adminRoutes from "./admin";
 import wishlistRoutes from "./wishlist";
 import notificationRoutes from "./notifications";
 import chatRoutes from "./chat";
+import aiRoutes from "./ai";
 const router = Router();
 
 /**
@@ -91,4 +92,5 @@ router.use("/admin", adminRoutes);
 router.use("/wishlist", wishlistRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/chat", chatRoutes);
+router.use("/ai", aiRoutes);
 export default router;

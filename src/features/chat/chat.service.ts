@@ -190,7 +190,7 @@ export default class ChatService {
       },
     ];
 
-    let conversationType: "admin" | "shop" | "direct" = "direct";
+    let conversationType: "admin" | "shop" | "ai" | "direct" = "direct";
     let channel: "admin" | "shop" | "ai" | undefined = undefined;
     let metadata = data.metadata || {};
 
@@ -269,6 +269,13 @@ export default class ChatService {
       // Note: Product info from data.metadata will be preserved
       // but should be sent as a message, not stored in conversation metadata
       // to avoid creating separate conversations for each product
+    } else if (data.type === "ai") {
+      // AI conversation - no additional participant needed
+      // AI responses will be generated via API
+      conversationType = "ai";
+      channel = "ai";
+      metadata.isAi = true;
+      metadata.context = metadata.context || "AI Assistant";
     } else {
       return {
         ok: false as const,
@@ -284,6 +291,8 @@ export default class ChatService {
       channel: channel,
       ...(data.type === "shop" && data.targetId
         ? { "metadata.shopId": data.targetId }
+        : data.type === "ai"
+        ? { "metadata.isAi": true }
         : {}),
     }).lean();
 
@@ -638,11 +647,28 @@ export default class ChatService {
       };
     }
 
-    // Get sender info
-    const sender = await UserModel.findById(userId).select("name fullName email avatar role").lean();
-
     // Process metadata - ensure product info is preserved
     const messageMetadata = data.metadata || {};
+    
+    // Check if this is an AI message (for AI conversations)
+    // IMPORTANT: Only consider it AI message if explicitly marked as isAiMessage === true
+    // User messages should NOT have isAiMessage set, or should have isAiMessage === false
+    const isAiMessage = messageMetadata.isAiMessage === true;
+    
+    // Get sender info - for AI messages, use AI info
+    let senderName: string;
+    let senderAvatar: string | undefined;
+    
+    if (isAiMessage && conversation.type === "ai") {
+      // AI message - use AI info
+      senderName = "Chatbot";
+      senderAvatar = undefined; // Will use default AI avatar in frontend
+    } else {
+      // User message - use user info
+      const sender = await UserModel.findById(userId).select("name fullName email avatar role").lean();
+      senderName = sender?.fullName || sender?.name || sender?.email || "User";
+      senderAvatar = sender?.avatar || undefined;
+    }
     
     // If metadata contains product info, ensure it's properly structured
     if (messageMetadata.productId) {
@@ -666,16 +692,25 @@ export default class ChatService {
     // Ensure message has a value (empty string is allowed if attachments exist)
     const messageText = data.message != null ? String(data.message) : "";
     
+    // For AI messages, we still use a valid ObjectId but mark it clearly in metadata
+    // We'll use a special ObjectId that represents AI (000000000000000000000000)
+    // Or better: use conversationId as a base to create a deterministic but valid ObjectId
+    // Actually, simplest: use userId but rely on metadata.isAiMessage and senderName to identify
+    // For AI messages in AI conversations, we'll use a special approach:
+    // - Keep using userIdFilters.normalizedUserId (valid ObjectId)
+    // - But set senderName = "Chatbot" and metadata.isAiMessage = true
+    // - Frontend will check metadata.isAiMessage and senderName to determine if it's AI
+    
     // Create message
     const message = await ChatMessageModel.create({
       conversationId,
-      senderId: userIdFilters.normalizedUserId,
-      senderName: sender?.fullName || sender?.name || sender?.email,
-      senderAvatar: sender?.avatar,
+      senderId: userIdFilters.normalizedUserId, // Always use valid ObjectId
+      senderName: senderName,
+      senderAvatar: senderAvatar,
       message: messageText, // Can be empty string if attachments exist
       type: messageType,
       attachments: data.attachments || [],
-      metadata: messageMetadata, // Store metadata including product info
+      metadata: { ...messageMetadata, isAiMessage: isAiMessage }, // Store metadata including AI flag
       isDelivered: false,
       isRead: false,
     });

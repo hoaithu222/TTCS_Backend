@@ -75,8 +75,8 @@ export interface ProductMetadata {
 }
 
 export interface CreateConversationRequest {
-  type: "admin" | "shop";
-  targetId?: string; // shopId nếu type là "shop"
+  type: "admin" | "shop" | "ai";
+  targetId?: string; // shopId nếu type là "shop" (không cần cho "ai" hoặc "admin")
   metadata?: Record<string, any> | ShopConversationMetadata; // context: productId, orderId, etc.
   initialMessage?: string;
 }
