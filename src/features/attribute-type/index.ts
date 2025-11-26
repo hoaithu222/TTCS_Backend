@@ -5,6 +5,7 @@ import {
   updateAttributeTypeController,
   deleteAttributeTypeController,
   listAttributeTypeController,
+  listAttributeTypesByCategoryController,
 } from "./attributeType.controller";
 import {
   authenticateToken,
@@ -14,6 +15,7 @@ import {
 const attributeTypeRouter = Router();
 
 attributeTypeRouter.get("/", listAttributeTypeController);
+attributeTypeRouter.get("/category/:categoryId", listAttributeTypesByCategoryController);
 attributeTypeRouter.get("/:id", getAttributeTypeController);
 attributeTypeRouter.post(
   "/",

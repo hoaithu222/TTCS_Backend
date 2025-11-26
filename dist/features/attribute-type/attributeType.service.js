@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const mongoose_1 = __importDefault(require("mongoose"));
 const AttributeType_1 = __importDefault(require("../../models/AttributeType"));
 const AttributeValue_1 = __importDefault(require("../../models/AttributeValue"));
 const slugify_1 = require("../../shared/utils/slugify");
@@ -210,6 +211,63 @@ class AttributeTypeService {
                 message: error.message,
             };
         }
+    }
+    static async listByCategory(categoryId) {
+        if (!categoryId || !mongoose_1.default.Types.ObjectId.isValid(categoryId)) {
+            return {
+                ok: false,
+                status: 400,
+                message: "categoryId không hợp lệ",
+            };
+        }
+        const categoryObjectId = new mongoose_1.default.Types.ObjectId(categoryId);
+        const attributeTypes = await AttributeType_1.default.find({
+            isActive: true,
+            $or: [{ categoryId: categoryObjectId }, { categoryIds: categoryObjectId }],
+        })
+            .sort({ displayOrder: 1, createdAt: -1 })
+            .lean();
+        const attributeTypeIds = attributeTypes.map((attr) => attr._id);
+        const values = attributeTypeIds.length
+            ? await AttributeValue_1.default.find({
+                attributeTypeId: { $in: attributeTypeIds },
+                isActive: true,
+            })
+                .sort({ sortOrder: 1, createdAt: 1 })
+                .lean()
+            : [];
+        const valueMap = values.reduce((acc, value) => {
+            const key = value.attributeTypeId?.toString();
+            if (!key)
+                return acc;
+            if (!acc[key])
+                acc[key] = [];
+            acc[key].push({
+                id: value._id.toString(),
+                _id: value._id.toString(),
+                value: value.value,
+                label: value.label || value.value,
+                colorCode: value.colorCode,
+                sortOrder: value.sortOrder ?? 0,
+            });
+            return acc;
+        }, {});
+        const items = attributeTypes.map((attr) => ({
+            id: attr._id.toString(),
+            _id: attr._id.toString(),
+            name: attr.name,
+            code: attr.code,
+            description: attr.description,
+            helperText: attr.helperText,
+            inputType: attr.inputType || (attr.is_multiple ? "multiselect" : "select"),
+            isVariantAttribute: attr.isVariantAttribute ?? true,
+            categoryId: attr.categoryId?.toString(),
+            categoryIds: Array.isArray(attr.categoryIds)
+                ? attr.categoryIds.map((id) => id?.toString()).filter(Boolean)
+                : [],
+            values: valueMap[attr._id.toString()] || [],
+        }));
+        return { ok: true, items };
     }
 }
 exports.default = AttributeTypeService;

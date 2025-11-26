@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import AttributeTypeModel from "../../models/AttributeType";
 import AttributeValueModel from "../../models/AttributeValue";
 import {
@@ -228,5 +229,68 @@ export default class AttributeTypeService {
         message: (error as Error).message,
       };
     }
+  }
+
+  static async listByCategory(categoryId: string) {
+    if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) {
+      return {
+        ok: false as const,
+        status: 400,
+        message: "categoryId không hợp lệ",
+      };
+    }
+
+    const categoryObjectId = new mongoose.Types.ObjectId(categoryId);
+
+    const attributeTypes = await AttributeTypeModel.find({
+      isActive: true,
+      $or: [{ categoryId: categoryObjectId }, { categoryIds: categoryObjectId }],
+    })
+      .sort({ displayOrder: 1, createdAt: -1 })
+      .lean();
+
+    const attributeTypeIds = attributeTypes.map((attr) => attr._id);
+
+    const values = attributeTypeIds.length
+      ? await AttributeValueModel.find({
+          attributeTypeId: { $in: attributeTypeIds },
+          isActive: true,
+        })
+          .sort({ sortOrder: 1, createdAt: 1 })
+          .lean()
+      : [];
+
+    const valueMap = values.reduce<Record<string, any[]>>((acc, value) => {
+      const key = value.attributeTypeId?.toString();
+      if (!key) return acc;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push({
+        id: value._id.toString(),
+        _id: value._id.toString(),
+        value: value.value,
+        label: value.label || value.value,
+        colorCode: value.colorCode,
+        sortOrder: value.sortOrder ?? 0,
+      });
+      return acc;
+    }, {});
+
+    const items = attributeTypes.map((attr) => ({
+      id: attr._id.toString(),
+      _id: attr._id.toString(),
+      name: attr.name,
+      code: attr.code,
+      description: attr.description,
+      helperText: (attr as any).helperText,
+      inputType: attr.inputType || (attr.is_multiple ? "multiselect" : "select"),
+      isVariantAttribute: attr.isVariantAttribute ?? true,
+      categoryId: attr.categoryId?.toString(),
+      categoryIds: Array.isArray(attr.categoryIds)
+        ? attr.categoryIds.map((id: any) => id?.toString()).filter(Boolean)
+        : [],
+      values: valueMap[attr._id.toString()] || [],
+    }));
+
+    return { ok: true as const, items };
   }
 }

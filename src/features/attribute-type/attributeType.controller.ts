@@ -68,3 +68,13 @@ export const listAttributeTypeController = async (
     totalPages: Math.max(1, Math.ceil(result.total / result.limit)),
   });
 };
+
+export const listAttributeTypesByCategoryController = async (
+  req: Request,
+  res: Response
+) => {
+  const { categoryId } = req.params;
+  const result = await AttributeTypeService.listByCategory(categoryId);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.items);
+};
