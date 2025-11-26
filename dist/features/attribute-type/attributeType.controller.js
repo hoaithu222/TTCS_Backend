@@ -38,13 +38,19 @@ const deleteAttributeTypeController = async (req, res) => {
 };
 exports.deleteAttributeTypeController = deleteAttributeTypeController;
 const listAttributeTypeController = async (req, res) => {
-    const { page, limit, search, isActive, categoryId } = req.query;
+    const { page, limit, search, isActive, categoryId, categoryIds } = req.query;
+    const normalizedCategoryIds = typeof categoryIds === "string"
+        ? categoryIds.split(",").map((id) => id.trim()).filter(Boolean)
+        : Array.isArray(categoryIds)
+            ? categoryIds.filter((id) => typeof id === "string" && id.trim().length > 0)
+            : undefined;
     const result = await attributeType_service_1.default.list({
         page: Number(page) || 1,
         limit: Number(limit) || 10,
         search,
         isActive: typeof isActive === "string" ? isActive === "true" : undefined,
         categoryId,
+        categoryIds: normalizedCategoryIds,
     });
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);

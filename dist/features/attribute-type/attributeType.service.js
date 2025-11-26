@@ -14,6 +14,20 @@ function normalizeInputType(inputType, isMultiple) {
         return "multiselect";
     return "select";
 }
+function normalizeCategoryIds(categoryId, categoryIds) {
+    const ids = Array.isArray(categoryIds)
+        ? categoryIds.filter((id) => typeof id === "string" && id.trim().length > 0)
+        : [];
+    if (categoryId && !ids.includes(categoryId)) {
+        ids.unshift(categoryId);
+    }
+    const deduped = Array.from(new Set(ids));
+    const primaryCategoryId = deduped[0] || categoryId || undefined;
+    return {
+        primaryCategoryId,
+        categoryIds: deduped,
+    };
+}
 function normalizeAttributeCode(name, code) {
     const resolvedCode = (0, slugify_1.slugify)(code || name, { separator: "_" });
     if (!resolvedCode)
@@ -35,7 +49,9 @@ function normalizeAttributeValues(values) {
 }
 class AttributeTypeService {
     static async get(id) {
-        const item = await AttributeType_1.default.findById(id).populate("categoryId", "name");
+        const item = await AttributeType_1.default.findById(id)
+            .populate("categoryId", "name")
+            .populate("categoryIds", "name");
         if (!item)
             return {
                 ok: false,
@@ -49,19 +65,24 @@ class AttributeTypeService {
             const { values, code, name, ...typeData } = data;
             const normalizedCode = normalizeAttributeCode(name, code);
             const normalizedName = name || (0, slugify_1.humanizeCode)(normalizedCode);
-            const existing = await AttributeType_1.default.findOne({
-                categoryId: typeData.categoryId,
-                code: normalizedCode,
-            });
-            if (existing) {
-                return {
-                    ok: false,
-                    status: 409,
-                    message: `Mã thuộc tính "${normalizedCode}" đã tồn tại trong danh mục này.`,
-                };
+            const { primaryCategoryId, categoryIds } = normalizeCategoryIds(typeData.categoryId, typeData.categoryIds);
+            if (categoryIds.length > 0) {
+                const existing = await AttributeType_1.default.findOne({
+                    code: normalizedCode,
+                    categoryIds: { $in: categoryIds },
+                });
+                if (existing) {
+                    return {
+                        ok: false,
+                        status: 409,
+                        message: `Mã thuộc tính "${normalizedCode}" đã tồn tại trong một trong các danh mục đã chọn.`,
+                    };
+                }
             }
             const item = await AttributeType_1.default.create({
                 ...typeData,
+                categoryId: primaryCategoryId,
+                categoryIds,
                 name: normalizedName,
                 code: normalizedCode,
                 inputType: normalizeInputType(typeData.inputType, typeData.is_multiple),
@@ -94,8 +115,10 @@ class AttributeTypeService {
                 message: "AttributeType không tồn tại",
             };
         }
-        const categoryId = data.categoryId ?? current.categoryId;
+        const { primaryCategoryId, categoryIds } = normalizeCategoryIds(data.categoryId ?? current.categoryId?.toString(), data.categoryIds ?? current.categoryIds?.map((id) => id?.toString()));
         const updatePayload = { ...data };
+        updatePayload.categoryId = primaryCategoryId;
+        updatePayload.categoryIds = categoryIds;
         if (data.code || data.name) {
             updatePayload.code = normalizeAttributeCode(data.name, data.code);
             if (!data.name) {
@@ -103,8 +126,8 @@ class AttributeTypeService {
             }
             const existing = await AttributeType_1.default.findOne({
                 _id: { $ne: id },
-                categoryId,
                 code: updatePayload.code,
+                categoryIds: { $in: categoryIds.length ? categoryIds : current.categoryIds },
             });
             if (existing) {
                 return {
@@ -128,7 +151,9 @@ class AttributeTypeService {
         const item = await AttributeType_1.default.findByIdAndUpdate(id, updatePayload, {
             new: true,
             runValidators: true,
-        });
+        })
+            .populate("categoryId", "name")
+            .populate("categoryIds", "name");
         if (!item)
             return {
                 ok: false,
@@ -161,11 +186,16 @@ class AttributeTypeService {
                 filter.isActive = query.isActive;
             if (query.search)
                 filter.name = { $regex: query.search, $options: "i" };
-            if (query.categoryId)
-                filter.categoryId = query.categoryId;
+            if (query.categoryId) {
+                filter.categoryIds = query.categoryId;
+            }
+            else if (Array.isArray(query.categoryIds) && query.categoryIds.length > 0) {
+                filter.categoryIds = { $in: query.categoryIds };
+            }
             const [items, total] = await Promise.all([
                 AttributeType_1.default.find(filter)
                     .populate("categoryId", "name")
+                    .populate("categoryIds", "name")
                     .skip(skip)
                     .limit(limit)
                     .sort({ createdAt: -1 }),

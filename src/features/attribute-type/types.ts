@@ -11,6 +11,7 @@ export interface CreateAttributeTypeRequest {
   code?: string;
   description?: string;
   categoryId?: string;
+  categoryIds?: string[];
   isActive?: boolean;
   is_multiple?: boolean;
   inputType?: string;
@@ -27,4 +28,5 @@ export interface ListAttributeTypeQuery {
   search?: string;
   isActive?: boolean;
   categoryId?: string;
+  categoryIds?: string[];
 }

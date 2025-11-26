@@ -24,6 +24,12 @@ exports.attributeTypeSchema = new mongoose_1.default.Schema({
         type: mongoose_1.default.Schema.Types.ObjectId,
         ref: "Category",
     },
+    categoryIds: [
+        {
+            type: mongoose_1.default.Schema.Types.ObjectId,
+            ref: "Category",
+        },
+    ],
     inputType: {
         type: String,
         enum: ["text", "number", "select", "multiselect", "boolean", "date", "color"],
@@ -51,6 +57,22 @@ exports.attributeTypeSchema = new mongoose_1.default.Schema({
 }, { timestamps: true });
 exports.attributeTypeSchema.index({ categoryId: 1, code: 1 }, { unique: true, sparse: true });
 exports.attributeTypeSchema.pre("validate", function (next) {
+    if (!Array.isArray(this.categoryIds)) {
+        this.categoryIds = [];
+    }
+    if (this.categoryId && !this.categoryIds.length) {
+        this.categoryIds = [this.categoryId];
+    }
+    if (this.categoryIds.length && !this.categoryId) {
+        this.categoryId = this.categoryIds[0];
+    }
+    if (this.categoryIds.length) {
+        const dedupedStrings = Array.from(new Set(this.categoryIds.map((id) => id?.toString()).filter(Boolean)));
+        this.categoryIds = dedupedStrings.map((id) => new mongoose_1.default.Types.ObjectId(id));
+        if (!this.categoryId || !dedupedStrings.includes(this.categoryId.toString())) {
+            this.categoryId = new mongoose_1.default.Types.ObjectId(dedupedStrings[0]);
+        }
+    }
     if (this.name && !this.code) {
         this.code = (0, slugify_1.slugify)(this.name, { separator: "_" });
     }
