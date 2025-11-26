@@ -59,7 +59,7 @@ exports.notificationService = {
             title,
             content,
             type: "order:new",
-            actionUrl: `/orders/${options.orderId}`,
+            actionUrl: `/profile?tab=orders`,
             metadata: {
                 orderId: options.orderId,
                 orderCode,
@@ -80,7 +80,7 @@ exports.notificationService = {
             title,
             content,
             type: "order:status",
-            actionUrl: `/orders/${options.orderId}`,
+            actionUrl: `/profile?tab=orders`,
             metadata: {
                 orderId: options.orderId,
                 orderCode,
@@ -99,7 +99,7 @@ exports.notificationService = {
             title,
             content,
             type: "order:placed",
-            actionUrl: `/orders/${options.orderId}`,
+            actionUrl: `/profile?tab=orders`,
             metadata: {
                 orderId: options.orderId,
                 orderCode,
@@ -118,7 +118,7 @@ exports.notificationService = {
             title,
             content,
             type: "order:customer:update",
-            actionUrl: `/orders/${options.orderId}`,
+            actionUrl: `/shop/orders`,
             metadata: {
                 orderId: options.orderId,
                 orderCode,
@@ -145,7 +145,7 @@ exports.notificationService = {
             title: "Shop mới cần duyệt",
             content: `${ownerName} vừa đăng ký shop ${options.shopName}`,
             type: "shop:pending",
-            actionUrl: `/shops/${options.shopId}`,
+            actionUrl: `/shops`,
             metadata: {
                 shopId: options.shopId,
                 shopName: options.shopName,
@@ -165,7 +165,7 @@ exports.notificationService = {
             title: "Cập nhật trạng thái cửa hàng",
             content: `Cửa hàng ${options.shopName} ${statusLabel}`,
             type: `shop:${options.status}`,
-            actionUrl: `/shop/${options.shopId}`,
+            actionUrl: `/shop/dashboard`,
             metadata: {
                 shopId: options.shopId,
                 status: options.status,

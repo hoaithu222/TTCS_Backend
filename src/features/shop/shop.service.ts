@@ -182,7 +182,7 @@ export default class ShopService {
   static async getShopStatusByUserId(userId: string) {
     try {
       const shop = await ShopModel.findOne({ userId })
-        .select("status name slug")
+        .select("status name slug isActive isVerified")
         .lean();
       if (!shop) {
         return {
@@ -192,6 +192,13 @@ export default class ShopService {
         };
       }
       // Map backend status to frontend status
+      // Backend chỉ có: pending, active, blocked
+      // Frontend cần: pending_review, approved, rejected, active, blocked, suspended
+      // Logic mapping:
+      // - pending -> pending_review
+      // - active + isActive + isVerified -> active (đã approve và đang hoạt động)
+      // - active + !isActive -> approved (đã approve nhưng chưa active)
+      // - blocked -> blocked (có thể là rejected hoặc suspended, nhưng không phân biệt được từ status)
       let shopStatus:
         | "not_registered"
         | "pending_review"
@@ -200,17 +207,24 @@ export default class ShopService {
         | "active"
         | "blocked"
         | "suspended";
+      
       switch (shop.status) {
         case "pending":
           shopStatus = "pending_review";
           break;
         case "active":
-          shopStatus = "active";
+          // Nếu đã active và verified thì là active, nếu chưa thì là approved
+          if ((shop as any).isActive && (shop as any).isVerified) {
+            shopStatus = "active";
+          } else {
+            shopStatus = "approved";
+          }
           break;
         case "blocked":
           shopStatus = "blocked";
           break;
         default:
+          // Fallback về pending_review cho các case không xác định
           shopStatus = "pending_review";
       }
       return {
