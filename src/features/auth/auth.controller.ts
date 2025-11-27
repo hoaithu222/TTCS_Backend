@@ -174,7 +174,8 @@ export const logoutController = async (
   const authHeader = req.headers.authorization;
   const tokenFromHeader = authHeader && authHeader.split(" ")[1];
 
-  const token = tokenFromBody || tokenFromHeader;
+  // Ưu tiên token từ Authorization header để tránh trường hợp frontend gửi refresh token trong body
+  const token = tokenFromHeader || tokenFromBody;
 
   if (!token) {
     return ResponseUtil.error(

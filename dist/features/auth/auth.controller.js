@@ -90,7 +90,8 @@ const logoutController = async (req, res) => {
     const tokenFromBody = body?.token;
     const authHeader = req.headers.authorization;
     const tokenFromHeader = authHeader && authHeader.split(" ")[1];
-    const token = tokenFromBody || tokenFromHeader;
+    // Ưu tiên token từ Authorization header để tránh trường hợp frontend gửi refresh token trong body
+    const token = tokenFromHeader || tokenFromBody;
     if (!token) {
         return response_util_1.ResponseUtil.error(res, "Token không được cung cấp", 400, undefined, req.path, req.method, undefined, // code
         true // skipToast
