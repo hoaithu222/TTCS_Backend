@@ -73,8 +73,8 @@ router.post("/request", async (req: Request, res: Response) => {
  *         description: OTP verified
  */
 router.post("/verify", async (req: Request, res: Response) => {
-  const { identifier, code, purpose } = req.body as any;
-  const result = await OtpService.verifyOtp(identifier, code, purpose);
+  const { identifier, code, purpose, smartOtpPassword } = req.body as any;
+  const result = await OtpService.verifyOtp(identifier, code, purpose, smartOtpPassword);
   if (!result.ok) {
     return ResponseUtil.error(res, result.message, result.status);
   }

@@ -90,6 +90,15 @@ const userSchema = new mongoose_1.default.Schema({
         default: OtpMethod.EMAIL,
         required: true,
     },
+    // mã smart otp
+    smartOtpSecret: {
+        type: String,
+    },
+    // login lần đầu tiên
+    isFirstLogin: {
+        type: Boolean,
+        default: true,
+    },
 }, { timestamps: true }); // 👈 tự động thêm createdAt & updatedAt
 const UserModel = mongoose_1.default.model("User", userSchema);
 exports.default = UserModel;

@@ -21,11 +21,10 @@ export interface ForgotPasswordRequest {
 }
 
 export interface ResetPasswordRequest {
-  token: string;
+  identifier: string;
+  otp: string;
   password: string;
   confirmPassword: string;
-  identifier: string; // email or phone used to receive OTP
-  otp: string; // one-time code
 }
 
 export interface LogoutRequest {

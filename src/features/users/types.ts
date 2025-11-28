@@ -1,3 +1,6 @@
+import { OtpMethod } from "../../models/UserModel";
+
+
 export interface UpdateUserRequest {
   name?: string;
   email?: string;
@@ -10,4 +13,5 @@ export interface UpdateUserRequest {
   role?: string;
   twoFactorAuth?: boolean;
   twoFactorAuthSecret?: string;
+  otpMethod?: OtpMethod;
 }

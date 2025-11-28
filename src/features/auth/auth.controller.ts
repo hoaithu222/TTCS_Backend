@@ -54,7 +54,8 @@ export const verifyEmailController = async (
       result.status,
       undefined,
       req.path,
-      req.method
+      req.method,
+      result.code // Pass error code to response
     );
   }
   return ResponseUtil.success(res, { message: result.message });

@@ -15,4 +15,5 @@ router.post("/auth/refresh-token", auth_controller_1.refreshTokenController);
 router.post("/auth/logout", auth_middleware_1.authenticateToken, auth_controller_1.logoutController);
 router.get("/auth/profile", auth_middleware_1.authenticateToken, profile_controller_1.getProfileController);
 router.put("/auth/profile", auth_middleware_1.authenticateToken, profile_controller_1.updateProfileController);
+router.post("/auth/change-password", auth_middleware_1.authenticateToken, profile_controller_1.changePasswordController);
 exports.default = router;

@@ -20,4 +20,11 @@ export const env = {
   JWT_SECRET: process.env.JWT_SECRET || "your-secret-key",
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
   API_PREFIX: process.env.API_PREFIX || "/api/v1",
+  APP_NAME: process.env.APP_NAME || "Bán hàng",
+  SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || "587"),
+  SMTP_SECURE: process.env.SMTP_SECURE === "true",
+  SMTP_USER: process.env.EMAIL_USER || process.env.SMTP_USER || "",
+  SMTP_PASS: process.env.EMAIL_PASS || process.env.SMTP_PASS || "",
+  SMTP_FROM: process.env.EMAIL_USER || process.env.SMTP_USER || "",
 };

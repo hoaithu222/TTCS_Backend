@@ -1,7 +1,6 @@
 import bcryptjs from "bcryptjs";
-import UserModel, { OtpMethod } from "../../models/UserModel";
+import UserModel, { OtpMethod, UserStatus } from "../../models/UserModel";
 
-import { env } from "../../shared/config/env.config";
 import Jwt, { JwtAccessPayload } from "../../shared/utils/jwt";
 import { sendEmail } from "../../shared/utils/mailer";
 import {
@@ -9,18 +8,29 @@ import {
   RegisterUserRequest,
   ResetPasswordRequest,
 } from "./types";
-import OtpModel from "../../models/OtpModel";
+import generatedOtp from "./utils";
+import forgotPasswordOtpEmailTemplate from "../../utils/forgotPasswordOtpEmailTemplate";
+import { buildVerifyAccountEmail } from "../../utils/emailTemplates";
+import OtpService from "../otp/otp.service";
+
+const VERIFY_EMAIL_EXPIRES_IN_MS = 10 * 60 * 1000; // 10 minutes
+const VERIFY_EMAIL_SUBJECT = "Xác minh email của bạn";
 
 export const ERROR_CODE = {
   EMAIL_EXISTS: -2,
   EMAIL_NOT_EXISTS: -3,
   EMAIL_NOT_VERIFIED: -4,
   EMAIL_ALREADY_VERIFIED: -5,
+  VERIFY_TOKEN_EXPIRED: -6,
 } as const;
 
 // OTP-related implementations are not used; keeping service focused on password flows
 
 export default class AuthService {
+  private static generateVerifyToken() {
+    return String(generatedOtp());
+  }
+
   static async registerUser(payload: RegisterUserRequest) {
     const { name, email, password, otpMethod } = payload;
     if (!name || !email || !password) {
@@ -59,16 +69,24 @@ export default class AuthService {
 
     const salt = await bcryptjs.genSalt(10);
     const hashedPassword = await bcryptjs.hash(password, salt);
+    const verifyToken = AuthService.generateVerifyToken();
+    const verifyTokenExpiresAt = new Date(Date.now() + VERIFY_EMAIL_EXPIRES_IN_MS);
     const user = await UserModel.create({
       name,
       email,
       password: hashedPassword,
       otpMethod: otpMethod ?? OtpMethod.EMAIL,
+      verifyToken,
+      verifyTokenExpiresAt,
+      status: UserStatus.INACTIVE,
     });
     const savedUser = await user.save();
 
-    const verifyEmailUrl = `${env.CORS_ORIGIN}/verify-email?token=${savedUser.verifyToken}`;
-    await sendEmail(email, verifyEmailUrl, "Verify your email");
+    const verifyEmail = buildVerifyAccountEmail({
+      userName: name,
+      otpCode: verifyToken,
+    });
+    await sendEmail(email, verifyEmail.html, verifyEmail.subject);
 
     return {
       ok: true as const,
@@ -79,18 +97,48 @@ export default class AuthService {
 
   static async verifyEmail(token?: string) {
     if (!token) {
-      return { ok: false as const, status: 400, message: "Thiếu mã xác thực" };
+      return {
+        ok: false as const,
+        status: 400,
+        message: "Thiếu mã xác thực. Vui lòng kiểm tra lại email và thử lại.",
+        code: ERROR_CODE.VERIFY_TOKEN_EXPIRED,
+      };
     }
+    
+    // Kiểm tra format token (phải là 6 số)
+    if (!/^\d{6}$/.test(token)) {
+      return {
+        ok: false as const,
+        status: 400,
+        message: "Mã xác thực không đúng định dạng. Mã OTP phải là 6 chữ số.",
+        code: ERROR_CODE.VERIFY_TOKEN_EXPIRED,
+      };
+    }
+    
     const user = await UserModel.findOne({ verifyToken: token });
     if (!user) {
       return {
         ok: false as const,
         status: 400,
-        message: "Email không tồn tại",
+        message: "Mã xác thực không hợp lệ hoặc đã được sử dụng. Vui lòng kiểm tra lại email hoặc yêu cầu mã mới.",
+        code: ERROR_CODE.VERIFY_TOKEN_EXPIRED,
+      };
+    }
+    
+    if (
+      !user.verifyTokenExpiresAt ||
+      user.verifyTokenExpiresAt.getTime() < Date.now()
+    ) {
+      return {
+        ok: false as const,
+        status: 400,
+        message: "Mã xác thực đã hết hạn. Vui lòng yêu cầu mã OTP mới.",
+        code: ERROR_CODE.VERIFY_TOKEN_EXPIRED,
       };
     }
     user.verifyToken = undefined;
     user.verifyTokenExpiresAt = undefined;
+    user.status = UserStatus.ACTIVE;
     await user.save();
     return { ok: true as const, message: "Email đã được xác thực" };
   }
@@ -107,8 +155,16 @@ export default class AuthService {
         message: "Email không tồn tại",
       };
     }
-    const verifyEmailUrl = `${env.CORS_ORIGIN}/verify-email?token=${user.verifyToken}`;
-    await sendEmail(email, verifyEmailUrl, "Verify your email");
+    const verifyToken = AuthService.generateVerifyToken();
+    user.verifyToken = verifyToken;
+    user.verifyTokenExpiresAt = new Date(Date.now() + VERIFY_EMAIL_EXPIRES_IN_MS);
+    await user.save();
+
+    const verifyEmail = buildVerifyAccountEmail({
+      userName: user.name || email,
+      otpCode: verifyToken,
+    });
+    await sendEmail(email, verifyEmail.html, verifyEmail.subject);
     return { ok: true as const, message: "Email đã được gửi lại" };
   }
 
@@ -162,27 +218,36 @@ export default class AuthService {
         message: "Email không tồn tại",
       };
     }
-    const forgotPasswordToken = Jwt.generateRefreshToken() as unknown as string;
-    user.forgotPasswordToken = forgotPasswordToken;
-    user.forgotPasswordTokenExpiresAt = new Date(
-      Date.now() + 1000 * 60 * 60 * 24
+
+    const otpResult = await OtpService.requestOtp(
+      email,
+      "email",
+      "forgot_password",
+      {
+        emailSubject: "SHOPONLINE - Yêu cầu đặt lại mật khẩu",
+        emailTemplate: forgotPasswordOtpEmailTemplate,
+        appName: "SHOPONLINE",
+      }
     );
-    await user.save();
-    const forgotPasswordUrl = `${env.CORS_ORIGIN}/reset-password?token=${forgotPasswordToken}`;
-    await sendEmail(email, forgotPasswordUrl, "Reset your password");
-    return { ok: true as const, message: "Email đã được gửi lại" };
+
+    if (!otpResult.ok) {
+      return {
+        ok: false as const,
+        status: otpResult.status ?? 400,
+        message: otpResult.message ?? "Không thể gửi OTP",
+      };
+    }
+
+    return { ok: true as const, message: "Đã gửi mã OTP đặt lại mật khẩu" };
   }
 
   static async resetPassword(payload: ResetPasswordRequest) {
-    const { token, password, confirmPassword, identifier, otp } = payload;
-    if (!token) {
-      return { ok: false as const, status: 400, message: "Thiếu mã xác thực" };
-    }
+    const { password, confirmPassword, identifier, otp } = payload;
     if (!identifier || !otp) {
       return {
         ok: false as const,
         status: 400,
-        message: "Thiếu OTP hoặc identifier",
+        message: "Thiếu OTP hoặc email",
       };
     }
     if (!password || !confirmPassword) {
@@ -199,45 +264,32 @@ export default class AuthService {
         message: "Mật khẩu không khớp",
       };
     }
-    // Verify OTP first
-    const otpRecord = await OtpModel.findOne({ identifier, used: false }).sort({
-      createdAt: -1,
-    });
-    if (!otpRecord) {
-      return { ok: false as const, status: 400, message: "OTP không tồn tại" };
-    }
-    if (otpRecord.expiresAt < new Date()) {
-      return { ok: false as const, status: 400, message: "OTP đã hết hạn" };
-    }
-    if (otpRecord.attempts >= otpRecord.maxAttempts) {
+    const otpVerifyResult = await OtpService.verifyOtpBeforeAction(
+      identifier,
+      otp,
+      "forgot_password"
+    );
+
+    if (!otpVerifyResult.ok) {
       return {
         ok: false as const,
-        status: 429,
-        message: "Vượt quá số lần thử OTP",
+        status: otpVerifyResult.status ?? 400,
+        message: otpVerifyResult.message || "OTP không hợp lệ",
       };
     }
-    if (otpRecord.code !== otp) {
-      otpRecord.attempts += 1;
-      await otpRecord.save();
-      return { ok: false as const, status: 400, message: "OTP không hợp lệ" };
-    }
-    otpRecord.used = true;
-    await otpRecord.save();
-    const user = await UserModel.findOne({ forgotPasswordToken: token });
+
+    const user = await UserModel.findOne({ email: identifier });
     if (!user) {
-      return { ok: false as const, status: 400, message: "Token không hợp lệ" };
+      return {
+        ok: false as const,
+        status: 400,
+        message: "Tài khoản không tồn tại",
+      };
     }
-    if (
-      user.forgotPasswordTokenExpiresAt &&
-      user.forgotPasswordTokenExpiresAt < new Date()
-    ) {
-      return { ok: false as const, status: 400, message: "Token đã hết hạn" };
-    }
+
     const salt = await bcryptjs.genSalt(10);
     const hashedPassword = await bcryptjs.hash(password, salt);
     user.password = hashedPassword;
-    user.forgotPasswordToken = undefined;
-    user.forgotPasswordTokenExpiresAt = undefined;
     await user.save();
     return { ok: true as const, message: "Đặt lại mật khẩu thành công" };
   }

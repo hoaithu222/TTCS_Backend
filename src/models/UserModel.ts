@@ -86,6 +86,15 @@ const userSchema = new mongoose.Schema(
       default: OtpMethod.EMAIL,
       required: true,
     },
+    // mã smart otp
+    smartOtpSecret: {
+      type: String,
+    },
+    // login lần đầu tiên
+    isFirstLogin: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 ); // 👈 tự động thêm createdAt & updatedAt

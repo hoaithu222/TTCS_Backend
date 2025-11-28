@@ -26,7 +26,8 @@ const verifyEmailController = async (req, res) => {
     const { token } = req.query;
     const result = await auth_service_1.default.verifyEmail(token);
     if (!result.ok) {
-        return response_util_1.ResponseUtil.error(res, result.message, result.status, undefined, req.path, req.method);
+        return response_util_1.ResponseUtil.error(res, result.message, result.status, undefined, req.path, req.method, result.code // Pass error code to response
+        );
     }
     return response_util_1.ResponseUtil.success(res, { message: result.message });
 };
