@@ -625,7 +625,24 @@ export default class PaymentService {
       );
 
       if (updatedOrder) {
-        // Gửi thông báo cho user về cập nhật trạng thái đơn
+        // Gửi thông báo cho user về thanh toán thành công
+        await notificationService.createAndEmit({
+          userId: updatedOrder.userId.toString(),
+          title: "Thanh toán thành công",
+          content: `Đơn hàng #${updatedOrder._id.toString().slice(-6).toUpperCase()} đã được thanh toán thành công qua chuyển khoản ngân hàng (Sepay).`,
+          type: "payment:success",
+          icon: "check-circle",
+          actionUrl: `/payment/result/${updatedOrder._id.toString()}`,
+          metadata: {
+            orderId: updatedOrder._id.toString(),
+            paymentId: payment._id.toString(),
+            amount: payment.amount,
+            method: "bank_transfer",
+          },
+          priority: "high",
+        });
+        
+        // Gửi thông báo về cập nhật trạng thái đơn
         await notificationService.notifyUserOrderStatus({
           userId: updatedOrder.userId.toString(),
           orderId: updatedOrder._id.toString(),

@@ -348,6 +348,27 @@ export default class WalletService {
         wallet.balance += amountToAdd;
         wallet.lastTransactionAt = new Date();
         await wallet.save();
+
+        // Gửi notification cho user khi nạp tiền thành công
+        try {
+          const { notificationService } = await import("../../shared/services/notification.service");
+          await notificationService.createAndEmit({
+            userId: transaction.userId.toString(),
+            title: "Nạp tiền thành công",
+            content: `Bạn đã nạp ${amountToAdd.toLocaleString("vi-VN")} VNĐ vào ví. Số dư hiện tại: ${wallet.balance.toLocaleString("vi-VN")} VNĐ`,
+            type: "wallet:deposit:success",
+            icon: "wallet",
+            actionUrl: `/profile?tab=wallet`,
+            metadata: {
+              transactionId: transaction._id.toString(),
+              amount: amountToAdd,
+              balance: wallet.balance,
+            },
+            priority: "high",
+          });
+        } catch (error) {
+          console.error("[WalletService] Failed to send deposit notification:", error);
+        }
       }
 
       return {
