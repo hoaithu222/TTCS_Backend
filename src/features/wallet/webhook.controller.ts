@@ -103,11 +103,14 @@ export const webhookReceiverController = async (
     }
 
     // Extract transaction information from webhook
-    // Adjust these fields based on actual webhook format from bank
-    const transactionId = body.transactionId || body.id || body.txn_id;
-    const amount = parseFloat(body.amount || body.totalAmount || body.money || 0);
+    // Adjust these fields based on actual webhook format from bank/SePay
+    const transactionId = body.transactionId || body.id || body.txn_id || body.referenceCode;
+    // SePay webhook uses "transferAmount", other gateways may use "amount", "totalAmount", "money"
+    const amount = parseFloat(
+      body.transferAmount || body.amount || body.totalAmount || body.money || 0
+    );
     const description = body.description || body.content || body.note || body.message || "";
-    const status = body.status || body.state || "completed";
+    const status = body.status || body.state || (body.transferType === "in" ? "completed" : "pending");
 
     // 1) Check order payment via Sepay
     // Format nội dung đã cấu hình khi tạo QR: "Thanh toan don hang {orderId}"

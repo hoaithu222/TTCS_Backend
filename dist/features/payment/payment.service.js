@@ -41,7 +41,7 @@ const CLIENT_APP_URL = process.env.FRONTEND_URL ||
     "http://localhost:5174";
 // Sepay test mode: giới hạn số tiền thực chuyển để test (QR amount < 10.000 VNĐ)
 const SEPAY_TEST_MODE = process.env.SEPAY_TEST_MODE === "true" || process.env.NODE_ENV !== "production";
-const SEPAY_TEST_MAX_AMOUNT = Number.parseInt(process.env.SEPAY_TEST_MAX_AMOUNT || "9000", 10) || 9000;
+const SEPAY_TEST_MAX_AMOUNT = Number.parseInt(process.env.SEPAY_TEST_MAX_AMOUNT || "3000", 10) || 3000;
 const getSepayAmount = (originalAmount) => {
     if (!SEPAY_TEST_MODE)
         return originalAmount;
@@ -210,6 +210,12 @@ class PaymentService {
                         const sepayAmount = getSepayAmount(payment.amount);
                         const qrCodeUrl = `${QR_CODE_BASE_URL}?bank=${encodeURIComponent(bankInfo.bankName)}&acc=${bankInfo.accountNumber}&template=compact&amount=${sepayAmount}&des=${description}`;
                         payment.qrCode = qrCodeUrl;
+                        // Lưu sepayAmount vào gatewayResponse để webhook so sánh đúng
+                        payment.gatewayResponse = {
+                            ...(payment.gatewayResponse || {}),
+                            sepayAmount,
+                            originalAmount: payment.amount,
+                        };
                         response.qrCode = qrCodeUrl;
                     }
                     // Gia hạn lâu hơn cho chuyển khoản
@@ -297,7 +303,38 @@ class PaymentService {
                     message: "Payment not found",
                 };
             }
-            // Convert to object and ensure orderId is a string, not an object
+            // Nếu là chuyển khoản ngân hàng và chưa có QR nhưng vẫn đang chờ xử lý,
+            // tự động tạo lại QR + hướng dẫn để đảm bảo luôn có màn thanh toán QR.
+            if (payment.method === PaymentModel_1.PaymentMethod.BANK_TRANSFER &&
+                (payment.status === PaymentModel_1.PaymentStatus.PENDING ||
+                    payment.status === PaymentModel_1.PaymentStatus.PROCESSING) &&
+                !payment.qrCode) {
+                const methods = await this.getPaymentMethods();
+                const bankMethod = methods.find((m) => m.type === PaymentModel_1.PaymentMethod.BANK_TRANSFER);
+                const bankAccounts = bankMethod?.config?.bankAccounts || [];
+                const bankInfo = bankAccounts[0];
+                if (bankInfo) {
+                    const QR_CODE_BASE_URL = "https://qr.sepay.vn/img";
+                    const description = encodeURIComponent(`Thanh toan don hang ${payment.orderId.toString()}`);
+                    const sepayAmount = getSepayAmount(payment.amount);
+                    const qrCodeUrl = `${QR_CODE_BASE_URL}?bank=${encodeURIComponent(bankInfo.bankName)}&acc=${bankInfo.accountNumber}&template=compact&amount=${sepayAmount}&des=${description}`;
+                    payment.qrCode = qrCodeUrl;
+                    // Lưu sepayAmount vào gatewayResponse để webhook so sánh đúng
+                    payment.gatewayResponse = {
+                        ...(payment.gatewayResponse || {}),
+                        sepayAmount,
+                        originalAmount: payment.amount,
+                    };
+                    if (!payment.instructions) {
+                        payment.instructions = PaymentService.buildBankTransferInstructions(payment.orderId.toString(), bankAccounts);
+                    }
+                    if (!payment.expiresAt) {
+                        payment.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                    }
+                    await payment.save();
+                }
+            }
+            // Convert to object và đảm bảo orderId là string, không phải object
             const paymentObj = payment.toObject();
             // Ensure orderId is always a string (in case it was populated)
             if (paymentObj.orderId && typeof paymentObj.orderId === "object") {
@@ -470,12 +507,23 @@ class PaymentService {
                 };
             }
             // Verify amount (cho phép lệch 1.000 VNĐ do test mode / làm tròn)
-            const expectedAmount = payment.amount;
+            // Trong test mode, QR code hiển thị sepayAmount (nhỏ hơn), nhưng payment.amount vẫn là số tiền gốc
+            // Nếu có gatewayResponse.sepayAmount, so sánh với nó
+            // Nếu không có (payment cũ), tính lại sepayAmount từ payment.amount
+            let expectedAmount = payment.amount;
+            const sepayAmount = payment.gatewayResponse?.sepayAmount;
+            if (sepayAmount) {
+                expectedAmount = sepayAmount;
+            }
+            else if (SEPAY_TEST_MODE && payment.amount > SEPAY_TEST_MAX_AMOUNT) {
+                // Payment cũ: tính lại sepayAmount từ số tiền gốc
+                expectedAmount = getSepayAmount(payment.amount);
+            }
             if (Math.abs(expectedAmount - amount) > 1000) {
                 return {
                     ok: false,
                     status: 400,
-                    message: "Amount mismatch for bank transfer payment",
+                    message: `Amount mismatch: expected ${expectedAmount} (sepayAmount: ${sepayAmount || 'calculated'}, original: ${payment.amount}), received ${amount}`,
                 };
             }
             payment.status = PaymentModel_1.PaymentStatus.COMPLETED;

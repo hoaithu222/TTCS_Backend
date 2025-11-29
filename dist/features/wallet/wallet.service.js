@@ -240,12 +240,20 @@ class WalletService {
                 };
             }
             // Verify amount
-            if (Math.abs(transaction.amount - amount) > 1000) {
-                // Allow 1000 VNĐ difference for rounding
+            // Nếu có metadata.originalAmount (transaction mới), transaction.amount đã là sepayAmount
+            // Nếu không có (transaction cũ), transaction.amount là số tiền gốc, cần tính lại sepayAmount để so sánh
+            let expectedAmount = transaction.amount;
+            const originalAmount = transaction.metadata?.originalAmount;
+            if (!originalAmount && SEPAY_TEST_MODE && transaction.amount > SEPAY_TEST_MAX_AMOUNT) {
+                // Transaction cũ: tính lại sepayAmount từ số tiền gốc
+                expectedAmount = getSepayAmount(transaction.amount);
+            }
+            if (Math.abs(expectedAmount - amount) > 1000) {
+                // Allow 1000 VNĐ difference for rounding/test mode
                 return {
                     ok: false,
                     status: 400,
-                    message: "Amount mismatch",
+                    message: `Amount mismatch: expected ${expectedAmount} (original: ${originalAmount || transaction.amount}), received ${amount}`,
                 };
             }
             // Update transaction
@@ -254,23 +262,22 @@ class WalletService {
             transaction.completedAt = new Date();
             await transaction.save();
             // Update wallet balance (gộp ví: luôn cộng vào ví theo userId)
-            let wallet;
+            // Nếu có metadata.originalAmount, cộng số tiền gốc; nếu không, cộng transaction.amount
             if (transaction.userId) {
-                wallet = await WalletModel_1.WalletBalanceModel.findOne({
+                let wallet = await WalletModel_1.WalletBalanceModel.findOne({
                     userId: transaction.userId,
                 });
-                if (wallet) {
-                    wallet.balance += transaction.amount;
-                    wallet.lastTransactionAt = new Date();
-                    await wallet.save();
-                }
-                else {
-                    await WalletModel_1.WalletBalanceModel.create({
+                if (!wallet) {
+                    wallet = await WalletModel_1.WalletBalanceModel.create({
                         userId: transaction.userId,
-                        balance: transaction.amount,
-                        lastTransactionAt: new Date(),
+                        balance: 0,
                     });
                 }
+                // Cộng số tiền gốc nếu có, nếu không cộng transaction.amount (đã là sepayAmount)
+                const amountToAdd = transaction.metadata?.originalAmount || transaction.amount;
+                wallet.balance += amountToAdd;
+                wallet.lastTransactionAt = new Date();
+                await wallet.save();
             }
             return {
                 ok: true,
