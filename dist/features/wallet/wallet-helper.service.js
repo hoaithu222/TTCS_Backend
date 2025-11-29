@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -11,12 +44,12 @@ const mongoose_1 = __importDefault(require("mongoose"));
  */
 class WalletHelperService {
     /**
-     * Transfer money to shop wallet when order is delivered
+     * Transfer money to shop owner wallet (gộp ví user + shop)
      * This is called when order status changes to DELIVERED
      */
     static async transferToShopWallet(orderId, amount, paymentId) {
         try {
-            // Get order to find shopId
+            // Get order to find shop owner
             const order = await OrderModel_1.default.findById(orderId);
             if (!order || !order.shopId) {
                 return {
@@ -31,26 +64,34 @@ class WalletHelperService {
                     message: "Money already transferred to shop wallet",
                 };
             }
-            const shopId = order.shopId;
-            // Validate shopId
-            if (!shopId || !mongoose_1.default.Types.ObjectId.isValid(shopId)) {
+            // Lấy userId của chủ shop
+            const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
+            const shop = await ShopModel.findById(order.shopId).lean();
+            if (!shop || !shop.userId) {
                 return {
                     ok: false,
-                    message: "Invalid shop ID",
+                    message: "Shop owner not found",
                 };
             }
-            // Get or create shop wallet using findOneAndUpdate to avoid race conditions
-            const shopWallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ shopId }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
-            // Add to shop wallet
-            shopWallet.balance += amount;
-            shopWallet.lastTransactionAt = new Date();
-            await shopWallet.save();
-            // Create revenue transaction for shop
+            const ownerUserId = shop.userId.toString();
+            if (!mongoose_1.default.Types.ObjectId.isValid(ownerUserId)) {
+                return {
+                    ok: false,
+                    message: "Invalid shop owner ID",
+                };
+            }
+            // Get or create owner wallet using findOneAndUpdate to avoid race conditions
+            const ownerWallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ userId: ownerUserId }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+            // Add to owner wallet
+            ownerWallet.balance += amount;
+            ownerWallet.lastTransactionAt = new Date();
+            await ownerWallet.save();
+            // Create revenue transaction for owner
             const paymentObjectId = paymentId && mongoose_1.default.Types.ObjectId.isValid(paymentId)
                 ? new mongoose_1.default.Types.ObjectId(paymentId)
                 : undefined;
             await WalletModel_1.WalletTransactionModel.create({
-                shopId,
+                userId: ownerUserId,
                 type: WalletModel_1.WalletTransactionType.REVENUE,
                 amount: amount,
                 status: WalletModel_1.WalletTransactionStatus.COMPLETED,
@@ -65,8 +106,8 @@ class WalletHelperService {
             await order.save();
             return {
                 ok: true,
-                message: "Money transferred to shop wallet",
-                shopWallet: shopWallet.toObject(),
+                message: "Money transferred to shop owner wallet",
+                shopWallet: ownerWallet.toObject(),
             };
         }
         catch (error) {
@@ -96,22 +137,26 @@ class WalletHelperService {
             // Check if order was already refunded (by checking if wallet was transferred)
             // If wallet was transferred, we need to deduct from shop wallet
             if (order.walletTransferred) {
-                // Deduct from shop wallet
-                const shopWallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId });
-                if (shopWallet && shopWallet.balance >= amount) {
-                    shopWallet.balance -= amount;
-                    shopWallet.lastTransactionAt = new Date();
-                    await shopWallet.save();
-                    // Create transaction for shop (deduction)
-                    await WalletModel_1.WalletTransactionModel.create({
-                        shopId,
-                        type: WalletModel_1.WalletTransactionType.REFUND,
-                        amount: -amount,
-                        status: WalletModel_1.WalletTransactionStatus.COMPLETED,
-                        description: reason || `Hoàn tiền đơn hàng #${orderId} (Đã trừ từ ví shop)`,
-                        orderId: order._id,
-                        completedAt: new Date(),
-                    });
+                // Deduct from shop owner wallet (gộp ví)
+                const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
+                const shop = await ShopModel.findById(shopId).lean();
+                if (shop?.userId) {
+                    const ownerUserId = shop.userId.toString();
+                    const ownerWallet = await WalletModel_1.WalletBalanceModel.findOne({ userId: ownerUserId });
+                    if (ownerWallet && ownerWallet.balance >= amount) {
+                        ownerWallet.balance -= amount;
+                        ownerWallet.lastTransactionAt = new Date();
+                        await ownerWallet.save();
+                        await WalletModel_1.WalletTransactionModel.create({
+                            userId: ownerUserId,
+                            type: WalletModel_1.WalletTransactionType.REFUND,
+                            amount: -amount,
+                            status: WalletModel_1.WalletTransactionStatus.COMPLETED,
+                            description: reason || `Hoàn tiền đơn hàng #${orderId} (Đã trừ từ ví chủ shop)`,
+                            orderId: order._id,
+                            completedAt: new Date(),
+                        });
+                    }
                 }
             }
             // Refund to user wallet (only if payment was made)

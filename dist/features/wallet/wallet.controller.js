@@ -86,17 +86,14 @@ const updateBankInfoController = async (req, res) => {
 exports.updateBankInfoController = updateBankInfoController;
 /**
  * Transfer money between user and shop wallets
+ * Hiện tại ví user và ví shop đã được gộp nên API này chỉ trả về thông báo lỗi nếu được gọi.
  */
 const transferBetweenWalletsController = async (req, res) => {
     const result = await wallet_service_1.default.transferBetweenWallets(req, req.body);
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, {
-        userWallet: result.userWallet,
-        shopWallet: result.shopWallet,
-        message: result.message,
-    }, "Transfer successful");
+    return response_util_1.ResponseUtil.success(res, { message: result.message }, "Transfer successful");
 };
 exports.transferBetweenWalletsController = transferBetweenWalletsController;
 /**

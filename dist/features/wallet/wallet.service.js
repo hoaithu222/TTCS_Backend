@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -72,94 +39,47 @@ const getSepayAmount = (originalAmount) => {
 };
 class WalletService {
     /**
-     * Get wallet balance (for user or shop)
-     * If user is shop owner, returns both user and shop wallets
+     * Get wallet balance (gộp ví user + shop thành một ví duy nhất theo userId)
      */
     static async getBalance(req) {
         try {
             const userId = req.user?.userId;
-            const shopId = req.shopId || req.query.shopId; // Support shop wallet query
-            // Validate userId if provided - must be a valid ObjectId string
-            if (userId && (!mongoose_1.default.Types.ObjectId.isValid(userId) || userId === 'null' || userId === 'undefined')) {
-                return { ok: false, status: 401, message: "Invalid user ID" };
-            }
-            // Validate shopId if provided
-            if (shopId && (!mongoose_1.default.Types.ObjectId.isValid(shopId) || shopId === 'null' || shopId === 'undefined')) {
-                return { ok: false, status: 400, message: "Invalid shop ID" };
-            }
-            if (!userId && !shopId) {
-                return { ok: false, status: 401, message: "Unauthorized" };
-            }
-            // If shopId is provided, return shop wallet only
-            if (shopId) {
-                // Use findOneAndUpdate with upsert to avoid race conditions
-                const wallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ shopId }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
-                return {
-                    ok: true,
-                    balance: wallet.balance,
-                    wallet: wallet.toObject(),
-                };
-            }
-            // Ensure userId is valid before proceeding
+            // Validate userId
             if (!userId || !mongoose_1.default.Types.ObjectId.isValid(userId)) {
-                return { ok: false, status: 401, message: "Invalid or missing user ID" };
+                return { ok: false, status: 401, message: "Unauthorized" };
             }
             // Get user wallet using findOneAndUpdate to avoid race conditions
             const userWallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ userId }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
-            // Check if user is shop owner
-            const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
-            const shop = await ShopModel.findOne({ userId }).lean();
-            let shopWallet = null;
-            if (shop && shop._id) {
-                // Use findOneAndUpdate with upsert to avoid race conditions
-                shopWallet = await WalletModel_1.WalletBalanceModel.findOneAndUpdate({ shopId: shop._id }, { $setOnInsert: { balance: 0 } }, { upsert: true, new: true, setDefaultsOnInsert: true });
-            }
             return {
                 ok: true,
                 balance: userWallet.balance,
                 wallet: userWallet.toObject(),
-                shopWallet: shopWallet ? shopWallet.toObject() : null,
-                shop: shop ? { _id: shop._id, name: shop.name } : null,
+                // Gộp ví: không trả về ví shop riêng nữa
+                shopWallet: null,
+                shop: null,
             };
         }
         catch (error) {
             // Handle duplicate key errors specifically
             if (error.code === 11000 || error.message?.includes('duplicate key')) {
-                // Retry once if duplicate key error (race condition)
+                // Retry once nếu bị race condition
                 try {
                     const userId = req.user?.userId;
-                    const shopId = req.shopId || req.query.shopId;
-                    if (shopId) {
-                        const wallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId });
-                        if (wallet) {
-                            return {
-                                ok: true,
-                                balance: wallet.balance,
-                                wallet: wallet.toObject(),
-                            };
-                        }
-                    }
                     if (userId) {
                         const userWallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
                         if (userWallet) {
-                            const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
-                            const shop = await ShopModel.findOne({ userId }).lean();
-                            let shopWallet = null;
-                            if (shop && shop._id) {
-                                shopWallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId: shop._id });
-                            }
                             return {
                                 ok: true,
                                 balance: userWallet.balance,
                                 wallet: userWallet.toObject(),
-                                shopWallet: shopWallet ? shopWallet.toObject() : null,
-                                shop: shop ? { _id: shop._id, name: shop.name } : null,
+                                shopWallet: null,
+                                shop: null,
                             };
                         }
                     }
                 }
                 catch (retryError) {
-                    // If retry also fails, return error
+                    // ignore
                 }
             }
             return {
@@ -185,7 +105,7 @@ class WalletService {
                     message: "Số tiền nạp phải lớn hơn 0",
                 };
             }
-            // Get or create wallet
+            // Get or create ví (gộp: dùng userId làm mã ví duy nhất)
             let wallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
             if (!wallet) {
                 wallet = await WalletModel_1.WalletBalanceModel.create({
@@ -193,49 +113,33 @@ class WalletService {
                     balance: 0,
                 });
             }
-            // Determine wallet type (user or shop)
-            const walletType = req.query.walletType || "user";
-            let shopId = undefined;
-            let targetWallet = null;
-            if (walletType === "shop") {
-                const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
-                const shop = await ShopModel.findOne({ userId });
-                if (!shop) {
-                    return {
-                        ok: false,
-                        status: 404,
-                        message: "Shop not found",
-                    };
-                }
-                shopId = shop._id;
-                targetWallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId });
-            }
-            else {
-                targetWallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
-            }
-            // Get bank account info from user's wallet, fallback to default
+            // Chỉ dùng một ví duy nhất: lấy bankInfo từ ví user, fallback BANK_ACCOUNT
+            const targetWallet = wallet;
+            // Ưu tiên bankInfo đã lưu trong ví nếu đầy đủ, nếu không dùng BANK_ACCOUNT từ env
             let bankAccountInfo = BANK_ACCOUNT;
-            if (targetWallet?.bankInfo) {
+            const walletBank = targetWallet?.bankInfo;
+            if (walletBank &&
+                walletBank.bankName &&
+                walletBank.accountNumber &&
+                walletBank.accountHolder) {
                 bankAccountInfo = {
-                    bankName: targetWallet.bankInfo.bankName,
-                    accountNumber: targetWallet.bankInfo.accountNumber,
-                    accountHolder: targetWallet.bankInfo.accountHolder,
+                    bankName: walletBank.bankName,
+                    accountNumber: walletBank.accountNumber,
+                    accountHolder: walletBank.accountHolder,
                 };
             }
             // Áp dụng số tiền thực tế sử dụng cho QR (giới hạn khi test)
             const sepayAmount = getSepayAmount(data.amount);
-            // Create deposit transaction
+            // Create deposit transaction (gắn với userId)
             const transaction = await WalletModel_1.WalletTransactionModel.create({
-                userId: walletType === "user" ? userId : undefined,
-                shopId: walletType === "shop" ? shopId : undefined,
+                userId,
                 type: WalletModel_1.WalletTransactionType.DEPOSIT,
                 amount: sepayAmount,
                 status: WalletModel_1.WalletTransactionStatus.PENDING,
                 description: data.description ||
-                    `Nạp tiền vào ví ${walletType === "shop" ? "shop" : "cá nhân"} - ${sepayAmount.toLocaleString("vi-VN")} VNĐ`,
+                    `Nạp tiền vào ví - ${sepayAmount.toLocaleString("vi-VN")} VNĐ`,
                 bankAccount: bankAccountInfo,
                 metadata: {
-                    walletType,
                     originalAmount: data.amount,
                 },
             });
@@ -251,7 +155,7 @@ class WalletService {
             await transaction.save();
             // Generate instructions based on deposit method
             let instructions;
-            instructions = `Quét mã QR để nạp ${sepayAmount.toLocaleString("vi-VN")} VNĐ vào ví của bạn.\nNgân hàng: ${bankAccountInfo.bankName}\nSố tài khoản: ${bankAccountInfo.accountNumber}\nChủ tài khoản: ${bankAccountInfo.accountHolder}\nNội dung chuyển khoản: Nap tien ${transaction._id.toString()}\n\nSau khi thanh toán thành công qua Sepay, hệ thống sẽ tự động cập nhật số dư ví (thường trong vài phút).`;
+            instructions = `Quét mã QR hoặc chuyển khoản theo thông tin bên dưới để nạp tiền vào ví của bạn.\nNgân hàng: ${bankAccountInfo.bankName}\nSố tài khoản: ${bankAccountInfo.accountNumber}\nChủ tài khoản: ${bankAccountInfo.accountHolder}\nNội dung chuyển khoản: Nap tien ${transaction._id.toString()}\n\nSau khi thanh toán thành công qua Sepay, hệ thống sẽ tự động cập nhật số dư ví (thường trong vài phút).`;
             return {
                 ok: true,
                 transaction: transaction.toObject(),
@@ -276,14 +180,14 @@ class WalletService {
     static async getTransactions(req, query) {
         try {
             const userId = req.user?.userId;
-            const shopId = query.shopId || req.shopId;
-            if (!userId && !shopId) {
+            if (!userId) {
                 return { ok: false, status: 401, message: "Unauthorized" };
             }
             const page = parseInt(query.page) || 1;
             const limit = parseInt(query.limit) || 10;
             const skip = (page - 1) * limit;
-            const filter = shopId ? { shopId } : { userId };
+            // Gộp ví: chỉ lọc theo userId (bao gồm cả giao dịch doanh thu REVENUE, thanh toán, nạp/rút)
+            const filter = { userId };
             if (query.type) {
                 filter.type = query.type;
             }
@@ -349,7 +253,7 @@ class WalletService {
             transaction.transactionId = bankTransactionId;
             transaction.completedAt = new Date();
             await transaction.save();
-            // Update wallet balance (support both user and shop)
+            // Update wallet balance (gộp ví: luôn cộng vào ví theo userId)
             let wallet;
             if (transaction.userId) {
                 wallet = await WalletModel_1.WalletBalanceModel.findOne({
@@ -363,23 +267,6 @@ class WalletService {
                 else {
                     await WalletModel_1.WalletBalanceModel.create({
                         userId: transaction.userId,
-                        balance: transaction.amount,
-                        lastTransactionAt: new Date(),
-                    });
-                }
-            }
-            else if (transaction.shopId) {
-                wallet = await WalletModel_1.WalletBalanceModel.findOne({
-                    shopId: transaction.shopId,
-                });
-                if (wallet) {
-                    wallet.balance += transaction.amount;
-                    wallet.lastTransactionAt = new Date();
-                    await wallet.save();
-                }
-                else {
-                    await WalletModel_1.WalletBalanceModel.create({
-                        shopId: transaction.shopId,
                         balance: transaction.amount,
                         lastTransactionAt: new Date(),
                     });
@@ -407,16 +294,6 @@ class WalletService {
             if (!userId) {
                 return { ok: false, status: 401, message: "Unauthorized" };
             }
-            // Get shop from user
-            const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
-            const shop = await ShopModel.findOne({ userId });
-            if (!shop) {
-                return {
-                    ok: false,
-                    status: 404,
-                    message: "Shop not found",
-                };
-            }
             if (!data.amount || data.amount <= 0) {
                 return {
                     ok: false,
@@ -424,39 +301,37 @@ class WalletService {
                     message: "Số tiền rút phải lớn hơn 0",
                 };
             }
-            // Get shop wallet
-            let shopWallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId: shop._id });
-            if (!shopWallet) {
+            // Gộp ví: rút tiền từ ví user (chung với ví shop)
+            let wallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
+            if (!wallet) {
                 return {
                     ok: false,
                     status: 404,
-                    message: "Shop wallet not found",
+                    message: "Wallet not found",
                 };
             }
-            if (shopWallet.balance < data.amount) {
+            if (wallet.balance < data.amount) {
                 return {
                     ok: false,
                     status: 400,
-                    message: `Số dư không đủ. Số dư hiện tại: ${shopWallet.balance.toLocaleString('vi-VN')} VNĐ`,
+                    message: `Số dư không đủ. Số dư hiện tại: ${wallet.balance.toLocaleString('vi-VN')} VNĐ`,
                 };
             }
-            // Deduct from wallet
-            shopWallet.balance -= data.amount;
-            shopWallet.lastTransactionAt = new Date();
-            await shopWallet.save();
-            // Create withdrawal transaction
+            wallet.balance -= data.amount;
+            wallet.lastTransactionAt = new Date();
+            await wallet.save();
             const transaction = await WalletModel_1.WalletTransactionModel.create({
-                shopId: shop._id,
+                userId,
                 type: WalletModel_1.WalletTransactionType.WITHDRAW,
                 amount: data.amount,
                 status: WalletModel_1.WalletTransactionStatus.COMPLETED,
-                description: data.description || `Rút tiền từ ví shop - ${data.amount.toLocaleString('vi-VN')} VNĐ`,
+                description: data.description || `Rút tiền từ ví - ${data.amount.toLocaleString('vi-VN')} VNĐ`,
                 completedAt: new Date(),
             });
             return {
                 ok: true,
                 transaction: transaction.toObject(),
-                balance: shopWallet.balance,
+                balance: wallet.balance,
             };
         }
         catch (error) {
@@ -476,35 +351,13 @@ class WalletService {
             if (!userId) {
                 return { ok: false, status: 401, message: "Unauthorized" };
             }
-            let wallet;
-            if (data.walletType === "shop") {
-                // Update shop wallet
-                const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
-                const shop = await ShopModel.findOne({ userId });
-                if (!shop) {
-                    return {
-                        ok: false,
-                        status: 404,
-                        message: "Shop not found",
-                    };
-                }
-                wallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId: shop._id });
-                if (!wallet) {
-                    wallet = await WalletModel_1.WalletBalanceModel.create({
-                        shopId: shop._id,
-                        balance: 0,
-                    });
-                }
-            }
-            else {
-                // Update user wallet
-                wallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
-                if (!wallet) {
-                    wallet = await WalletModel_1.WalletBalanceModel.create({
-                        userId,
-                        balance: 0,
-                    });
-                }
+            // Gộp ví: luôn cập nhật bankInfo cho ví theo userId
+            let wallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
+            if (!wallet) {
+                wallet = await WalletModel_1.WalletBalanceModel.create({
+                    userId,
+                    balance: 0,
+                });
             }
             wallet.bankInfo = {
                 bankName: data.bankName,
@@ -532,93 +385,11 @@ class WalletService {
      */
     static async transferBetweenWallets(req, data) {
         try {
-            const userId = req.user?.userId;
-            if (!userId) {
-                return { ok: false, status: 401, message: "Unauthorized" };
-            }
-            if (data.from === data.to) {
-                return {
-                    ok: false,
-                    status: 400,
-                    message: "Cannot transfer to the same wallet",
-                };
-            }
-            if (!data.amount || data.amount <= 0) {
-                return {
-                    ok: false,
-                    status: 400,
-                    message: "Số tiền chuyển phải lớn hơn 0",
-                };
-            }
-            // Get shop info
-            const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
-            const shop = await ShopModel.findOne({ userId });
-            if (!shop) {
-                return {
-                    ok: false,
-                    status: 404,
-                    message: "Shop not found",
-                };
-            }
-            // Get both wallets
-            let userWallet = await WalletModel_1.WalletBalanceModel.findOne({ userId });
-            if (!userWallet) {
-                userWallet = await WalletModel_1.WalletBalanceModel.create({
-                    userId,
-                    balance: 0,
-                });
-            }
-            let shopWallet = await WalletModel_1.WalletBalanceModel.findOne({ shopId: shop._id });
-            if (!shopWallet) {
-                shopWallet = await WalletModel_1.WalletBalanceModel.create({
-                    shopId: shop._id,
-                    balance: 0,
-                });
-            }
-            // Determine source and destination
-            const sourceWallet = data.from === "user" ? userWallet : shopWallet;
-            const destWallet = data.to === "user" ? userWallet : shopWallet;
-            // Check balance
-            if (sourceWallet.balance < data.amount) {
-                return {
-                    ok: false,
-                    status: 400,
-                    message: `Số dư không đủ. Số dư hiện tại: ${sourceWallet.balance.toLocaleString('vi-VN')} VNĐ`,
-                };
-            }
-            // Transfer
-            sourceWallet.balance -= data.amount;
-            destWallet.balance += data.amount;
-            sourceWallet.lastTransactionAt = new Date();
-            destWallet.lastTransactionAt = new Date();
-            await Promise.all([sourceWallet.save(), destWallet.save()]);
-            // Create transactions
-            const description = data.description || `Chuyển tiền từ ví ${data.from === "user" ? "cá nhân" : "shop"} sang ví ${data.to === "user" ? "cá nhân" : "shop"}`;
-            await Promise.all([
-                WalletModel_1.WalletTransactionModel.create({
-                    userId: data.from === "user" ? userId : undefined,
-                    shopId: data.from === "shop" ? shop._id : undefined,
-                    type: WalletModel_1.WalletTransactionType.TRANSFER,
-                    amount: data.amount,
-                    status: WalletModel_1.WalletTransactionStatus.COMPLETED,
-                    description: `${description} (Gửi)`,
-                    completedAt: new Date(),
-                }),
-                WalletModel_1.WalletTransactionModel.create({
-                    userId: data.to === "user" ? userId : undefined,
-                    shopId: data.to === "shop" ? shop._id : undefined,
-                    type: WalletModel_1.WalletTransactionType.TRANSFER,
-                    amount: data.amount,
-                    status: WalletModel_1.WalletTransactionStatus.COMPLETED,
-                    description: `${description} (Nhận)`,
-                    completedAt: new Date(),
-                }),
-            ]);
+            // Ví đã gộp giữa user và shop, không còn hỗ trợ chuyển giữa 2 ví
             return {
-                ok: true,
-                message: "Chuyển tiền thành công",
-                userWallet: userWallet.toObject(),
-                shopWallet: shopWallet.toObject(),
+                ok: false,
+                status: 400,
+                message: "Ví user và ví shop đã gộp chung, không cần chuyển giữa các ví",
             };
         }
         catch (error) {
