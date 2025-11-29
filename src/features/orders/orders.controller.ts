@@ -98,3 +98,16 @@ export const reorderOrderController = async (req: Request, res: Response) => {
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
   return ResponseUtil.success(res, null, "Thêm sản phẩm vào giỏ hàng thành công");
 };
+
+export const autoCancelUnpaidOrdersController = async (
+  _req: Request,
+  res: Response
+) => {
+  const result = await OrdersService.autoCancelStaleUnpaidOrders();
+  if (!result.ok) {
+    return ResponseUtil.error(res, "Auto cancel unpaid orders failed", 500);
+  }
+  return ResponseUtil.success(res, {
+    cancelled: result.cancelled,
+  });
+};

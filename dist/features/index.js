@@ -88,7 +88,10 @@ router.use("/cart", cart_1.default);
 router.use("/addresses", address_1.default);
 router.use("/reviews", reviews_1.default);
 router.use("/home", home_1.default);
+// Đăng ký route cho payments ở cả /payments và /payment
+// để tương thích với URL webhook của SePay (ví dụ: /api/v1/payment/webhook)
 router.use("/payments", payment_1.default);
+router.use("/payment", payment_1.default);
 router.use("/wallets", wallet_1.default);
 router.use("/admin", admin_1.default);
 router.use("/wishlist", wishlist_1.default);

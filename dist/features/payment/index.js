@@ -13,7 +13,10 @@ paymentRouter.get("/status/:orderId", auth_middleware_1.authenticateToken, payme
 // Get payment history (authenticated)
 paymentRouter.get("/history", auth_middleware_1.authenticateToken, payment_controller_1.getPaymentHistoryController);
 // Webhook endpoints (no auth required - gateways call these)
+// 1) Generic gateway webhook (hiện tại chủ yếu dùng cho dev/test)
 paymentRouter.post("/webhook/:gateway", payment_controller_1.handleWebhookController);
+// 2) Sepay webhook (không có param gateway) - khớp với cấu hình SePay
+paymentRouter.post("/webhook", payment_controller_1.handleSepayWebhookController);
 // Test payment endpoint (development only)
 paymentRouter.post("/test/:paymentId", payment_controller_1.processTestPaymentController);
 // Confirm bank transfer manually (authenticated)

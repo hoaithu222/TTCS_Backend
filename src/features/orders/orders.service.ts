@@ -344,7 +344,13 @@ export default class OrdersService {
       const skip = (page - 1) * limit;
       const filter: any = {};
       if (query.status) filter.status = query.status;
-      if (query.shopId) filter.shopId = query.shopId;
+      if (query.shopId) {
+        filter.shopId = query.shopId;
+        // Khi load danh sách đơn theo shop (dùng cho phía shop/admin),
+        // chỉ hiển thị những đơn đã thanh toán (isPay = true)
+        // để tránh trường hợp đơn chưa thanh toán vẫn tính vào đơn hàng của shop.
+        filter.isPay = true;
+      }
       // Non-admins only see their own orders
       if (currentUser.role !== "admin") filter.userId = currentUser.id;
       else if (query.userId) filter.userId = query.userId;
@@ -388,6 +394,83 @@ export default class OrdersService {
         message: (error as Error).message,
       };
     }
+  }
+
+  /**
+   * Tự động hủy các đơn hàng chưa thanh toán sau 1 ngày.
+   * - Áp dụng cho đơn ở trạng thái pending, isPay = false
+   * - Khôi phục tồn kho sản phẩm
+   * - Ghi lịch sử đơn hàng
+   * - Gửi thông báo cho người dùng và chủ shop
+   */
+  static async autoCancelStaleUnpaidOrders() {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24h trước
+
+    const staleOrders = await OrderModel.find({
+      status: OrderStatus.PENDING,
+      isPay: false,
+      createdAt: { $lt: cutoff },
+    }).lean();
+
+    if (!staleOrders.length) {
+      return { ok: true as const, cancelled: 0 };
+    }
+
+    let cancelledCount = 0;
+
+    for (const order of staleOrders) {
+      try {
+        const updated = await OrderModel.findByIdAndUpdate(
+          order._id,
+          {
+            status: OrderStatus.CANCELLED,
+            cancellationReason:
+              order.cancellationReason ||
+              "Đơn hàng bị hệ thống tự động hủy do quá 24 giờ chưa thanh toán",
+          },
+          { new: true }
+        );
+        if (!updated) continue;
+
+        await OrdersService.restoreInventory(updated);
+
+        const history = await OrderHistoryModel.create({
+          orderId: updated._id,
+          status: OrderStatus.CANCELLED,
+          description:
+            "Đơn hàng bị hệ thống tự động hủy do quá 24 giờ chưa thanh toán",
+        });
+        await OrderModel.findByIdAndUpdate(updated._id, {
+          $push: { orderHistory: history._id },
+        });
+
+        // Thông báo cho user về trạng thái đơn
+        try {
+          const shop = await ShopModel.findById(updated.shopId).select("name");
+          await notificationService.notifyUserOrderStatus({
+            userId: updated.userId.toString(),
+            orderId: updated._id.toString(),
+            status: OrderStatus.CANCELLED,
+            shopName: shop?.name,
+          });
+        } catch (notifyError) {
+          console.error(
+            "[orders] auto-cancel notify user order status failed:",
+            notifyError
+          );
+        }
+
+        cancelledCount += 1;
+      } catch (error) {
+        console.error(
+          "[orders] autoCancelStaleUnpaidOrders failed for order",
+          (order as any)._id?.toString?.() || "",
+          error
+        );
+      }
+    }
+
+    return { ok: true as const, cancelled: cancelledCount };
   }
 
   static async update(req: AuthenticatedRequest, id: string, data: any) {

@@ -7,6 +7,7 @@ import {
   handleWebhookController,
   processTestPaymentController,
   confirmBankTransferController,
+  handleSepayWebhookController,
 } from "./payment.controller";
 import { authenticateToken } from "../../shared/middlewares/auth.middleware";
 
@@ -25,7 +26,10 @@ paymentRouter.get("/status/:orderId", authenticateToken, getPaymentStatusControl
 paymentRouter.get("/history", authenticateToken, getPaymentHistoryController);
 
 // Webhook endpoints (no auth required - gateways call these)
+// 1) Generic gateway webhook (hiện tại chủ yếu dùng cho dev/test)
 paymentRouter.post("/webhook/:gateway", handleWebhookController);
+// 2) Sepay webhook (không có param gateway) - khớp với cấu hình SePay
+paymentRouter.post("/webhook", handleSepayWebhookController);
 
 // Test payment endpoint (development only)
 paymentRouter.post("/test/:paymentId", processTestPaymentController);

@@ -35,23 +35,24 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const PaymentModel_1 = __importStar(require("../../models/PaymentModel"));
 const OrderModel_1 = __importStar(require("../../models/OrderModel"));
-const payment_gateway_service_1 = require("./payment-gateway.service");
+const notification_service_1 = require("../../shared/services/notification.service");
 const CLIENT_APP_URL = process.env.FRONTEND_URL ||
     process.env.CLIENT_URL ||
     "http://localhost:5174";
+// Sepay test mode: giới hạn số tiền thực chuyển để test (QR amount < 10.000 VNĐ)
+const SEPAY_TEST_MODE = process.env.SEPAY_TEST_MODE === "true" || process.env.NODE_ENV !== "production";
+const SEPAY_TEST_MAX_AMOUNT = Number.parseInt(process.env.SEPAY_TEST_MAX_AMOUNT || "9000", 10) || 9000;
+const getSepayAmount = (originalAmount) => {
+    if (!SEPAY_TEST_MODE)
+        return originalAmount;
+    return Math.max(1000, Math.min(originalAmount, SEPAY_TEST_MAX_AMOUNT));
+};
 class PaymentService {
     /**
      * Get available payment methods
      * This can be extended to fetch from database or config
      */
     static async getPaymentMethods() {
-        const isVNPayConfigured = !!process.env.VNPAY_TMN_CODE && !!process.env.VNPAY_HASH_SECRET;
-        const isMomoConfigured = !!process.env.MOMO_PARTNER_CODE &&
-            !!process.env.MOMO_ACCESS_KEY &&
-            !!process.env.MOMO_SECRET_KEY;
-        const isZaloPayConfigured = !!process.env.ZALOPAY_APP_ID &&
-            !!process.env.ZALOPAY_KEY1 &&
-            !!process.env.ZALOPAY_KEY2;
         const methods = [
             {
                 id: "cod",
@@ -63,79 +64,19 @@ class PaymentService {
             },
             {
                 id: "bank_transfer",
-                name: "Chuyển khoản ngân hàng",
+                name: "Chuyển khoản qua ngân hàng (Sepay)",
                 type: PaymentModel_1.PaymentMethod.BANK_TRANSFER,
                 isActive: true,
-                description: "Chuyển khoản trực tiếp vào tài khoản ngân hàng",
+                description: "Chuyển khoản qua QR ngân hàng/Sepay vào tài khoản của cửa hàng",
                 icon: "bank",
                 config: {
                     bankAccounts: [
                         {
-                            bankName: "Vietcombank",
-                            accountNumber: "1234567890",
-                            accountHolder: "Công ty TNHH ABC",
+                            bankName: process.env.BANK_NAME || "MBBank",
+                            accountNumber: process.env.BANK_ACCOUNT_NUMBER || "0000000000",
+                            accountHolder: process.env.BANK_ACCOUNT_HOLDER || "Cửa hàng",
                         },
                     ],
-                },
-            },
-            {
-                id: "vnpay",
-                name: "VNPay",
-                type: PaymentModel_1.PaymentMethod.VNPAY,
-                isActive: isVNPayConfigured,
-                description: "Thanh toán qua cổng VNPay",
-                icon: "vnpay",
-                config: {
-                    // These should come from environment variables
-                    vnp_TmnCode: process.env.VNPAY_TMN_CODE || "",
-                    vnp_HashSecret: process.env.VNPAY_HASH_SECRET || "",
-                    vnp_Url: process.env.VNPAY_URL || "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
-                },
-            },
-            {
-                id: "momo",
-                name: "MoMo",
-                type: PaymentModel_1.PaymentMethod.MOMO,
-                isActive: isMomoConfigured,
-                description: "Thanh toán qua ví điện tử MoMo",
-                icon: "momo",
-                config: {
-                    partnerCode: process.env.MOMO_PARTNER_CODE || "",
-                    accessKey: process.env.MOMO_ACCESS_KEY || "",
-                    secretKey: process.env.MOMO_SECRET_KEY || "",
-                },
-            },
-            {
-                id: "zalopay",
-                name: "ZaloPay",
-                type: PaymentModel_1.PaymentMethod.ZALOPAY,
-                isActive: isZaloPayConfigured,
-                description: "Thanh toán qua ví điện tử ZaloPay",
-                icon: "zalopay",
-                config: {
-                    appId: process.env.ZALOPAY_APP_ID || "",
-                    key1: process.env.ZALOPAY_KEY1 || "",
-                    key2: process.env.ZALOPAY_KEY2 || "",
-                },
-            },
-            {
-                id: "credit_card",
-                name: "Thẻ tín dụng",
-                type: PaymentModel_1.PaymentMethod.CREDIT_CARD,
-                isActive: false, // Disabled until integrated
-                description: "Thanh toán bằng thẻ tín dụng",
-                icon: "credit-card",
-            },
-            {
-                id: "paypal",
-                name: "PayPal",
-                type: PaymentModel_1.PaymentMethod.PAYPAL,
-                isActive: false, // Disabled until integrated
-                description: "Thanh toán qua PayPal",
-                icon: "paypal",
-                config: {
-                    clientId: process.env.PAYPAL_CLIENT_ID || "",
-                    clientSecret: process.env.PAYPAL_CLIENT_SECRET || "",
                 },
             },
             {
@@ -145,14 +86,6 @@ class PaymentService {
                 isActive: true,
                 description: "Thanh toán bằng số dư trong ví của bạn",
                 icon: "wallet",
-            },
-            {
-                id: "test",
-                name: "Test Payment (Miễn phí)",
-                type: PaymentModel_1.PaymentMethod.TEST,
-                isActive: process.env.NODE_ENV !== "production", // Only in development
-                description: "Phương thức thanh toán test để kiểm thử (không tính phí thật)",
-                icon: "test",
             },
         ];
         // Filter only active methods
@@ -196,19 +129,6 @@ class PaymentService {
                     paymentUrl: undefined,
                     instructions: paymentObj.instructions || undefined,
                 };
-                // Regenerate payment URL if needed for gateway methods (only if pending)
-                if (existingPayment.status === PaymentModel_1.PaymentStatus.PENDING) {
-                    if (existingPayment.method === PaymentModel_1.PaymentMethod.VNPAY) {
-                        const { paymentUrl } = payment_gateway_service_1.VNPayGateway.generatePaymentUrl({
-                            paymentId: paymentObj._id.toString(),
-                            amount: paymentObj.amount,
-                            orderId: data.orderId,
-                            clientIp: PaymentService.getClientIp(req),
-                            returnUrl: existingPayment.returnUrl || defaultReturnUrl,
-                        });
-                        response.paymentUrl = paymentUrl;
-                    }
-                }
                 // If payment is completed, return existing payment (no need to create new)
                 if (existingPayment.status === PaymentModel_1.PaymentStatus.COMPLETED) {
                     return {
@@ -265,6 +185,7 @@ class PaymentService {
                 paymentId: payment._id.toString(),
                 paymentUrl: undefined,
                 instructions: undefined,
+                qrCode: undefined,
             };
             switch (methodExists.type) {
                 case PaymentModel_1.PaymentMethod.COD: {
@@ -281,20 +202,19 @@ class PaymentService {
                 case PaymentModel_1.PaymentMethod.BANK_TRANSFER: {
                     const bankAccounts = methodExists.config?.bankAccounts || [];
                     payment.instructions = PaymentService.buildBankTransferInstructions(order._id.toString(), bankAccounts);
+                    // Tạo QR Sepay cho chuyển khoản ngân hàng
+                    const bankInfo = bankAccounts[0];
+                    if (bankInfo) {
+                        const QR_CODE_BASE_URL = "https://qr.sepay.vn/img";
+                        const description = encodeURIComponent(`Thanh toan don hang ${order._id.toString()}`);
+                        const sepayAmount = getSepayAmount(payment.amount);
+                        const qrCodeUrl = `${QR_CODE_BASE_URL}?bank=${encodeURIComponent(bankInfo.bankName)}&acc=${bankInfo.accountNumber}&template=compact&amount=${sepayAmount}&des=${description}`;
+                        payment.qrCode = qrCodeUrl;
+                        response.qrCode = qrCodeUrl;
+                    }
+                    // Gia hạn lâu hơn cho chuyển khoản
                     payment.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
                     response.instructions = payment.instructions;
-                    break;
-                }
-                case PaymentModel_1.PaymentMethod.VNPAY: {
-                    const { paymentUrl, expiresAt } = payment_gateway_service_1.VNPayGateway.generatePaymentUrl({
-                        paymentId: payment._id.toString(),
-                        amount: payment.amount,
-                        orderId: order._id.toString(),
-                        clientIp: PaymentService.getClientIp(req),
-                        returnUrl: payment.returnUrl || defaultReturnUrl,
-                    });
-                    payment.expiresAt = expiresAt;
-                    response.paymentUrl = paymentUrl;
                     break;
                 }
                 case PaymentModel_1.PaymentMethod.WALLET: {
@@ -336,14 +256,6 @@ class PaymentService {
                         status: OrderModel_1.OrderStatus.PROCESSING,
                     });
                     // Note: Money will be transferred to shop wallet when order status = DELIVERED
-                    break;
-                }
-                case PaymentModel_1.PaymentMethod.TEST: {
-                    const paymentUrl = payment_gateway_service_1.TestPaymentGateway.generatePaymentUrl(payment._id.toString(), payment.amount);
-                    payment.instructions =
-                        "Đây là phương thức thanh toán test. Bạn có thể mô phỏng kết quả.";
-                    response.paymentUrl = paymentUrl;
-                    response.instructions = payment.instructions;
                     break;
                 }
                 default: {
@@ -501,10 +413,19 @@ class PaymentService {
             };
             await payment.save();
             // Update order
-            await OrderModel_1.default.findByIdAndUpdate(payment.orderId, {
+            const updatedOrder = await OrderModel_1.default.findByIdAndUpdate(payment.orderId, {
                 isPay: true,
                 status: OrderModel_1.OrderStatus.PROCESSING,
-            });
+            }, { new: true });
+            // Gửi thông báo cho người dùng khi thanh toán chuyển khoản được xác nhận
+            if (updatedOrder) {
+                await notification_service_1.notificationService.notifyUserOrderStatus({
+                    userId: updatedOrder.userId.toString(),
+                    orderId: updatedOrder._id.toString(),
+                    status: updatedOrder.status,
+                    shopName: undefined,
+                });
+            }
             // Note: Money will be transferred to shop wallet when order status = DELIVERED
             return {
                 ok: true,
@@ -516,6 +437,81 @@ class PaymentService {
                 ok: false,
                 status: 500,
                 message: error.message || "Failed to confirm payment",
+            };
+        }
+    }
+    /**
+     * Xác nhận thanh toán chuyển khoản cho đơn hàng thông qua webhook (Sepay)
+     * - Không yêu cầu request/auth
+     * - Được gọi từ wallet/webhook.controller khi nhận được webhook có nội dung "Thanh toan don hang {orderId}"
+     */
+    static async confirmBankTransferFromWebhook(orderId, transactionId, amount) {
+        try {
+            const payment = await PaymentModel_1.default.findOne({
+                orderId,
+                method: PaymentModel_1.PaymentMethod.BANK_TRANSFER,
+            }).sort({ createdAt: -1 });
+            if (!payment) {
+                return {
+                    ok: false,
+                    status: 404,
+                    message: "Payment not found for this order",
+                };
+            }
+            // Nếu đã hoàn thành thì bỏ qua (idempotent)
+            if (payment.status === PaymentModel_1.PaymentStatus.COMPLETED) {
+                return { ok: true, payment: payment.toObject() };
+            }
+            if (payment.status !== PaymentModel_1.PaymentStatus.PENDING && payment.status !== PaymentModel_1.PaymentStatus.PROCESSING) {
+                return {
+                    ok: false,
+                    status: 400,
+                    message: "Payment is not in a confirmable state",
+                };
+            }
+            // Verify amount (cho phép lệch 1.000 VNĐ do test mode / làm tròn)
+            const expectedAmount = payment.amount;
+            if (Math.abs(expectedAmount - amount) > 1000) {
+                return {
+                    ok: false,
+                    status: 400,
+                    message: "Amount mismatch for bank transfer payment",
+                };
+            }
+            payment.status = PaymentModel_1.PaymentStatus.COMPLETED;
+            payment.transactionId = transactionId;
+            payment.paidAt = new Date();
+            payment.gatewayResponse = {
+                ...(payment.gatewayResponse || {}),
+                webhookConfirmed: true,
+                webhookSource: "sepay",
+                webhookConfirmedAt: new Date().toISOString(),
+            };
+            await payment.save();
+            // Update order
+            const updatedOrder = await OrderModel_1.default.findByIdAndUpdate(payment.orderId, {
+                isPay: true,
+                status: OrderModel_1.OrderStatus.PROCESSING,
+            }, { new: true });
+            if (updatedOrder) {
+                // Gửi thông báo cho user về cập nhật trạng thái đơn
+                await notification_service_1.notificationService.notifyUserOrderStatus({
+                    userId: updatedOrder.userId.toString(),
+                    orderId: updatedOrder._id.toString(),
+                    status: updatedOrder.status,
+                    shopName: undefined,
+                });
+            }
+            return {
+                ok: true,
+                payment: payment.toObject(),
+            };
+        }
+        catch (error) {
+            return {
+                ok: false,
+                status: 500,
+                message: error.message || "Failed to confirm bank transfer from webhook",
             };
         }
     }

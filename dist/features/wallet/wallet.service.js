@@ -61,7 +61,15 @@ const BANK_ACCOUNT = {
 };
 // QR Code generation options
 const QR_CODE_BASE_URL = "https://qr.sepay.vn/img";
-const USE_VNPAY_QR = process.env.USE_VNPAY_QR === "true"; // Enable VNPay QR for wallet deposit
+const USE_VNPAY_QR = false; // Luồng nạp ví dùng QR Sepay, không dùng VNPay trực tiếp
+// Sepay test mode: giới hạn số tiền thực chuyển để test
+const SEPAY_TEST_MODE = process.env.SEPAY_TEST_MODE === "true" || process.env.NODE_ENV !== "production";
+const SEPAY_TEST_MAX_AMOUNT = Number.parseInt(process.env.SEPAY_TEST_MAX_AMOUNT || "9000", 10) || 9000;
+const getSepayAmount = (originalAmount) => {
+    if (!SEPAY_TEST_MODE)
+        return originalAmount;
+    return Math.max(1000, Math.min(originalAmount, SEPAY_TEST_MAX_AMOUNT));
+};
 class WalletService {
     /**
      * Get wallet balance (for user or shop)
@@ -214,14 +222,17 @@ class WalletService {
                     accountHolder: targetWallet.bankInfo.accountHolder,
                 };
             }
+            // Áp dụng số tiền thực tế sử dụng cho QR (giới hạn khi test)
+            const sepayAmount = getSepayAmount(data.amount);
             // Create deposit transaction
             const transaction = await WalletModel_1.WalletTransactionModel.create({
                 userId: walletType === "user" ? userId : undefined,
                 shopId: walletType === "shop" ? shopId : undefined,
                 type: WalletModel_1.WalletTransactionType.DEPOSIT,
-                amount: data.amount,
+                amount: sepayAmount,
                 status: WalletModel_1.WalletTransactionStatus.PENDING,
-                description: data.description || `Nạp tiền vào ví ${walletType === "shop" ? "shop" : "cá nhân"} - ${data.amount.toLocaleString('vi-VN')} VNĐ`,
+                description: data.description ||
+                    `Nạp tiền vào ví ${walletType === "shop" ? "shop" : "cá nhân"} - ${sepayAmount.toLocaleString("vi-VN")} VNĐ`,
                 bankAccount: bankAccountInfo,
                 metadata: {
                     walletType,
@@ -231,67 +242,16 @@ class WalletService {
             let qrCodeUrl;
             let paymentUrl;
             let expiresAt;
-            // Determine deposit method: use from request body, or default based on USE_VNPAY_QR
-            const depositMethod = data.depositMethod || (USE_VNPAY_QR ? "vnpay" : "bank");
-            // Use VNPay only if depositMethod is "vnpay" and VNPay is configured
-            if (depositMethod === "vnpay" && process.env.VNPAY_TMN_CODE && process.env.VNPAY_HASH_SECRET) {
-                try {
-                    const { VNPayGateway } = await Promise.resolve().then(() => __importStar(require("../payment/payment-gateway.service")));
-                    const clientIp = getClientIp(req);
-                    // Get CLIENT_APP_URL - must be public URL for VNPay
-                    const clientAppUrl = process.env.CLIENT_APP_URL || "http://localhost:5174";
-                    // Warn if using localhost (VNPay cannot access localhost)
-                    if (clientAppUrl.includes("localhost") || clientAppUrl.includes("127.0.0.1")) {
-                        console.warn("[wallet] WARNING: CLIENT_APP_URL is localhost. VNPay cannot redirect to localhost!");
-                        console.warn("[wallet] For development, use ngrok or similar tunneling service.");
-                        console.warn("[wallet] Example: CLIENT_APP_URL=https://abc123.ngrok.io");
-                    }
-                    // Return to deposit page with success status
-                    const returnUrl = `${clientAppUrl}/wallet/deposit?walletType=${walletType}&deposit=success&transactionId=${transaction._id.toString()}`;
-                    console.log("[wallet] Generating VNPay payment URL with returnUrl:", returnUrl);
-                    const vnpayResult = VNPayGateway.generatePaymentUrl({
-                        paymentId: transaction._id.toString(),
-                        amount: data.amount,
-                        orderId: `WALLET_DEPOSIT_${transaction._id.toString()}`,
-                        clientIp,
-                        returnUrl,
-                    });
-                    console.log("[wallet] VNPay payment URL generated successfully");
-                    paymentUrl = vnpayResult.paymentUrl;
-                    expiresAt = vnpayResult.expiresAt;
-                    // Generate QR code from VNPay payment URL
-                    // VNPay provides QR code in their payment page, but we can also generate QR from URL
-                    qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentUrl)}`;
-                    transaction.qrCode = qrCodeUrl;
-                    transaction.metadata = {
-                        ...transaction.metadata,
-                        vnpayPaymentUrl: paymentUrl,
-                        expiresAt: expiresAt.toISOString(),
-                    };
-                }
-                catch (vnpayError) {
-                    console.error("[wallet] VNPay QR generation failed, falling back to static QR:", vnpayError);
-                    // Fallback to static QR with user's bank info
-                    const description = encodeURIComponent(`Nap tien ${transaction._id.toString()}`);
-                    qrCodeUrl = `${QR_CODE_BASE_URL}?bank=${encodeURIComponent(bankAccountInfo.bankName)}&acc=${bankAccountInfo.accountNumber}&template=compact&amount=${data.amount}&des=${description}`;
-                    transaction.qrCode = qrCodeUrl;
-                }
-            }
-            else {
-                // Use static QR code (VietQR format) with user's bank info
-                const description = encodeURIComponent(`Nap tien ${transaction._id.toString()}`);
-                qrCodeUrl = `${QR_CODE_BASE_URL}?bank=${encodeURIComponent(bankAccountInfo.bankName)}&acc=${bankAccountInfo.accountNumber}&template=compact&amount=${data.amount}&des=${description}`;
-                transaction.qrCode = qrCodeUrl;
-            }
+            // Với yêu cầu chỉ dùng Sepay, luôn sử dụng QR Sepay (bank) cho nạp ví
+            const depositMethod = "bank";
+            // Sử dụng QR Sepay (VietQR) với thông tin ngân hàng đã cấu hình
+            const description = encodeURIComponent(`Nap tien ${transaction._id.toString()}`);
+            qrCodeUrl = `${QR_CODE_BASE_URL}?bank=${encodeURIComponent(bankAccountInfo.bankName)}&acc=${bankAccountInfo.accountNumber}&template=compact&amount=${sepayAmount}&des=${description}`;
+            transaction.qrCode = qrCodeUrl;
             await transaction.save();
             // Generate instructions based on deposit method
             let instructions;
-            if (depositMethod === "vnpay" && paymentUrl) {
-                instructions = `Quét QR code hoặc click vào link để thanh toán qua VNPay:\n${paymentUrl}\n\nSau khi thanh toán thành công, hệ thống sẽ tự động cập nhật số dư ví của bạn.`;
-            }
-            else {
-                instructions = `Vui lòng chuyển khoản ${data.amount.toLocaleString('vi-VN')} VNĐ vào tài khoản:\n${bankAccountInfo.bankName}: ${bankAccountInfo.accountNumber}\nChủ tài khoản: ${bankAccountInfo.accountHolder}\nNội dung: Nap tien ${transaction._id.toString()}\n\nSau khi chuyển khoản, hệ thống sẽ tự động cập nhật số dư ví của bạn (thường trong vòng 5-10 phút).`;
-            }
+            instructions = `Quét mã QR để nạp ${sepayAmount.toLocaleString("vi-VN")} VNĐ vào ví của bạn.\nNgân hàng: ${bankAccountInfo.bankName}\nSố tài khoản: ${bankAccountInfo.accountNumber}\nChủ tài khoản: ${bankAccountInfo.accountHolder}\nNội dung chuyển khoản: Nap tien ${transaction._id.toString()}\n\nSau khi thanh toán thành công qua Sepay, hệ thống sẽ tự động cập nhật số dư ví (thường trong vài phút).`;
             return {
                 ok: true,
                 transaction: transaction.toObject(),

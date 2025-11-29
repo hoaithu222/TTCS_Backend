@@ -3,10 +3,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.confirmBankTransferController = exports.processTestPaymentController = exports.handleWebhookController = exports.getPaymentHistoryController = exports.getPaymentStatusController = exports.createCheckoutController = exports.getPaymentMethodsController = void 0;
+exports.confirmBankTransferController = exports.processTestPaymentController = exports.handleSepayWebhookController = exports.handleWebhookController = exports.getPaymentHistoryController = exports.getPaymentStatusController = exports.createCheckoutController = exports.getPaymentMethodsController = void 0;
 const payment_service_1 = __importDefault(require("./payment.service"));
 const payment_gateway_service_1 = require("./payment-gateway.service");
 const response_util_1 = require("../../shared/utils/response.util");
+const webhook_controller_1 = require("../wallet/webhook.controller");
 /**
  * Get available payment methods
  */
@@ -67,6 +68,16 @@ const handleWebhookController = async (req, res) => {
     return res.status(200).json({ success: true, message: result.message });
 };
 exports.handleWebhookController = handleWebhookController;
+/**
+ * Handle Sepay webhook (mapped từ cấu hình URL SePay)
+ * Endpoint: /api/v1/payments/webhook hoặc /api/v1/payment/webhook
+ * Ủy quyền xử lý sang wallet webhook (nạp tiền ví / xác nhận chuyển khoản)
+ */
+const handleSepayWebhookController = async (req, res) => {
+    // Tái sử dụng toàn bộ logic xử lý webhook trong module wallet
+    return (0, webhook_controller_1.webhookReceiverController)(req, res);
+};
+exports.handleSepayWebhookController = handleSepayWebhookController;
 /**
  * Process test payment (for testing only)
  */

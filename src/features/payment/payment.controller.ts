@@ -3,6 +3,7 @@ import PaymentService from "./payment.service";
 import { PaymentWebhookHandler, TestPaymentGateway } from "./payment-gateway.service";
 import { ResponseUtil } from "../../shared/utils/response.util";
 import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
+import { webhookReceiverController as walletWebhookReceiverController } from "../wallet/webhook.controller";
 
 /**
  * Get available payment methods
@@ -99,6 +100,19 @@ export const handleWebhookController = async (
   
   // Return 200 OK for webhooks (gateways expect this)
   return res.status(200).json({ success: true, message: result.message });
+};
+
+/**
+ * Handle Sepay webhook (mapped từ cấu hình URL SePay)
+ * Endpoint: /api/v1/payments/webhook hoặc /api/v1/payment/webhook
+ * Ủy quyền xử lý sang wallet webhook (nạp tiền ví / xác nhận chuyển khoản)
+ */
+export const handleSepayWebhookController = async (
+  req: Request,
+  res: Response
+) => {
+  // Tái sử dụng toàn bộ logic xử lý webhook trong module wallet
+  return walletWebhookReceiverController(req, res);
 };
 
 /**

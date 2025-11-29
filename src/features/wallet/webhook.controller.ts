@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import WalletService from "./wallet.service";
+import PaymentService from "../payment/payment.service";
 import { ResponseUtil } from "../../shared/utils/response.util";
 import crypto from "crypto";
 
@@ -104,10 +105,44 @@ export const webhookReceiverController = async (
     // Extract transaction information from webhook
     // Adjust these fields based on actual webhook format from bank
     const transactionId = body.transactionId || body.id || body.txn_id;
-    const amount = parseFloat(body.amount || body.amount || 0);
-    const description = body.description || body.content || body.note || "";
+    const amount = parseFloat(body.amount || body.totalAmount || body.money || 0);
+    const description = body.description || body.content || body.note || body.message || "";
     const status = body.status || body.state || "completed";
 
+    // 1) Check order payment via Sepay
+    // Format nội dung đã cấu hình khi tạo QR: "Thanh toan don hang {orderId}"
+    const orderMatch = description.match(/Thanh toan don hang\s+([a-f0-9]{24})/i);
+    if (orderMatch) {
+      const orderId = orderMatch[1];
+
+      if (status === "completed" || status === "success") {
+        const result = await PaymentService.confirmBankTransferFromWebhook(
+          orderId,
+          transactionId || `WEBHOOK_${Date.now()}`,
+          amount
+        );
+
+        if (result.ok) {
+          return res.status(200).json({
+            success: true,
+            message: "Order payment confirmed successfully",
+          });
+        }
+
+        return res.status(200).json({
+          success: false,
+          message: result.message || "Failed to confirm order payment",
+        });
+      }
+
+      // Nếu trạng thái không phải completed/success vẫn trả 200 để SePay không retry quá nhiều
+      return res.status(200).json({
+        success: true,
+        message: "Order payment webhook received but status not completed",
+      });
+    }
+
+    // 2) Nếu không phải thanh toán đơn hàng, thử xử lý như nạp ví
     // Extract deposit transaction ID from description
     // Format: "Nap tien {transactionId}"
     const depositMatch = description.match(/Nap tien\s+([a-f0-9]{24})/i);

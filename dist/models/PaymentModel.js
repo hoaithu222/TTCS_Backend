@@ -18,13 +18,7 @@ var PaymentMethod;
 (function (PaymentMethod) {
     PaymentMethod["COD"] = "cod";
     PaymentMethod["BANK_TRANSFER"] = "bank_transfer";
-    PaymentMethod["CREDIT_CARD"] = "credit_card";
-    PaymentMethod["PAYPAL"] = "paypal";
-    PaymentMethod["VNPAY"] = "vnpay";
-    PaymentMethod["MOMO"] = "momo";
-    PaymentMethod["ZALOPAY"] = "zalopay";
     PaymentMethod["WALLET"] = "wallet";
-    PaymentMethod["TEST"] = "test";
 })(PaymentMethod || (exports.PaymentMethod = PaymentMethod = {}));
 exports.paymentSchema = new mongoose_1.default.Schema({
     orderId: {

@@ -12,13 +12,7 @@ export enum PaymentStatus {
 export enum PaymentMethod {
   COD = "cod",
   BANK_TRANSFER = "bank_transfer",
-  CREDIT_CARD = "credit_card",
-  PAYPAL = "paypal",
-  VNPAY = "vnpay",
-  MOMO = "momo",
-  ZALOPAY = "zalopay",
   WALLET = "wallet", // Thanh toán bằng ví
-  TEST = "test", // Test payment method for development
 }
 
 export const paymentSchema = new mongoose.Schema(

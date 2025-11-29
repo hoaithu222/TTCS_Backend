@@ -9,6 +9,7 @@ import {
   cancelOrderByUserController,
   trackOrderController,
   reorderOrderController,
+  autoCancelUnpaidOrdersController,
 } from "./orders.controller";
 import {
   authenticateToken,
@@ -57,6 +58,14 @@ ordersRouter.delete(
   authenticateToken,
   authorize(["admin"]),
   deleteOrderController
+);
+
+// Auto cancel unpaid orders older than 24h (admin / cron)
+ordersRouter.post(
+  "/auto-cancel-unpaid",
+  authenticateToken,
+  authorize(["admin"]),
+  autoCancelUnpaidOrdersController
 );
 
 export default ordersRouter;

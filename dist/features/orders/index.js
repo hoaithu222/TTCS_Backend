@@ -22,4 +22,6 @@ ordersRouter.put("/:id/status", auth_middleware_1.authenticateToken, (0, auth_mi
 ordersRouter.put("/:id/cancel", auth_middleware_1.authenticateToken, orders_controller_1.cancelOrderByUserController);
 // Delete order (admin)
 ordersRouter.delete("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), orders_controller_1.deleteOrderController);
+// Auto cancel unpaid orders older than 24h (admin / cron)
+ordersRouter.post("/auto-cancel-unpaid", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), orders_controller_1.autoCancelUnpaidOrdersController);
 exports.default = ordersRouter;
