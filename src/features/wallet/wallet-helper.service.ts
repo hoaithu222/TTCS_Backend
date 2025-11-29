@@ -12,7 +12,7 @@ import mongoose from "mongoose";
  */
 export default class WalletHelperService {
   /**
-   * Transfer money to shop wallet when order is delivered
+   * Transfer money to shop owner wallet (gộp ví user + shop)
    * This is called when order status changes to DELIVERED
    */
   static async transferToShopWallet(
@@ -21,7 +21,7 @@ export default class WalletHelperService {
     paymentId?: string
   ) {
     try {
-      // Get order to find shopId
+      // Get order to find shop owner
       const order = await OrderModel.findById(orderId);
       if (!order || !order.shopId) {
         return {
@@ -38,35 +38,44 @@ export default class WalletHelperService {
         };
       }
 
-      const shopId = order.shopId;
-
-      // Validate shopId
-      if (!shopId || !mongoose.Types.ObjectId.isValid(shopId)) {
+      // Lấy userId của chủ shop
+      const ShopModel = (await import("../../models/ShopModel")).default;
+      const shop = await ShopModel.findById(order.shopId).lean();
+      if (!shop || !shop.userId) {
         return {
           ok: false as const,
-          message: "Invalid shop ID",
+          message: "Shop owner not found",
         };
       }
 
-      // Get or create shop wallet using findOneAndUpdate to avoid race conditions
-      const shopWallet = await WalletBalanceModel.findOneAndUpdate(
-        { shopId },
+      const ownerUserId = shop.userId.toString();
+
+      if (!mongoose.Types.ObjectId.isValid(ownerUserId)) {
+        return {
+          ok: false as const,
+          message: "Invalid shop owner ID",
+        };
+      }
+
+      // Get or create owner wallet using findOneAndUpdate to avoid race conditions
+      const ownerWallet = await WalletBalanceModel.findOneAndUpdate(
+        { userId: ownerUserId },
         { $setOnInsert: { balance: 0 } },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
-      // Add to shop wallet
-      shopWallet.balance += amount;
-      shopWallet.lastTransactionAt = new Date();
-      await shopWallet.save();
+      // Add to owner wallet
+      ownerWallet.balance += amount;
+      ownerWallet.lastTransactionAt = new Date();
+      await ownerWallet.save();
 
-      // Create revenue transaction for shop
+      // Create revenue transaction for owner
       const paymentObjectId = paymentId && mongoose.Types.ObjectId.isValid(paymentId)
         ? new mongoose.Types.ObjectId(paymentId)
         : undefined;
       
       await WalletTransactionModel.create({
-        shopId,
+        userId: ownerUserId,
         type: WalletTransactionType.REVENUE,
         amount: amount,
         status: WalletTransactionStatus.COMPLETED,
@@ -83,8 +92,8 @@ export default class WalletHelperService {
 
       return {
         ok: true as const,
-        message: "Money transferred to shop wallet",
-        shopWallet: shopWallet.toObject(),
+        message: "Money transferred to shop owner wallet",
+        shopWallet: ownerWallet.toObject(),
       };
     } catch (error: any) {
       return {
@@ -119,23 +128,27 @@ export default class WalletHelperService {
       // Check if order was already refunded (by checking if wallet was transferred)
       // If wallet was transferred, we need to deduct from shop wallet
       if (order.walletTransferred) {
-        // Deduct from shop wallet
-        const shopWallet = await WalletBalanceModel.findOne({ shopId });
-        if (shopWallet && shopWallet.balance >= amount) {
-          shopWallet.balance -= amount;
-          shopWallet.lastTransactionAt = new Date();
-          await shopWallet.save();
+        // Deduct from shop owner wallet (gộp ví)
+        const ShopModel = (await import("../../models/ShopModel")).default;
+        const shop = await ShopModel.findById(shopId).lean();
+        if (shop?.userId) {
+          const ownerUserId = shop.userId.toString();
+          const ownerWallet = await WalletBalanceModel.findOne({ userId: ownerUserId });
+          if (ownerWallet && ownerWallet.balance >= amount) {
+            ownerWallet.balance -= amount;
+            ownerWallet.lastTransactionAt = new Date();
+            await ownerWallet.save();
 
-          // Create transaction for shop (deduction)
-          await WalletTransactionModel.create({
-            shopId,
-            type: WalletTransactionType.REFUND,
-            amount: -amount,
-            status: WalletTransactionStatus.COMPLETED,
-            description: reason || `Hoàn tiền đơn hàng #${orderId} (Đã trừ từ ví shop)`,
-            orderId: order._id,
-            completedAt: new Date(),
-          });
+            await WalletTransactionModel.create({
+              userId: ownerUserId,
+              type: WalletTransactionType.REFUND,
+              amount: -amount,
+              status: WalletTransactionStatus.COMPLETED,
+              description: reason || `Hoàn tiền đơn hàng #${orderId} (Đã trừ từ ví chủ shop)`,
+              orderId: order._id,
+              completedAt: new Date(),
+            });
+          }
         }
       }
 
