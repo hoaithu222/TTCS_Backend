@@ -156,7 +156,7 @@ export const registerChatNamespace = (
     socket.on(
       SOCKET_EVENTS.CHAT_MESSAGE_SEND,
       async (payload: ChatMessagePayload) => {
-        // Allow empty message if there are attachments
+        // Allow empty message if there are attachments  
         const hasAttachments = payload.attachments && payload.attachments.length > 0;
         if (!payload?.message && !hasAttachments) {
           socket.emit(SOCKET_EVENTS.ERROR, { message: "Message or attachment is required" });
@@ -181,7 +181,7 @@ export const registerChatNamespace = (
 
             if (!currentUser) {
               socket.emit(SOCKET_EVENTS.ERROR, { message: "User not found" });
-              return;
+              return;                                                                                                  
             }
 
             let participants: any[] = [
@@ -225,7 +225,7 @@ export const registerChatNamespace = (
             } else if (convType === "shop" && payload.targetId) {
               // Find shop owner
               const shop = await ShopModel.findById(payload.targetId)
-                .populate("userId", "name fullName email avatar role")
+                .populate("userId", "name fullName email avatar role logo")
                 .lean();
 
               if (!shop) {
@@ -241,9 +241,9 @@ export const registerChatNamespace = (
 
               participants.push({
                 userId: shopOwner._id,
-                name: shopOwner.fullName || shopOwner.name || shopOwner.email,
-                avatar: shopOwner.avatar,
-                role: shopOwner.role,
+                name: shop.name,
+                avatar: shop.logo,
+                role: "shop",
               });
 
               conversationType = "shop";
@@ -373,7 +373,7 @@ export const registerChatNamespace = (
           const enrichedPayload = {
             conversationId,
             message: messageResponse,
-            room,
+            room, 
             channel: options.channel,
             senderId: socketUser.userId,
             sentAt: message.createdAt.toISOString(),
@@ -435,7 +435,7 @@ export const registerChatNamespace = (
               };
 
               // Emit to this specific user's direct room
-              const userRoom = buildDirectUserRoom(participantUserId);
+              const userRoom = buildDirectUserRoom(participantUserId); 
               namespace.to(userRoom).emit(SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
                 conversationId,
                 conversation: conversationResponse,
@@ -445,7 +445,7 @@ export const registerChatNamespace = (
             // DON'T emit to conversation room with unreadCount
             // Each user already receives correct unreadCount via their direct room above
             // Emitting to conversation room would cause all users to receive wrong unreadCount
-          }
+          }  
         } catch (error: any) {
           console.error("[Chat Socket] Error sending message:", error);
           socket.emit(SOCKET_EVENTS.ERROR, {

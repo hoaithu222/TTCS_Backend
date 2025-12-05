@@ -82,10 +82,15 @@ export default class OtpService {
             })
           : defaultTemplate.html;
 
-        await sendEmail(identifier, emailHtml, subject);
+        const emailResult = await sendEmail(identifier, emailHtml, subject);
+        if (!emailResult.success) {
+          console.error("[OTP Service] Lỗi khi gửi email OTP:", emailResult.error);
+          // Vẫn trả về success vì OTP đã được tạo, chỉ là không gửi được email
+          // User có thể yêu cầu gửi lại OTP
+        }
       } catch (error) {
-        console.error("[OTP Service] Lỗi khi gửi email OTP:", error);
-        // Vẫn trả về success vì OTP đã được tạo, chỉ là không gửi được email
+        console.error("[OTP Service] Unexpected error when sending email OTP:", error);
+        // Vẫn trả về success vì OTP đã được tạo
       }
     } else if (channel === "phone") {
       // TODO: Tích hợp SMS provider ở đây

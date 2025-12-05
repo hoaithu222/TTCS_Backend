@@ -19,7 +19,7 @@ export interface NotificationNamespaceOptions {
 const ensureAuthenticated = (
   socket: Socket,
   namespace: Namespace
-): SocketAuthedUser => {
+): SocketAuthedUser | null => {
   const socketUser = getSocketUser(socket);
 
   if (!socketUser) {
@@ -27,7 +27,7 @@ const ensureAuthenticated = (
       message: "Unauthorized notification socket",
     });
     socket.disconnect(true);
-    throw new Error("Unauthorized notification socket");
+    return null; // Return null instead of throwing
   }
 
   return socketUser;
@@ -42,18 +42,24 @@ export const registerNotificationNamespace = (
   namespace.use(authMiddleware);
 
   namespace.on(SOCKET_EVENTS.CONNECTION, (socket: Socket) => {
-    const socketUser = ensureAuthenticated(socket, namespace);
+    try {
+      const socketUser = ensureAuthenticated(socket, namespace);
 
-    if (
-      options.allowedRoles &&
-      (!socketUser.role || !options.allowedRoles.includes(socketUser.role))
-    ) {
-      socket.emit(SOCKET_EVENTS.ERROR, {
-        message: "Forbidden: role not allowed in notification channel",
-      });
-      socket.disconnect(true);
-      return;
-    }
+      // Nếu không authenticated, đã disconnect trong ensureAuthenticated
+      if (!socketUser) {
+        return;
+      }
+
+      if (
+        options.allowedRoles &&
+        (!socketUser.role || !options.allowedRoles.includes(socketUser.role))
+      ) {
+        socket.emit(SOCKET_EVENTS.ERROR, {
+          message: "Forbidden: role not allowed in notification channel",
+        });
+        socket.disconnect(true);
+        return;
+      }
 
     const personalRoom = buildNotificationRoom(socketUser.userId);
     const directRoom = buildDirectUserRoom(socketUser.userId);
@@ -62,7 +68,7 @@ export const registerNotificationNamespace = (
 
     if (options.debug) {
       console.log(
-        `[socket][notifications] user ${socketUser.userId} joined ${personalRoom}`
+        `[socket][notifications] user ${socketUser.userId} đã tham gia vào ${personalRoom} phòng`
       );
     }
 
@@ -79,7 +85,7 @@ export const registerNotificationNamespace = (
 
       if (options.debug) {
         console.log(
-          `[socket][notifications] user ${socketUser.userId} subscribed to ${payload.room}`
+          `[socket][notifications] user ${socketUser.userId} đã đăng ký vào ${payload.room } phòng`
         );
       }
     });
@@ -88,7 +94,12 @@ export const registerNotificationNamespace = (
       namespace.to(personalRoom).emit(SOCKET_EVENTS.NOTIFICATION_ACK, {
         ...payload,
         userId: socketUser.userId,
-      });
+      });  
+      if (options.debug) {
+        console.log(
+          `[socket][notifications] user ${socketUser.userId} đã xác nhận thông báo ${payload.notificationId}`
+        );
+      }
     });
 
     socket.on(SOCKET_EVENTS.ROOM_JOIN, (room: string) => {
@@ -100,7 +111,7 @@ export const registerNotificationNamespace = (
       if (!room) return;
       socket.leave(room);
     });
-
+          
     socket.on(SOCKET_EVENTS.DISCONNECT, (reason) => {
       if (options.debug) {
         console.log(
@@ -108,6 +119,14 @@ export const registerNotificationNamespace = (
         );
       }
     });
+    } catch (error) {
+      // Bắt mọi lỗi không mong đợi trong connection handler
+      console.error("[socket][notifications] Connection error:", error);
+      socket.emit(SOCKET_EVENTS.ERROR, {
+        message: "Connection error occurred",
+      });
+      socket.disconnect(true);
+    }
   });
 
   return namespace;

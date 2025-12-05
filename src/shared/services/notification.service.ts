@@ -8,7 +8,7 @@ import { getSocketServer } from "../config/socket-server";
 import { OrderStatus } from "../../models/OrderModel";
 import UserModel from "../../models/UserModel";
 
-const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+const ORDER_STATUS_LABELS: Record<OrderStatus, string> = { 
   [OrderStatus.PENDING]: "Đang chờ xác nhận",
   [OrderStatus.PROCESSING]: "Đang chuẩn bị",
   [OrderStatus.SHIPPED]: "Đang giao",
