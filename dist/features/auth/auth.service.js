@@ -60,63 +60,105 @@ class AuthService {
         return String((0, utils_1.default)());
     }
     static async registerUser(payload) {
-        const { name, email, password, otpMethod } = payload;
-        if (!name || !email || !password) {
+        try {
+            const { name, email, password, otpMethod } = payload;
+            if (!name || !email || !password) {
+                return {
+                    ok: false,
+                    status: 400,
+                    message: "Tên, email và mật khẩu là bắt buộc",
+                };
+            }
+            if (!email.includes("@")) {
+                return {
+                    ok: false,
+                    status: 400,
+                    message: "Email không hợp lệ",
+                    code: exports.ERROR_CODE.EMAIL_NOT_EXISTS,
+                };
+            }
+            // Kiểm tra email đã tồn tại
+            const existingUser = await UserModel_1.default.findOne({ email });
+            if (existingUser) {
+                // Nếu user có verifyToken nghĩa là chưa xác thực
+                if (existingUser.verifyToken) {
+                    return {
+                        ok: false,
+                        status: 400,
+                        message: "Email đã tồn tại và chưa xác thực. Vui lòng kiểm tra email để xác minh tài khoản.",
+                        code: exports.ERROR_CODE.EMAIL_NOT_VERIFIED,
+                    };
+                }
+                // Nếu user không có verifyToken nghĩa là đã xác thực
+                return {
+                    ok: false,
+                    status: 400,
+                    message: "Email đã tồn tại",
+                    code: exports.ERROR_CODE.EMAIL_ALREADY_VERIFIED,
+                };
+            }
+            // Tạo user mới
+            const salt = await bcryptjs_1.default.genSalt(10);
+            const hashedPassword = await bcryptjs_1.default.hash(password, salt);
+            const verifyToken = AuthService.generateVerifyToken();
+            const verifyTokenExpiresAt = new Date(Date.now() + VERIFY_EMAIL_EXPIRES_IN_MS);
+            let savedUser;
+            try {
+                const user = await UserModel_1.default.create({
+                    name,
+                    email,
+                    password: hashedPassword,
+                    otpMethod: otpMethod ?? UserModel_1.OtpMethod.EMAIL,
+                    verifyToken,
+                    verifyTokenExpiresAt,
+                    status: UserModel_1.UserStatus.INACTIVE,
+                });
+                savedUser = await user.save();
+            }
+            catch (dbError) {
+                // Xử lý lỗi duplicate email từ database
+                if (dbError.code === 11000 || dbError.name === "MongoServerError") {
+                    return {
+                        ok: false,
+                        status: 400,
+                        message: "Email đã tồn tại",
+                        code: exports.ERROR_CODE.EMAIL_ALREADY_VERIFIED,
+                    };
+                }
+                // Nếu là lỗi khác, throw lại để error handler xử lý
+                throw dbError;
+            }
+            // Gửi email xác thực
+            const verifyEmail = (0, emailTemplates_1.buildVerifyAccountEmail)({
+                userName: name,
+                otpCode: verifyToken,
+            });
+            const emailResult = await (0, mailer_1.sendEmail)(email, verifyEmail.html, verifyEmail.subject);
+            if (!emailResult.success) {
+                // Log lỗi nhưng không fail registration vì user đã được tạo
+                console.error("[AuthService] Failed to send verification email:", emailResult.error);
+                // Vẫn trả về success nhưng thông báo cho user biết cần gửi lại email
+                return {
+                    ok: true,
+                    user: savedUser,
+                    message: "Tài khoản đã được tạo thành công. Tuy nhiên, không thể gửi email xác thực tự động. Vui lòng sử dụng chức năng 'Gửi lại email xác thực' để nhận mã OTP.",
+                };
+            }
             return {
-                ok: false,
-                status: 400,
-                message: "Tên, email và mật khẩu là bắt buộc",
+                ok: true,
+                user: savedUser,
+                message: "Tạo tài khoản thành công",
             };
         }
-        if (!email.includes("@")) {
+        catch (error) {
+            // Xử lý các lỗi không mong đợi
+            console.error("[AuthService] Unexpected error in registerUser:", error);
             return {
                 ok: false,
-                status: 400,
-                message: "Email không hợp lệ",
-                code: exports.ERROR_CODE.EMAIL_NOT_EXISTS,
+                status: 500,
+                message: error.message || "Đã xảy ra lỗi khi đăng ký. Vui lòng thử lại sau.",
             };
         }
-        const existingUser = await UserModel_1.default.findOne({ email });
-        if (existingUser && !existingUser.verifyToken) {
-            return {
-                ok: false,
-                status: 400,
-                message: "Email đã tồn tại và chưa xác thực",
-                code: exports.ERROR_CODE.EMAIL_NOT_VERIFIED,
-            };
-        }
-        if (existingUser && existingUser.verifyToken) {
-            return {
-                ok: false,
-                status: 400,
-                message: "Email đã tồn tại",
-                code: exports.ERROR_CODE.EMAIL_ALREADY_VERIFIED,
-            };
-        }
-        const salt = await bcryptjs_1.default.genSalt(10);
-        const hashedPassword = await bcryptjs_1.default.hash(password, salt);
-        const verifyToken = AuthService.generateVerifyToken();
-        const verifyTokenExpiresAt = new Date(Date.now() + VERIFY_EMAIL_EXPIRES_IN_MS);
-        const user = await UserModel_1.default.create({
-            name,
-            email,
-            password: hashedPassword,
-            otpMethod: otpMethod ?? UserModel_1.OtpMethod.EMAIL,
-            verifyToken,
-            verifyTokenExpiresAt,
-            status: UserModel_1.UserStatus.INACTIVE,
-        });
-        const savedUser = await user.save();
-        const verifyEmail = (0, emailTemplates_1.buildVerifyAccountEmail)({
-            userName: name,
-            otpCode: verifyToken,
-        });
-        await (0, mailer_1.sendEmail)(email, verifyEmail.html, verifyEmail.subject);
-        return {
-            ok: true,
-            user: savedUser,
-            message: "Tạo tài khoản thành công",
-        };
     }
     static async verifyEmail(token) {
         if (!token) {
@@ -180,7 +222,15 @@ class AuthService {
             userName: user.name || email,
             otpCode: verifyToken,
         });
-        await (0, mailer_1.sendEmail)(email, verifyEmail.html, verifyEmail.subject);
+        const emailResult = await (0, mailer_1.sendEmail)(email, verifyEmail.html, verifyEmail.subject);
+        if (!emailResult.success) {
+            console.error("[AuthService] Failed to resend verification email:", emailResult.error);
+            return {
+                ok: false,
+                status: 500,
+                message: emailResult.error?.message || "Không thể gửi email xác thực. Vui lòng kiểm tra cấu hình email hoặc thử lại sau.",
+            };
+        }
         return { ok: true, message: "Email đã được gửi lại" };
     }
     static async login(payload) {

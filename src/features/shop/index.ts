@@ -13,6 +13,7 @@ import {
   approveShopController,
   rejectShopController,
   suspendShopController,
+  unlockShopController,
   getShopReviewsController,
 } from "./shop.controller";
 import {
@@ -51,7 +52,7 @@ shopRouter.delete("/:id/follow", authenticateToken, unfollowShopController);
 shopRouter.get("/:id/following", authenticateToken, isFollowingShopController);
 shopRouter.get("/:id/followers/count", followersCountController);
 
-// Admin actions: approve, reject, suspend
+// Admin actions: approve, reject, suspend, unlock
 shopRouter.post(
   "/:id/approve",
   authenticateToken,
@@ -69,6 +70,12 @@ shopRouter.post(
   authenticateToken,
   authorize(["admin"]),
   suspendShopController
+);
+shopRouter.post(
+  "/:id/unlock",
+  authenticateToken,
+  authorize(["admin"]),
+  unlockShopController
 );
 
 export default shopRouter;

@@ -85,6 +85,7 @@ exports.SendEmailService = SendEmailService;
 // Tạo singleton instance
 const sendEmailService = new SendEmailService();
 // Export hàm sendEmail để tương thích với code cũ
+// Trả về result thay vì throw error để caller có thể xử lý
 const sendEmail = async (to, html, subject = "Notification") => {
     const result = await sendEmailService.sendEmail({
         sendTo: to,
@@ -92,8 +93,24 @@ const sendEmail = async (to, html, subject = "Notification") => {
         html,
     });
     if (!result.success) {
-        throw new Error(result.error?.message || "Không thể gửi email");
+        // Log chi tiết lỗi để debug
+        const errorMessage = result.error?.message || "Không thể gửi email";
+        const errorCode = result.error?.code;
+        // Phân loại lỗi để có message rõ ràng hơn
+        let userFriendlyMessage = "Không thể gửi email";
+        if (errorCode === "EAUTH") {
+            userFriendlyMessage = "Lỗi xác thực email. Vui lòng kiểm tra cấu hình SMTP (EMAIL_USER và EMAIL_PASS)";
+        }
+        else if (errorCode === "ECONNECTION") {
+            userFriendlyMessage = "Không thể kết nối đến server email";
+        }
+        else if (result.error?.responseCode === 535) {
+            userFriendlyMessage = "Thông tin đăng nhập email không đúng. Vui lòng kiểm tra EMAIL_USER và EMAIL_PASS trong .env";
+        }
+        console.error(`[MAILER] ${userFriendlyMessage}:`, errorMessage);
+        return { success: false, error: { message: userFriendlyMessage, originalError: result.error } };
     }
+    return { success: true };
 };
 exports.sendEmail = sendEmail;
 exports.default = sendEmailService;

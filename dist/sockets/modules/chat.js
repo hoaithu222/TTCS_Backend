@@ -117,7 +117,7 @@ const registerChatNamespace = (io, authMiddleware, options) => {
             }
         });
         socket.on(socket_1.SOCKET_EVENTS.CHAT_MESSAGE_SEND, async (payload) => {
-            // Allow empty message if there are attachments
+            // Allow empty message if there are attachments  
             const hasAttachments = payload.attachments && payload.attachments.length > 0;
             if (!payload?.message && !hasAttachments) {
                 socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "Message or attachment is required" });
@@ -176,7 +176,7 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                     else if (convType === "shop" && payload.targetId) {
                         // Find shop owner
                         const shop = await ShopModel.findById(payload.targetId)
-                            .populate("userId", "name fullName email avatar role")
+                            .populate("userId", "name fullName email avatar role logo")
                             .lean();
                         if (!shop) {
                             socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "Cửa hàng không tồn tại" });
@@ -189,9 +189,9 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                         }
                         participants.push({
                             userId: shopOwner._id,
-                            name: shopOwner.fullName || shopOwner.name || shopOwner.email,
-                            avatar: shopOwner.avatar,
-                            role: shopOwner.role,
+                            name: shop.name,
+                            avatar: shop.logo,
+                            role: "shop",
                         });
                         conversationType = "shop";
                         channel = options.channel;

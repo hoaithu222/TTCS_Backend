@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getShopReviewsController = exports.suspendShopController = exports.rejectShopController = exports.approveShopController = exports.getShopStatusByUserIdController = exports.followersCountController = exports.isFollowingShopController = exports.unfollowShopController = exports.followShopController = exports.listShopController = exports.deleteShopController = exports.updateShopController = exports.createShopController = exports.getShopController = void 0;
+exports.getShopReviewsController = exports.unlockShopController = exports.suspendShopController = exports.rejectShopController = exports.approveShopController = exports.getShopStatusByUserIdController = exports.followersCountController = exports.isFollowingShopController = exports.unfollowShopController = exports.followShopController = exports.listShopController = exports.deleteShopController = exports.updateShopController = exports.createShopController = exports.getShopController = void 0;
 const shop_service_1 = __importDefault(require("./shop.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 const reviews_service_1 = __importDefault(require("../reviews/reviews.service"));
@@ -153,6 +153,14 @@ const suspendShopController = async (req, res) => {
     return response_util_1.ResponseUtil.success(res, result.item);
 };
 exports.suspendShopController = suspendShopController;
+const unlockShopController = async (req, res) => {
+    const { id } = req.params;
+    const result = await shop_service_1.default.unlockShop(id);
+    if (!result.ok)
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    return response_util_1.ResponseUtil.success(res, result.item);
+};
+exports.unlockShopController = unlockShopController;
 const getShopReviewsController = async (req, res) => {
     const { id } = req.params;
     const { page, limit, sortBy } = req.query;

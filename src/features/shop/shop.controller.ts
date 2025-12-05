@@ -143,6 +143,13 @@ export const suspendShopController = async (req: Request, res: Response) => {
   return ResponseUtil.success(res, result.item);
 };
 
+export const unlockShopController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ShopService.unlockShop(id);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.item);
+};
+
 export const getShopReviewsController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { page, limit, sortBy } = req.query as any;

@@ -16,8 +16,9 @@ shopRouter.post("/:id/follow", auth_middleware_1.authenticateToken, shop_control
 shopRouter.delete("/:id/follow", auth_middleware_1.authenticateToken, shop_controller_1.unfollowShopController);
 shopRouter.get("/:id/following", auth_middleware_1.authenticateToken, shop_controller_1.isFollowingShopController);
 shopRouter.get("/:id/followers/count", shop_controller_1.followersCountController);
-// Admin actions: approve, reject, suspend
+// Admin actions: approve, reject, suspend, unlock
 shopRouter.post("/:id/approve", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), shop_controller_1.approveShopController);
 shopRouter.post("/:id/reject", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), shop_controller_1.rejectShopController);
 shopRouter.post("/:id/suspend", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), shop_controller_1.suspendShopController);
+shopRouter.post("/:id/unlock", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), shop_controller_1.unlockShopController);
 exports.default = shopRouter;

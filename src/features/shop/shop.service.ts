@@ -376,4 +376,54 @@ export default class ShopService {
       };
     }
   }
+
+  // Unlock shop (admin only) - mở khóa shop bị khóa
+  static async unlockShop(id: string) {
+    try {
+      const now = new Date();
+      const item = await ShopModel.findByIdAndUpdate(
+        id,
+        {
+          status: ShopStatus.ACTIVE,
+          isActive: true,
+          activatedAt: now,
+          isVerified: true,
+          verifiedAt: now,
+        },
+        { new: true }
+      );
+      if (!item) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Shop không tồn tại",
+        };
+      }
+      if (item.userId) {
+        await UserModel.findByIdAndUpdate(item.userId, {
+          role: "shop",
+          status: UserStatus.ACTIVE,
+        });
+      }
+      if (item.userId) {
+        notificationService
+          .notifyShopOwnerApproval({
+            ownerId: item.userId.toString(),
+            shopId: item._id.toString(),
+            shopName: item.name,
+            status: "approved",
+          })
+          .catch((error) =>
+            console.error("[shop] notify unlock failed:", error)
+          );
+      }
+      return { ok: true as const, item };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 400,
+        message: (error as Error).message,
+      };
+    }
+  }
 }
