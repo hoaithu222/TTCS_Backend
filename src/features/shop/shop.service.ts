@@ -1,6 +1,8 @@
 import ShopModel, { ShopStatus } from "../../models/ShopModel";
 import ShopFollowerModel from "../../models/ShopFollower";
 import ProductModel from "../../models/ProductModal";
+import ChatConversationModel from "../../models/ChatConversation";
+import ChatMessageModel from "../../models/ChatMessage";
 import { CreateShopRequest, UpdateShopRequest, ListShopQuery } from "./types";
 import UserModel, { UserStatus } from "../../models/UserModel";
 import { notificationService } from "../../shared/services/notification.service";
@@ -61,11 +63,41 @@ export default class ShopService {
   }
 
   static async update(id: string, data: UpdateShopRequest) {
+    // Lấy shop hiện tại để so sánh status
+    const currentShop = await ShopModel.findById(id).select("status").lean();
+    if (!currentShop)
+      return { ok: false as const, status: 404, message: "Shop không tồn tại" };
+
     const item = await ShopModel.findByIdAndUpdate(id, data as any, {
       new: true,
     });
     if (!item)
       return { ok: false as const, status: 404, message: "Shop không tồn tại" };
+
+    // Xử lý sản phẩm khi status thay đổi
+    if (data.status && data.status !== currentShop.status) {
+      try {
+        if (data.status === ShopStatus.BLOCKED) {
+          // Shop bị khóa → ẩn tất cả sản phẩm
+          const hiddenProducts = await ProductModel.updateMany(
+            { shopId: id },
+            { $set: { isActive: false } }
+          );
+          console.log(`[shop] Hidden ${hiddenProducts.modifiedCount} products for blocked shop ${id}`);
+        } else if (data.status === ShopStatus.ACTIVE && currentShop.status === ShopStatus.BLOCKED) {
+          // Shop được mở khóa (từ BLOCKED sang ACTIVE) → hiện lại sản phẩm
+          const shownProducts = await ProductModel.updateMany(
+            { shopId: id },
+            { $set: { isActive: true } }
+          );
+          console.log(`[shop] Shown ${shownProducts.modifiedCount} products for unlocked shop ${id}`);
+        }
+      } catch (error) {
+        console.error("[shop] Error updating products status:", error);
+        // Không fail nếu xử lý sản phẩm lỗi
+      }
+    }
+
     return { ok: true as const, item };
   }
 
@@ -73,6 +105,47 @@ export default class ShopService {
     const item = await ShopModel.findByIdAndDelete(id);
     if (!item)
       return { ok: false as const, status: 404, message: "Shop không tồn tại" };
+    
+    // Xóa tất cả sản phẩm của shop khi shop bị xóa
+    try {
+      const deletedProducts = await ProductModel.deleteMany({ shopId: id });
+      console.log(`[shop] Deleted ${deletedProducts.deletedCount} products for shop ${id}`);
+    } catch (error) {
+      console.error("[shop] Error deleting products:", error);
+      // Không fail nếu xóa sản phẩm lỗi, vì shop đã bị xóa
+    }
+
+    // Xóa tất cả conversations và messages liên quan đến shop
+    try {
+      // Tìm conversations có shop trong metadata.targetId hoặc channel = "shop" với shopId
+      const conversations = await ChatConversationModel.find({
+        $or: [
+          { "metadata.targetId": id },
+          { "metadata.shopId": id },
+          { channel: "shop", "metadata.shopId": id },
+        ],
+      }).select("_id").lean();
+
+      const conversationIds = conversations.map((c) => c._id);
+
+      if (conversationIds.length > 0) {
+        // Xóa tất cả messages của các conversations này
+        const deletedMessages = await ChatMessageModel.deleteMany({
+          conversationId: { $in: conversationIds },
+        });
+        console.log(`[shop] Deleted ${deletedMessages.deletedCount} messages for shop ${id}`);
+
+        // Xóa conversations
+        const deletedConversations = await ChatConversationModel.deleteMany({
+          _id: { $in: conversationIds },
+        });
+        console.log(`[shop] Deleted ${deletedConversations.deletedCount} conversations for shop ${id}`);
+      }
+    } catch (error) {
+      console.error("[shop] Error deleting conversations and messages:", error);
+      // Không fail nếu xóa conversations lỗi, vì shop đã bị xóa
+    }
+    
     return { ok: true as const, item };
   }
 
@@ -315,6 +388,19 @@ export default class ShopService {
           message: "Shop không tồn tại",
         };
       }
+      
+      // Ẩn tất cả sản phẩm của shop khi shop bị từ chối
+      try {
+        const hiddenProducts = await ProductModel.updateMany(
+          { shopId: id },
+          { $set: { isActive: false } }
+        );
+        console.log(`[shop] Hidden ${hiddenProducts.modifiedCount} products for rejected shop ${id}`);
+      } catch (error) {
+        console.error("[shop] Error hiding products:", error);
+        // Không fail nếu ẩn sản phẩm lỗi
+      }
+      
       if (item.userId) {
         notificationService
           .notifyShopOwnerApproval({
@@ -355,6 +441,19 @@ export default class ShopService {
           message: "Shop không tồn tại",
         };
       }
+      
+      // Ẩn tất cả sản phẩm của shop khi shop bị đình chỉ
+      try {
+        const hiddenProducts = await ProductModel.updateMany(
+          { shopId: id },
+          { $set: { isActive: false } }
+        );
+        console.log(`[shop] Hidden ${hiddenProducts.modifiedCount} products for suspended shop ${id}`);
+      } catch (error) {
+        console.error("[shop] Error hiding products:", error);
+        // Không fail nếu ẩn sản phẩm lỗi
+      }
+      
       if (item.userId) {
         notificationService
           .notifyShopOwnerApproval({
@@ -399,6 +498,19 @@ export default class ShopService {
           message: "Shop không tồn tại",
         };
       }
+      
+      // Hiện lại tất cả sản phẩm của shop khi shop được mở khóa
+      try {
+        const shownProducts = await ProductModel.updateMany(
+          { shopId: id },
+          { $set: { isActive: true } }
+        );
+        console.log(`[shop] Shown ${shownProducts.modifiedCount} products for unlocked shop ${id}`);
+      } catch (error) {
+        console.error("[shop] Error showing products:", error);
+        // Không fail nếu hiện sản phẩm lỗi
+      }
+      
       if (item.userId) {
         await UserModel.findByIdAndUpdate(item.userId, {
           role: "shop",

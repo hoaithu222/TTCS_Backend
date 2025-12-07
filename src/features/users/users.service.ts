@@ -1,4 +1,8 @@
-import UserModel from "../../models/UserModel";
+import UserModel, { UserStatus } from "../../models/UserModel";
+import ShopModel, { ShopStatus } from "../../models/ShopModel";
+import ProductModel from "../../models/ProductModal";
+import ChatConversationModel from "../../models/ChatConversation";
+import ChatMessageModel from "../../models/ChatMessage";
 import { UpdateUserRequest } from "./types";
 import ShopService from "../shop/shop.service";
 
@@ -29,18 +33,111 @@ export default class UsersService {
   }
   // cập nhật thông tin user
   static async updateUser(id: string, data: UpdateUserRequest) {
+    // Lấy user hiện tại để so sánh status
+    const currentUser = await UserModel.findById(id).select("status").lean();
+    if (!currentUser) {
+      return { ok: false as const, status: 400, message: "User không tồn tại" };
+    }
+
     const user = await UserModel.findByIdAndUpdate(id, data, { new: true });
     if (!user) {
       return { ok: false as const, status: 400, message: "User không tồn tại" };
     }
+
+    // Xử lý shop và sản phẩm khi status thay đổi
+    if (data.status && data.status !== currentUser.status) {
+      try {
+        const shop = await ShopModel.findOne({ userId: id }).select("_id status").lean();
+        
+        if (shop) {
+          if (data.status === UserStatus.INACTIVE) {
+            // User bị khóa → khóa shop và ẩn sản phẩm
+            await ShopModel.findByIdAndUpdate(shop._id, {
+              status: ShopStatus.BLOCKED,
+              isActive: false,
+            });
+            
+            const hiddenProducts = await ProductModel.updateMany(
+              { shopId: shop._id },
+              { $set: { isActive: false } }
+            );
+            console.log(`[users] Blocked shop ${shop._id} and hidden ${hiddenProducts.modifiedCount} products for inactive user ${id}`);
+          } else if (data.status === UserStatus.ACTIVE && currentUser.status === UserStatus.INACTIVE) {
+            // User được mở khóa (từ INACTIVE sang ACTIVE) → mở khóa shop và hiện lại sản phẩm
+            await ShopModel.findByIdAndUpdate(shop._id, {
+              status: ShopStatus.ACTIVE,
+              isActive: true,
+            });
+            
+            const shownProducts = await ProductModel.updateMany(
+              { shopId: shop._id },
+              { $set: { isActive: true } }
+            );
+            console.log(`[users] Unlocked shop ${shop._id} and shown ${shownProducts.modifiedCount} products for active user ${id}`);
+          }
+        }
+      } catch (error) {
+        console.error("[users] Error updating shop and products status:", error);
+        // Không fail nếu xử lý shop lỗi
+      }
+    }
+
     return { ok: true as const, user };
   }
   // xóa user
   static async deleteUser(id: string) {
-    const user = await UserModel.findByIdAndDelete(id);
+    const user = await UserModel.findById(id);
     if (!user) {
       return { ok: false as const, status: 400, message: "User không tồn tại" };
     }
+
+    // Tìm shop của user
+    const shop = await ShopModel.findOne({ userId: id }).select("_id").lean();
+    
+    if (shop) {
+      try {
+        // Xóa tất cả sản phẩm của shop
+        const deletedProducts = await ProductModel.deleteMany({ shopId: shop._id });
+        console.log(`[users] Deleted ${deletedProducts.deletedCount} products for shop ${shop._id} (user ${id})`);
+        
+        // Xóa shop
+        await ShopModel.findByIdAndDelete(shop._id);
+        console.log(`[users] Deleted shop ${shop._id} for user ${id}`);
+      } catch (error) {
+        console.error("[users] Error deleting shop and products:", error);
+        // Tiếp tục xóa user dù có lỗi khi xóa shop
+      }
+    }
+
+    // Xóa tất cả conversations và messages của user
+    try {
+      // Tìm tất cả conversations có user trong participants
+      const conversations = await ChatConversationModel.find({
+        "participants.userId": id,
+      }).select("_id").lean();
+
+      const conversationIds = conversations.map((c) => c._id);
+
+      if (conversationIds.length > 0) {
+        // Xóa tất cả messages của các conversations này
+        const deletedMessages = await ChatMessageModel.deleteMany({
+          conversationId: { $in: conversationIds },
+        });
+        console.log(`[users] Deleted ${deletedMessages.deletedCount} messages for user ${id}`);
+
+        // Xóa conversations
+        const deletedConversations = await ChatConversationModel.deleteMany({
+          _id: { $in: conversationIds },
+        });
+        console.log(`[users] Deleted ${deletedConversations.deletedCount} conversations for user ${id}`);
+      }
+    } catch (error) {
+      console.error("[users] Error deleting conversations and messages:", error);
+      // Tiếp tục xóa user dù có lỗi khi xóa conversations
+    }
+
+    // Xóa user
+    await UserModel.findByIdAndDelete(id);
     return { ok: true as const, user };
   }
   // lấy danh sách user với pagination và filter
