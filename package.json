@@ -13,7 +13,10 @@
     "seed:attributes": "ts-node scripts/seed-attributes.ts",
     "seed:sub-categories": "ts-node scripts/seed-sub-categories.ts",
     "seed:products": "ts-node scripts/seed-products.ts",
-    "seed:products:extra": "ts-node scripts/seed-products-techzone-extra.ts"
+    "seed:products:extra": "ts-node scripts/seed-products-techzone-extra.ts",
+    "cleanup:products": "ts-node scripts/cleanup-products-by-shop-status.ts",
+    "cleanup:users": "ts-node scripts/cleanup-shops-by-user-status.ts",
+    "cleanup:chats": "ts-node scripts/cleanup-chat-conversations.ts"
   },
   "keywords": [],
   "author": "",

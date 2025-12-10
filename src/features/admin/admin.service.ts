@@ -73,6 +73,9 @@ export default class AdminService {
           ? 100
           : 0;
 
+      const activeRate = totalUsers > 0 ? (activeUsers / totalUsers) * 100 : 0;
+      const inactiveUsers = Math.max(totalUsers - activeUsers, 0);
+
       // Convert arrays to objects
       const usersByRoleObj = usersByRole.reduce(
         (acc, item) => {
@@ -99,6 +102,8 @@ export default class AdminService {
           usersByRole: usersByRoleObj,
           usersByStatus: usersByStatusObj,
           monthlyGrowth: Math.round(monthlyGrowth * 100) / 100,
+          activeRate: Math.round(activeRate * 100) / 100,
+          inactiveUsers,
         },
       };
     } catch (error) {
@@ -170,7 +175,7 @@ export default class AdminService {
         ],
       });
 
-      // Top selling products
+      // Top selling products with richer data
       const topSellingProducts = await OrderItemModel.aggregate([
         {
           $lookup: {
@@ -180,9 +185,7 @@ export default class AdminService {
             as: "order",
           },
         },
-        {
-          $unwind: "$order",
-        },
+        { $unwind: "$order" },
         {
           $match: {
             "order.status": OrderStatus.DELIVERED,
@@ -192,14 +195,11 @@ export default class AdminService {
           $group: {
             _id: "$productId",
             salesCount: { $sum: "$quantity" },
+            revenue: { $sum: { $multiply: ["$quantity", "$price"] } },
           },
         },
-        {
-          $sort: { salesCount: -1 },
-        },
-        {
-          $limit: 10,
-        },
+        { $sort: { salesCount: -1 } },
+        { $limit: 12 },
         {
           $lookup: {
             from: "products",
@@ -208,15 +208,74 @@ export default class AdminService {
             as: "product",
           },
         },
+        { $unwind: "$product" },
         {
-          $unwind: "$product",
+          $lookup: {
+            from: "images",
+            localField: "product.images",
+            foreignField: "_id",
+            as: "imageDocs",
+          },
         },
+        {
+          $addFields: {
+            primaryImage: {
+              $cond: [
+                { $gt: [{ $size: "$imageDocs" }, 0] },
+                { $arrayElemAt: ["$imageDocs.url", 0] },
+                null,
+              ],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "product.categoryId",
+            foreignField: "_id",
+            as: "category",
+          },
+        },
+        { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
         {
           $project: {
             _id: 0,
             productId: "$_id",
             productName: "$product.name",
             salesCount: 1,
+            revenue: 1,
+            price: {
+              $ifNull: [
+                "$product.salePrice",
+                {
+                  $ifNull: [
+                    "$product.price",
+                    { $ifNull: ["$product.finalPrice", "$product.amount"] },
+                  ],
+                },
+              ],
+            },
+            stockLeft: {
+              $ifNull: ["$product.stock", "$product.quantity"],
+            },
+            rating: {
+              $ifNull: ["$product.averageRating", "$product.rating"],
+            },
+            imageUrl: {
+              $ifNull: [
+                "$primaryImage",
+                {
+                  $cond: [
+                    { $gt: [{ $size: { $ifNull: ["$product.images", []] } }, 0] },
+                    { $arrayElemAt: ["$product.images", 0] },
+                    "$product.thumbnail",
+                  ],
+                },
+              ],
+            },
+            category: {
+              $ifNull: ["$category.name", "$product.categoryName"],
+            },
           },
         },
       ]);
@@ -247,10 +306,22 @@ export default class AdminService {
           productsByShop: productsByShopObj,
           lowStockProducts,
           outOfStockProducts,
-          topSellingProducts: topSellingProducts.map((item) => ({
-            productId: item.productId?.toString() || "",
+          topSellingProducts: topSellingProducts.map((item, index) => ({
+            productId: item.productId?.toString() || `p-${index}`,
             productName: item.productName || "Unknown",
             salesCount: item.salesCount || 0,
+            revenue:
+              item.revenue ||
+              (item.price && item.salesCount
+                ? item.price * item.salesCount
+                : undefined),
+            price: item.price || undefined,
+            stockLeft: item.stockLeft ?? undefined,
+            rating: item.rating ?? undefined,
+            imageUrl:
+              item.imageUrl ||
+              "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+            category: item.category || "Khác",
           })),
         },
       };
