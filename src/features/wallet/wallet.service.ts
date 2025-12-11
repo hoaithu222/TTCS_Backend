@@ -165,7 +165,7 @@ export default class WalletService {
         status: WalletTransactionStatus.PENDING,
         description:
           data.description ||
-          `Nạp tiền vào ví - ${data.amount.toLocaleString(
+          `Nạp tiền vào ví + ${data.amount.toLocaleString(
             "vi-VN"
           )} VNĐ`,
         bankAccount: bankAccountInfo,
