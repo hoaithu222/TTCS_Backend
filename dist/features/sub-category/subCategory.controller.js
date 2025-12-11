@@ -20,7 +20,7 @@ const createSubCategoryController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.created(res, result.subCategory);
+    return response_util_1.ResponseUtil.created(res, result.subCategory, "Tạo danh mục phụ thành công");
 };
 exports.createSubCategoryController = createSubCategoryController;
 const updateSubCategoryController = async (req, res) => {
@@ -29,7 +29,7 @@ const updateSubCategoryController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.subCategory);
+    return response_util_1.ResponseUtil.success(res, result.subCategory, "Cập nhật danh mục phụ thành công");
 };
 exports.updateSubCategoryController = updateSubCategoryController;
 const deleteSubCategoryController = async (req, res) => {
@@ -38,7 +38,7 @@ const deleteSubCategoryController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.subCategory);
+    return response_util_1.ResponseUtil.success(res, result.subCategory, "Xóa danh mục phụ thành công");
 };
 exports.deleteSubCategoryController = deleteSubCategoryController;
 const listSubCategoryController = async (req, res) => {

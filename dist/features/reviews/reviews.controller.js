@@ -10,7 +10,7 @@ const createReviewController = async (req, res) => {
     const result = await reviews_service_1.default.create(req, req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.created(res, result.review);
+    return response_util_1.ResponseUtil.created(res, result.review, "Tạo đánh giá thành công");
 };
 exports.createReviewController = createReviewController;
 const getReviewController = async (req, res) => {
@@ -38,7 +38,7 @@ const updateReviewController = async (req, res) => {
     const result = await reviews_service_1.default.update(req, id, req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.review);
+    return response_util_1.ResponseUtil.success(res, result.review, "Cập nhật đánh giá thành công");
 };
 exports.updateReviewController = updateReviewController;
 const deleteReviewController = async (req, res) => {
@@ -46,6 +46,6 @@ const deleteReviewController = async (req, res) => {
     const result = await reviews_service_1.default.delete(req, id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.review);
+    return response_util_1.ResponseUtil.success(res, result.review, "Xóa đánh giá thành công");
 };
 exports.deleteReviewController = deleteReviewController;

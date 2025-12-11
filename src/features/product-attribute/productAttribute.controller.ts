@@ -18,7 +18,7 @@ export const createProductAttributeController = async (
 ) => {
   const result = await ProductAttributeService.create(req.body);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.created(res, result.item);
+  return ResponseUtil.created(res, result.item, "Thêm thuộc tính sản phẩm thành công");
 };
 
 export const updateProductAttributeController = async (
@@ -28,7 +28,7 @@ export const updateProductAttributeController = async (
   const { id } = req.params;
   const result = await ProductAttributeService.update(id, req.body);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Cập nhật thuộc tính sản phẩm thành công");
 };
 
 export const deleteProductAttributeController = async (
@@ -38,7 +38,7 @@ export const deleteProductAttributeController = async (
   const { id } = req.params;
   const result = await ProductAttributeService.delete(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Xóa thuộc tính sản phẩm thành công");
 };
 
 export const listProductAttributeController = async (

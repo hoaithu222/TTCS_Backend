@@ -10,7 +10,7 @@ const createOrderController = async (req, res) => {
     const result = await orders_service_1.default.create(req, req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.created(res, result.order);
+    return response_util_1.ResponseUtil.created(res, result.order, "Tạo đơn hàng thành công");
 };
 exports.createOrderController = createOrderController;
 const getOrderController = async (req, res) => {
@@ -38,7 +38,7 @@ const updateOrderController = async (req, res) => {
     const result = await orders_service_1.default.update(req, id, req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.order);
+    return response_util_1.ResponseUtil.success(res, result.order, "Cập nhật đơn hàng thành công");
 };
 exports.updateOrderController = updateOrderController;
 const updateOrderStatusController = async (req, res) => {
@@ -47,7 +47,7 @@ const updateOrderStatusController = async (req, res) => {
     const result = await orders_service_1.default.updateStatus(req, id, status, description);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.order);
+    return response_util_1.ResponseUtil.success(res, result.order, "Cập nhật trạng thái đơn hàng thành công");
 };
 exports.updateOrderStatusController = updateOrderStatusController;
 const deleteOrderController = async (req, res) => {
@@ -55,7 +55,7 @@ const deleteOrderController = async (req, res) => {
     const result = await orders_service_1.default.delete(req, id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.order);
+    return response_util_1.ResponseUtil.success(res, result.order, "Xóa đơn hàng thành công");
 };
 exports.deleteOrderController = deleteOrderController;
 const cancelOrderByUserController = async (req, res) => {
@@ -64,7 +64,7 @@ const cancelOrderByUserController = async (req, res) => {
     const result = await orders_service_1.default.cancelByUser(req, id, reason);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.order);
+    return response_util_1.ResponseUtil.success(res, result.order, "Hủy đơn hàng thành công");
 };
 exports.cancelOrderByUserController = cancelOrderByUserController;
 const trackOrderController = async (req, res) => {
@@ -93,6 +93,6 @@ const autoCancelUnpaidOrdersController = async (_req, res) => {
     }
     return response_util_1.ResponseUtil.success(res, {
         cancelled: result.cancelled,
-    });
+    }, "Tự động hủy đơn hàng quá hạn thành công");
 };
 exports.autoCancelUnpaidOrdersController = autoCancelUnpaidOrdersController;

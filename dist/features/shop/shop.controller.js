@@ -34,7 +34,7 @@ const updateShopController = async (req, res) => {
     const result = await shop_service_1.default.update(id, req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Cập nhật cửa hàng thành công");
 };
 exports.updateShopController = updateShopController;
 const deleteShopController = async (req, res) => {
@@ -42,7 +42,7 @@ const deleteShopController = async (req, res) => {
     const result = await shop_service_1.default.delete(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Xóa cửa hàng thành công");
 };
 exports.deleteShopController = deleteShopController;
 const listShopController = async (req, res) => {
@@ -79,7 +79,7 @@ const followShopController = async (req, res) => {
     return response_util_1.ResponseUtil.success(res, {
         isFollowing: result.isFollowing,
         followersCount: result.followersCount,
-    });
+    }, "Theo dõi cửa hàng thành công");
 };
 exports.followShopController = followShopController;
 const unfollowShopController = async (req, res) => {
@@ -93,7 +93,7 @@ const unfollowShopController = async (req, res) => {
     return response_util_1.ResponseUtil.success(res, {
         isFollowing: result.isFollowing,
         followersCount: result.followersCount,
-    });
+    }, "Hủy theo dõi cửa hàng thành công");
 };
 exports.unfollowShopController = unfollowShopController;
 const isFollowingShopController = async (req, res) => {
@@ -134,7 +134,7 @@ const approveShopController = async (req, res) => {
     const result = await shop_service_1.default.approveShop(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Duyệt cửa hàng thành công");
 };
 exports.approveShopController = approveShopController;
 const rejectShopController = async (req, res) => {
@@ -142,7 +142,7 @@ const rejectShopController = async (req, res) => {
     const result = await shop_service_1.default.rejectShop(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Từ chối cửa hàng thành công");
 };
 exports.rejectShopController = rejectShopController;
 const suspendShopController = async (req, res) => {
@@ -150,7 +150,7 @@ const suspendShopController = async (req, res) => {
     const result = await shop_service_1.default.suspendShop(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Khóa cửa hàng thành công");
 };
 exports.suspendShopController = suspendShopController;
 const unlockShopController = async (req, res) => {
@@ -158,7 +158,7 @@ const unlockShopController = async (req, res) => {
     const result = await shop_service_1.default.unlockShop(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Mở khóa cửa hàng thành công");
 };
 exports.unlockShopController = unlockShopController;
 const getShopReviewsController = async (req, res) => {

@@ -22,7 +22,7 @@ export const createCategoryController = async (req: Request, res: Response) => {
   if (!result.ok) {
     return ResponseUtil.error(res, result.message, result.status);
   }
-  return ResponseUtil.success(res, result.category);
+  return ResponseUtil.success(res, result.category, "Tạo danh mục thành công");
 };
 
 export const updateCategoryController = async (req: Request, res: Response) => {
@@ -37,7 +37,7 @@ export const updateCategoryController = async (req: Request, res: Response) => {
   if (!result.ok) {
     return ResponseUtil.error(res, result.message, result.status);
   }
-  return ResponseUtil.success(res, result.category);
+  return ResponseUtil.success(res, result.category, "Cập nhật danh mục thành công");
 };
 
 export const deleteCategoryController = async (req: Request, res: Response) => {
@@ -52,7 +52,7 @@ export const deleteCategoryController = async (req: Request, res: Response) => {
   if (!result.ok) {
     return ResponseUtil.error(res, result.message, result.status);
   }
-  return ResponseUtil.success(res, result.category);
+  return ResponseUtil.success(res, result.category, "Xóa danh mục thành công");
 };
 
 export const getSubCategoriesController = async (

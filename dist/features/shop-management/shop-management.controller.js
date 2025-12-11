@@ -21,7 +21,7 @@ const updateMyShopController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.shop);
+    return response_util_1.ResponseUtil.success(res, result.shop, "Cập nhật thông tin cửa hàng thành công");
 };
 exports.updateMyShopController = updateMyShopController;
 // Lấy danh sách sản phẩm của shop
@@ -45,7 +45,7 @@ const createMyShopProductController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.created(res, result.product);
+    return response_util_1.ResponseUtil.created(res, result.product, "Tạo sản phẩm mới cho cửa hàng thành công");
 };
 exports.createMyShopProductController = createMyShopProductController;
 // Cập nhật sản phẩm
@@ -55,7 +55,7 @@ const updateMyShopProductController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.product);
+    return response_util_1.ResponseUtil.success(res, result.product, "Cập nhật sản phẩm cửa hàng thành công");
 };
 exports.updateMyShopProductController = updateMyShopProductController;
 // Lấy chi tiết một sản phẩm của shop
@@ -75,7 +75,7 @@ const deleteMyShopProductController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.product);
+    return response_util_1.ResponseUtil.success(res, result.product, "Xóa sản phẩm cửa hàng thành công");
 };
 exports.deleteMyShopProductController = deleteMyShopProductController;
 // Lấy danh sách đơn hàng của shop
@@ -111,7 +111,7 @@ const updateMyShopOrderStatusController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.order);
+    return response_util_1.ResponseUtil.success(res, result.order, "Cập nhật trạng thái đơn hàng cửa hàng thành công");
 };
 exports.updateMyShopOrderStatusController = updateMyShopOrderStatusController;
 // Lấy thống kê shop
@@ -171,7 +171,7 @@ const batchPrintOrdersController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result);
+    return response_util_1.ResponseUtil.success(res, result, "In hàng loạt đơn hàng thành công");
 };
 exports.batchPrintOrdersController = batchPrintOrdersController;
 // Add internal note
@@ -185,7 +185,7 @@ const addInternalNoteController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.note);
+    return response_util_1.ResponseUtil.success(res, result.note, "Thêm ghi chú nội bộ thành công");
 };
 exports.addInternalNoteController = addInternalNoteController;
 // Get internal notes
@@ -205,7 +205,7 @@ const deleteInternalNoteController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, { message: result.message });
+    return response_util_1.ResponseUtil.success(res, { message: result.message }, "Xóa ghi chú nội bộ thành công");
 };
 exports.deleteInternalNoteController = deleteInternalNoteController;
 // Get order timeline

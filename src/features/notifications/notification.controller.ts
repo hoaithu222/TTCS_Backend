@@ -18,7 +18,7 @@ export const markAsReadController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await NotificationService.markAsRead(req as AuthenticatedRequest, id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.data);
+  return ResponseUtil.success(res, result.data, "Đã đánh dấu thông báo là đã đọc");
 };
 
 export const markAllAsReadController = async (req: Request, res: Response) => {

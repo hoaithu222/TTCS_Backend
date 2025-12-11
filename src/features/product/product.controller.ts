@@ -15,21 +15,21 @@ export const getProductController = async (req: Request, res: Response) => {
 export const createProductController = async (req: Request, res: Response) => {
   const result = await ProductService.create(req.body);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.created(res, result.product);
+  return ResponseUtil.created(res, result.product, "Tạo sản phẩm thành công");
 };
 
 export const updateProductController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ProductService.update(id, req.body);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.product);
+  return ResponseUtil.success(res, result.product, "Cập nhật sản phẩm thành công");
 };
 
 export const deleteProductController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ProductService.delete(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.product);
+  return ResponseUtil.success(res, result.product, "Xóa sản phẩm thành công");
 };
 
 export const listProductController = async (req: Request, res: Response) => {
@@ -162,7 +162,7 @@ export const trackProductViewController = async (req: Request, res: Response) =>
   const { id } = req.params;
   const result = await ProductService.trackView(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, {});
+  return ResponseUtil.success(res, {}, "Ghi nhận lượt xem sản phẩm thành công");
 };
 
 export const getProductReviewsController = async (req: Request, res: Response) => {
@@ -196,5 +196,5 @@ export const createProductReviewController = async (req: Request, res: Response)
     productId: id,
   });
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.created(res, result.review);
+  return ResponseUtil.created(res, result.review, "Tạo đánh giá sản phẩm thành công");
 };

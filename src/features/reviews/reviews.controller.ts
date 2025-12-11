@@ -9,7 +9,7 @@ export const createReviewController = async (req: Request, res: Response) => {
     req.body
   );
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.created(res, result.review);
+  return ResponseUtil.created(res, result.review, "Tạo đánh giá thành công");
 };
 
 export const getReviewController = async (req: Request, res: Response) => {
@@ -38,12 +38,12 @@ export const updateReviewController = async (req: Request, res: Response) => {
     req.body
   );
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.review);
+  return ResponseUtil.success(res, result.review, "Cập nhật đánh giá thành công");
 };
 
 export const deleteReviewController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ReviewsService.delete(req as AuthenticatedRequest, id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.review);
+  return ResponseUtil.success(res, result.review, "Xóa đánh giá thành công");
 };

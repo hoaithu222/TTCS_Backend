@@ -18,7 +18,7 @@ export const createAttributeValueController = async (
 ) => {
   const result = await AttributeValueService.create(req.body);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.created(res, result.item);
+  return ResponseUtil.created(res, result.item, "Tạo giá trị thuộc tính thành công");
 };
 
 export const updateAttributeValueController = async (
@@ -28,7 +28,7 @@ export const updateAttributeValueController = async (
   const { id } = req.params;
   const result = await AttributeValueService.update(id, req.body);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Cập nhật giá trị thuộc tính thành công");
 };
 
 export const deleteAttributeValueController = async (
@@ -38,7 +38,7 @@ export const deleteAttributeValueController = async (
   const { id } = req.params;
   const result = await AttributeValueService.delete(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Xóa giá trị thuộc tính thành công");
 };
 
 export const listAttributeValueController = async (

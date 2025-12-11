@@ -8,7 +8,7 @@ export const getOrCreateConversationForShopController = async (req: Request, res
     return ResponseUtil.badRequest(res, "customerId is required");
   }
   const conversation = await ChatService.getOrCreateConversationForShop(shopUserId, customerId);
-  return ResponseUtil.success(res, { conversation });
+  return ResponseUtil.success(res, { conversation }, "Lấy hoặc tạo cuộc trò chuyện thành công");
 };
 import { Request, Response } from "express";
 import ChatService from "./chat.service";
@@ -66,13 +66,13 @@ export const markAsReadController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ChatService.markAsRead(req as AuthenticatedRequest, id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, undefined, "Đã đánh dấu đã đọc");
+  return ResponseUtil.success(res, undefined, "Đã đánh dấu tin nhắn đã đọc");
 };
 
 export const markAsDeliveredController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ChatService.markAsDelivered(req as AuthenticatedRequest, id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, undefined, "Đã đánh dấu đã gửi");
+  return ResponseUtil.success(res, undefined, "Đã đánh dấu tin nhắn đã gửi");
 };
 

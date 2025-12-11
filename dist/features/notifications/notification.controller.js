@@ -19,7 +19,7 @@ const markAsReadController = async (req, res) => {
     const result = await notification_service_1.default.markAsRead(req, id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.data);
+    return response_util_1.ResponseUtil.success(res, result.data, "Đã đánh dấu thông báo là đã đọc");
 };
 exports.markAsReadController = markAsReadController;
 const markAllAsReadController = async (req, res) => {

@@ -9,7 +9,7 @@ export const createOrderController = async (req: Request, res: Response) => {
     req.body
   );
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.created(res, result.order);
+  return ResponseUtil.created(res, result.order, "Tạo đơn hàng thành công");
 };
 
 export const getOrderController = async (req: Request, res: Response) => {
@@ -41,7 +41,7 @@ export const updateOrderController = async (req: Request, res: Response) => {
     req.body
   );
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.order);
+  return ResponseUtil.success(res, result.order, "Cập nhật đơn hàng thành công");
 };
 
 export const updateOrderStatusController = async (
@@ -57,14 +57,14 @@ export const updateOrderStatusController = async (
     description
   );
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.order);
+  return ResponseUtil.success(res, result.order, "Cập nhật trạng thái đơn hàng thành công");
 };
 
 export const deleteOrderController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await OrdersService.delete(req as AuthenticatedRequest, id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.order);
+  return ResponseUtil.success(res, result.order, "Xóa đơn hàng thành công");
 };
 
 export const cancelOrderByUserController = async (
@@ -79,7 +79,7 @@ export const cancelOrderByUserController = async (
     reason
   );
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.order);
+  return ResponseUtil.success(res, result.order, "Hủy đơn hàng thành công");
 };
 
 export const trackOrderController = async (req: Request, res: Response) => {
@@ -107,7 +107,11 @@ export const autoCancelUnpaidOrdersController = async (
   if (!result.ok) {
     return ResponseUtil.error(res, "Auto cancel unpaid orders failed", 500);
   }
-  return ResponseUtil.success(res, {
-    cancelled: result.cancelled,
-  });
+  return ResponseUtil.success(
+    res,
+    {
+      cancelled: result.cancelled,
+    },
+    "Tự động hủy đơn hàng quá hạn thành công"
+  );
 };

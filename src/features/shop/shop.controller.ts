@@ -28,14 +28,14 @@ export const updateShopController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ShopService.update(id, req.body);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Cập nhật cửa hàng thành công");
 };
 
 export const deleteShopController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ShopService.delete(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Xóa cửa hàng thành công");
 };
 
 export const listShopController = async (req: Request, res: Response) => {
@@ -69,10 +69,14 @@ export const followShopController = async (req: Request, res: Response) => {
   if (!currentUser) return ResponseUtil.error(res, "Unauthorized", 401);
   const result = await ShopService.follow(id, currentUser.userId);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, {
-    isFollowing: result.isFollowing,
-    followersCount: result.followersCount,
-  });
+  return ResponseUtil.success(
+    res,
+    {
+      isFollowing: result.isFollowing,
+      followersCount: result.followersCount,
+    },
+    "Theo dõi cửa hàng thành công"
+  );
 };
 
 export const unfollowShopController = async (req: Request, res: Response) => {
@@ -81,10 +85,14 @@ export const unfollowShopController = async (req: Request, res: Response) => {
   if (!currentUser) return ResponseUtil.error(res, "Unauthorized", 401);
   const result = await ShopService.unfollow(id, currentUser.userId);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, {
-    isFollowing: result.isFollowing,
-    followersCount: result.followersCount,
-  });
+  return ResponseUtil.success(
+    res,
+    {
+      isFollowing: result.isFollowing,
+      followersCount: result.followersCount,
+    },
+    "Hủy theo dõi cửa hàng thành công"
+  );
 };
 
 export const isFollowingShopController = async (
@@ -126,28 +134,28 @@ export const approveShopController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ShopService.approveShop(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Duyệt cửa hàng thành công");
 };
 
 export const rejectShopController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ShopService.rejectShop(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Từ chối cửa hàng thành công");
 };
 
 export const suspendShopController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ShopService.suspendShop(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Khóa cửa hàng thành công");
 };
 
 export const unlockShopController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ShopService.unlockShop(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Mở khóa cửa hàng thành công");
 };
 
 export const getShopReviewsController = async (req: Request, res: Response) => {

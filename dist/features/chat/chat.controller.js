@@ -14,7 +14,7 @@ const getOrCreateConversationForShopController = async (req, res) => {
         return response_util_1.ResponseUtil.badRequest(res, "customerId is required");
     }
     const conversation = await chat_service_1.default.getOrCreateConversationForShop(shopUserId, customerId);
-    return response_util_1.ResponseUtil.success(res, { conversation });
+    return response_util_1.ResponseUtil.success(res, { conversation }, "Lấy hoặc tạo cuộc trò chuyện thành công");
 };
 exports.getOrCreateConversationForShopController = getOrCreateConversationForShopController;
 const chat_service_1 = __importDefault(require("./chat.service"));
@@ -66,7 +66,7 @@ const markAsReadController = async (req, res) => {
     const result = await chat_service_1.default.markAsRead(req, id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, undefined, "Đã đánh dấu đã đọc");
+    return response_util_1.ResponseUtil.success(res, undefined, "Đã đánh dấu tin nhắn đã đọc");
 };
 exports.markAsReadController = markAsReadController;
 const markAsDeliveredController = async (req, res) => {
@@ -74,6 +74,6 @@ const markAsDeliveredController = async (req, res) => {
     const result = await chat_service_1.default.markAsDelivered(req, id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, undefined, "Đã đánh dấu đã gửi");
+    return response_util_1.ResponseUtil.success(res, undefined, "Đã đánh dấu tin nhắn đã gửi");
 };
 exports.markAsDeliveredController = markAsDeliveredController;

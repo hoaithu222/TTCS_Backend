@@ -27,21 +27,21 @@ export const getImageController = async (req: Request, res: Response) => {
 export const createImageController = async (req: Request, res: Response) => {
   const result = await ImageService.create(req.body);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.created(res, result.item);
+  return ResponseUtil.created(res, result.item, "Tạo thông tin hình ảnh thành công");
 };
 
 export const updateImageController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ImageService.update(id, req.body);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Cập nhật thông tin hình ảnh thành công");
 };
 
 export const deleteImageController = async (req: Request, res: Response) => {
   const { id } = req.params;
   const result = await ImageService.delete(id);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.item);
+  return ResponseUtil.success(res, result.item, "Xóa thông tin hình ảnh thành công");
 };
 
 export const listImageController = async (req: Request, res: Response) => {

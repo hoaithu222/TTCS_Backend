@@ -19,7 +19,7 @@ const createProductController = async (req, res) => {
     const result = await product_service_1.default.create(req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.created(res, result.product);
+    return response_util_1.ResponseUtil.created(res, result.product, "Tạo sản phẩm thành công");
 };
 exports.createProductController = createProductController;
 const updateProductController = async (req, res) => {
@@ -27,7 +27,7 @@ const updateProductController = async (req, res) => {
     const result = await product_service_1.default.update(id, req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.product);
+    return response_util_1.ResponseUtil.success(res, result.product, "Cập nhật sản phẩm thành công");
 };
 exports.updateProductController = updateProductController;
 const deleteProductController = async (req, res) => {
@@ -35,7 +35,7 @@ const deleteProductController = async (req, res) => {
     const result = await product_service_1.default.delete(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.product);
+    return response_util_1.ResponseUtil.success(res, result.product, "Xóa sản phẩm thành công");
 };
 exports.deleteProductController = deleteProductController;
 const listProductController = async (req, res) => {
@@ -139,7 +139,7 @@ const trackProductViewController = async (req, res) => {
     const result = await product_service_1.default.trackView(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, {});
+    return response_util_1.ResponseUtil.success(res, {}, "Ghi nhận lượt xem sản phẩm thành công");
 };
 exports.trackProductViewController = trackProductViewController;
 const getProductReviewsController = async (req, res) => {
@@ -175,6 +175,6 @@ const createProductReviewController = async (req, res) => {
     });
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.created(res, result.review);
+    return response_util_1.ResponseUtil.created(res, result.review, "Tạo đánh giá sản phẩm thành công");
 };
 exports.createProductReviewController = createProductReviewController;

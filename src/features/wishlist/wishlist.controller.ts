@@ -29,13 +29,17 @@ export const removeFromWishlistController = async (
     productId
   );
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, { wishlist: result.wishlist });
+  return ResponseUtil.success(
+    res,
+    { wishlist: result.wishlist },
+    "Đã xóa sản phẩm khỏi danh sách yêu thích"
+  );
 };
 
 export const clearWishlistController = async (req: Request, res: Response) => {
   const result = await WishlistService.clear(req as AuthenticatedRequest);
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, { wishlist: result.wishlist });
+  return ResponseUtil.success(res, { wishlist: result.wishlist }, "Đã xóa toàn bộ danh sách yêu thích");
 };
 
 export const checkWishlistController = async (req: Request, res: Response) => {

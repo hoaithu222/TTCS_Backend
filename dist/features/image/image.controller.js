@@ -31,7 +31,7 @@ const createImageController = async (req, res) => {
     const result = await image_service_1.default.create(req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.created(res, result.item);
+    return response_util_1.ResponseUtil.created(res, result.item, "Tạo thông tin hình ảnh thành công");
 };
 exports.createImageController = createImageController;
 const updateImageController = async (req, res) => {
@@ -39,7 +39,7 @@ const updateImageController = async (req, res) => {
     const result = await image_service_1.default.update(id, req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Cập nhật thông tin hình ảnh thành công");
 };
 exports.updateImageController = updateImageController;
 const deleteImageController = async (req, res) => {
@@ -47,7 +47,7 @@ const deleteImageController = async (req, res) => {
     const result = await image_service_1.default.delete(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Xóa thông tin hình ảnh thành công");
 };
 exports.deleteImageController = deleteImageController;
 const listImageController = async (req, res) => {

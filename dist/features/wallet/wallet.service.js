@@ -170,7 +170,7 @@ class WalletService {
                 amount: sepayAmount,
                 status: WalletModel_1.WalletTransactionStatus.PENDING,
                 description: data.description ||
-                    `Nạp tiền vào ví - ${sepayAmount.toLocaleString("vi-VN")} VNĐ`,
+                    `Nạp tiền vào ví - ${data.amount.toLocaleString("vi-VN")} VNĐ`,
                 bankAccount: bankAccountInfo,
                 metadata: {
                     originalAmount: data.amount,
@@ -506,16 +506,21 @@ class WalletService {
         }
     }
     /**
-     * Admin: Get all pending transactions
+     * Admin: Get all transactions (with optional filters)
+     * If status is not provided, returns all transactions (not just pending)
      */
     static async getPendingTransactions(req, query) {
         try {
             const page = parseInt(query.page) || 1;
             const limit = parseInt(query.limit) || 10;
             const skip = (page - 1) * limit;
-            const filter = {
-                status: WalletModel_1.WalletTransactionStatus.PENDING,
-            };
+            const filter = {};
+            // Nếu status = "all" hoặc không được truyền, lấy tất cả giao dịch
+            // Nếu status được truyền và khác "all", filter theo status đó
+            if (query.status && query.status !== "all") {
+                filter.status = query.status;
+            }
+            // Nếu không có status hoặc status = "all", không filter theo status (lấy tất cả)
             if (query.type) {
                 filter.type = query.type;
             }
@@ -540,7 +545,7 @@ class WalletService {
             return {
                 ok: false,
                 status: 500,
-                message: error.message || "Failed to get pending transactions",
+                message: error.message || "Failed to get transactions",
             };
         }
     }

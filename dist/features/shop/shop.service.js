@@ -39,6 +39,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const ShopModel_1 = __importStar(require("../../models/ShopModel"));
 const ShopFollower_1 = __importDefault(require("../../models/ShopFollower"));
 const ProductModal_1 = __importDefault(require("../../models/ProductModal"));
+const ChatConversation_1 = __importDefault(require("../../models/ChatConversation"));
+const ChatMessage_1 = __importDefault(require("../../models/ChatMessage"));
 const UserModel_1 = __importStar(require("../../models/UserModel"));
 const notification_service_1 = require("../../shared/services/notification.service");
 class ShopService {
@@ -88,17 +90,77 @@ class ShopService {
         }
     }
     static async update(id, data) {
+        // Lấy shop hiện tại để so sánh status
+        const currentShop = await ShopModel_1.default.findById(id).select("status").lean();
+        if (!currentShop)
+            return { ok: false, status: 404, message: "Shop không tồn tại" };
         const item = await ShopModel_1.default.findByIdAndUpdate(id, data, {
             new: true,
         });
         if (!item)
             return { ok: false, status: 404, message: "Shop không tồn tại" };
+        // Xử lý sản phẩm khi status thay đổi
+        if (data.status && data.status !== currentShop.status) {
+            try {
+                if (data.status === ShopModel_1.ShopStatus.BLOCKED) {
+                    // Shop bị khóa → ẩn tất cả sản phẩm
+                    const hiddenProducts = await ProductModal_1.default.updateMany({ shopId: id }, { $set: { isActive: false } });
+                    console.log(`[shop] Hidden ${hiddenProducts.modifiedCount} products for blocked shop ${id}`);
+                }
+                else if (data.status === ShopModel_1.ShopStatus.ACTIVE && currentShop.status === ShopModel_1.ShopStatus.BLOCKED) {
+                    // Shop được mở khóa (từ BLOCKED sang ACTIVE) → hiện lại sản phẩm
+                    const shownProducts = await ProductModal_1.default.updateMany({ shopId: id }, { $set: { isActive: true } });
+                    console.log(`[shop] Shown ${shownProducts.modifiedCount} products for unlocked shop ${id}`);
+                }
+            }
+            catch (error) {
+                console.error("[shop] Error updating products status:", error);
+                // Không fail nếu xử lý sản phẩm lỗi
+            }
+        }
         return { ok: true, item };
     }
     static async delete(id) {
         const item = await ShopModel_1.default.findByIdAndDelete(id);
         if (!item)
             return { ok: false, status: 404, message: "Shop không tồn tại" };
+        // Xóa tất cả sản phẩm của shop khi shop bị xóa
+        try {
+            const deletedProducts = await ProductModal_1.default.deleteMany({ shopId: id });
+            console.log(`[shop] Deleted ${deletedProducts.deletedCount} products for shop ${id}`);
+        }
+        catch (error) {
+            console.error("[shop] Error deleting products:", error);
+            // Không fail nếu xóa sản phẩm lỗi, vì shop đã bị xóa
+        }
+        // Xóa tất cả conversations và messages liên quan đến shop
+        try {
+            // Tìm conversations có shop trong metadata.targetId hoặc channel = "shop" với shopId
+            const conversations = await ChatConversation_1.default.find({
+                $or: [
+                    { "metadata.targetId": id },
+                    { "metadata.shopId": id },
+                    { channel: "shop", "metadata.shopId": id },
+                ],
+            }).select("_id").lean();
+            const conversationIds = conversations.map((c) => c._id);
+            if (conversationIds.length > 0) {
+                // Xóa tất cả messages của các conversations này
+                const deletedMessages = await ChatMessage_1.default.deleteMany({
+                    conversationId: { $in: conversationIds },
+                });
+                console.log(`[shop] Deleted ${deletedMessages.deletedCount} messages for shop ${id}`);
+                // Xóa conversations
+                const deletedConversations = await ChatConversation_1.default.deleteMany({
+                    _id: { $in: conversationIds },
+                });
+                console.log(`[shop] Deleted ${deletedConversations.deletedCount} conversations for shop ${id}`);
+            }
+        }
+        catch (error) {
+            console.error("[shop] Error deleting conversations and messages:", error);
+            // Không fail nếu xóa conversations lỗi, vì shop đã bị xóa
+        }
         return { ok: true, item };
     }
     static async list(query) {
@@ -317,6 +379,15 @@ class ShopService {
                     message: "Shop không tồn tại",
                 };
             }
+            // Ẩn tất cả sản phẩm của shop khi shop bị từ chối
+            try {
+                const hiddenProducts = await ProductModal_1.default.updateMany({ shopId: id }, { $set: { isActive: false } });
+                console.log(`[shop] Hidden ${hiddenProducts.modifiedCount} products for rejected shop ${id}`);
+            }
+            catch (error) {
+                console.error("[shop] Error hiding products:", error);
+                // Không fail nếu ẩn sản phẩm lỗi
+            }
             if (item.userId) {
                 notification_service_1.notificationService
                     .notifyShopOwnerApproval({
@@ -350,6 +421,15 @@ class ShopService {
                     status: 404,
                     message: "Shop không tồn tại",
                 };
+            }
+            // Ẩn tất cả sản phẩm của shop khi shop bị đình chỉ
+            try {
+                const hiddenProducts = await ProductModal_1.default.updateMany({ shopId: id }, { $set: { isActive: false } });
+                console.log(`[shop] Hidden ${hiddenProducts.modifiedCount} products for suspended shop ${id}`);
+            }
+            catch (error) {
+                console.error("[shop] Error hiding products:", error);
+                // Không fail nếu ẩn sản phẩm lỗi
             }
             if (item.userId) {
                 notification_service_1.notificationService
@@ -388,6 +468,15 @@ class ShopService {
                     status: 404,
                     message: "Shop không tồn tại",
                 };
+            }
+            // Hiện lại tất cả sản phẩm của shop khi shop được mở khóa
+            try {
+                const shownProducts = await ProductModal_1.default.updateMany({ shopId: id }, { $set: { isActive: true } });
+                console.log(`[shop] Shown ${shownProducts.modifiedCount} products for unlocked shop ${id}`);
+            }
+            catch (error) {
+                console.error("[shop] Error showing products:", error);
+                // Không fail nếu hiện sản phẩm lỗi
             }
             if (item.userId) {
                 await UserModel_1.default.findByIdAndUpdate(item.userId, {

@@ -18,7 +18,7 @@ const createAttributeTypeController = async (req, res) => {
     const result = await attributeType_service_1.default.create(req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.created(res, result.item);
+    return response_util_1.ResponseUtil.created(res, result.item, "Tạo loại thuộc tính thành công");
 };
 exports.createAttributeTypeController = createAttributeTypeController;
 const updateAttributeTypeController = async (req, res) => {
@@ -26,7 +26,7 @@ const updateAttributeTypeController = async (req, res) => {
     const result = await attributeType_service_1.default.update(id, req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Cập nhật loại thuộc tính thành công");
 };
 exports.updateAttributeTypeController = updateAttributeTypeController;
 const deleteAttributeTypeController = async (req, res) => {
@@ -34,7 +34,7 @@ const deleteAttributeTypeController = async (req, res) => {
     const result = await attributeType_service_1.default.delete(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Xóa loại thuộc tính thành công");
 };
 exports.deleteAttributeTypeController = deleteAttributeTypeController;
 const listAttributeTypeController = async (req, res) => {

@@ -18,7 +18,7 @@ const createAttributeValueController = async (req, res) => {
     const result = await attributeValue_service_1.default.create(req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.created(res, result.item);
+    return response_util_1.ResponseUtil.created(res, result.item, "Tạo giá trị thuộc tính thành công");
 };
 exports.createAttributeValueController = createAttributeValueController;
 const updateAttributeValueController = async (req, res) => {
@@ -26,7 +26,7 @@ const updateAttributeValueController = async (req, res) => {
     const result = await attributeValue_service_1.default.update(id, req.body);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Cập nhật giá trị thuộc tính thành công");
 };
 exports.updateAttributeValueController = updateAttributeValueController;
 const deleteAttributeValueController = async (req, res) => {
@@ -34,7 +34,7 @@ const deleteAttributeValueController = async (req, res) => {
     const result = await attributeValue_service_1.default.delete(id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.item);
+    return response_util_1.ResponseUtil.success(res, result.item, "Xóa giá trị thuộc tính thành công");
 };
 exports.deleteAttributeValueController = deleteAttributeValueController;
 const listAttributeValueController = async (req, res) => {

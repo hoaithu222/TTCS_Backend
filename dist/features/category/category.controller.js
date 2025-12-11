@@ -25,7 +25,7 @@ const createCategoryController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.category);
+    return response_util_1.ResponseUtil.success(res, result.category, "Tạo danh mục thành công");
 };
 exports.createCategoryController = createCategoryController;
 const updateCategoryController = async (req, res) => {
@@ -38,7 +38,7 @@ const updateCategoryController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.category);
+    return response_util_1.ResponseUtil.success(res, result.category, "Cập nhật danh mục thành công");
 };
 exports.updateCategoryController = updateCategoryController;
 const deleteCategoryController = async (req, res) => {
@@ -51,7 +51,7 @@ const deleteCategoryController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
     }
-    return response_util_1.ResponseUtil.success(res, result.category);
+    return response_util_1.ResponseUtil.success(res, result.category, "Xóa danh mục thành công");
 };
 exports.deleteCategoryController = deleteCategoryController;
 const getSubCategoriesController = async (req, res) => {
