@@ -4,6 +4,10 @@ import {
 } from "express";
 import UsersService from "./users.service";
 import { ResponseUtil } from "../../shared/utils/response.util";
+import {
+  authenticateToken,
+  authorize,
+} from "../../shared/middlewares/auth.middleware";
 
 export const getUserController = async (
   req: ExpressRequest,
@@ -143,4 +147,42 @@ export const getUsersController = async (
     1,
     paginationMeta
   );
+};
+
+export const suspendUserController = async (
+  req: ExpressRequest,
+  res: ExpressResponse
+) => {
+  const { id } = req.params;
+  const result = await UsersService.suspendUser(id);
+  if (!result.ok) {
+    return ResponseUtil.error(
+      res,
+      result.message,
+      result.status,
+      undefined,
+      req.path,
+      req.method
+    );
+  }
+  return ResponseUtil.success(res, result.user, "Đã khóa người dùng thành công");
+};
+
+export const unlockUserController = async (
+  req: ExpressRequest,
+  res: ExpressResponse
+) => {
+  const { id } = req.params;
+  const result = await UsersService.unlockUser(id);
+  if (!result.ok) {
+    return ResponseUtil.error(
+      res,
+      result.message,
+      result.status,
+      undefined,
+      req.path,
+      req.method
+    );
+  }
+  return ResponseUtil.success(res, result.user, "Đã mở khóa người dùng thành công");
 };

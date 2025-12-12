@@ -25,6 +25,13 @@ class AddressService {
             data.address_line1 ||
             "";
         const normalizedWard = data.ward || data.ward || "";
+        // Kiểm tra số lượng địa chỉ hiện có
+        const existingAddressCount = await UserAddressModel_1.default.countDocuments({ userId });
+        // Nếu đây là địa chỉ đầu tiên, tự động set làm mặc định
+        // Nếu không phải địa chỉ đầu tiên, sử dụng giá trị từ request
+        const shouldBeDefault = existingAddressCount === 0
+            ? true
+            : Boolean(data.is_default ?? data.isDefault);
         const normalizedData = {
             name: data.recipient_name || data.name,
             phone: data.phone,
@@ -33,8 +40,9 @@ class AddressService {
             district: data.district,
             city: data.city,
             ward: normalizedWard,
-            isDefault: Boolean(data.is_default ?? data.isDefault),
+            isDefault: shouldBeDefault,
         };
+        // Nếu địa chỉ mới được set làm mặc định, hủy mặc định của các địa chỉ khác
         if (normalizedData.isDefault) {
             await UserAddressModel_1.default.updateMany({ userId }, { $set: { isDefault: false } });
         }
@@ -56,8 +64,10 @@ class AddressService {
             normalized.address = addr;
             normalized.addressDetail = data.address_line1 || addr;
         }
-        if (normalized.isDefault) {
-            await UserAddressModel_1.default.updateMany({ userId }, { $set: { isDefault: false } });
+        // Nếu địa chỉ được update là mặc định, hủy mặc định của các địa chỉ khác TRƯỚC KHI update
+        if (normalized.isDefault === true) {
+            await UserAddressModel_1.default.updateMany({ userId, _id: { $ne: id } }, // Loại trừ địa chỉ đang được update
+            { $set: { isDefault: false } });
         }
         const item = await UserAddressModel_1.default.findOneAndUpdate({ _id: id, userId }, normalized, { new: true });
         if (!item)

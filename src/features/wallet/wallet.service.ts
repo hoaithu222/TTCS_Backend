@@ -589,8 +589,48 @@ export default class WalletService {
   }
 
   /**
+   * Auto-expire pending deposit transactions older than 30 minutes
+   * This method checks and updates pending deposit transactions that are older than 30 minutes
+   */
+  static async expirePendingDeposits() {
+    try {
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      
+      const expiredTransactions = await WalletTransactionModel.updateMany(
+        {
+          type: WalletTransactionType.DEPOSIT,
+          status: WalletTransactionStatus.PENDING,
+          createdAt: { $lt: thirtyMinutesAgo },
+        },
+        {
+          $set: {
+            status: WalletTransactionStatus.FAILED,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      if (expiredTransactions.modifiedCount > 0) {
+        console.log(`[Wallet] Expired ${expiredTransactions.modifiedCount} pending deposit transactions older than 30 minutes`);
+      }
+
+      return {
+        ok: true as const,
+        expiredCount: expiredTransactions.modifiedCount,
+      };
+    } catch (error: any) {
+      console.error("[Wallet] Error expiring pending deposits:", error);
+      return {
+        ok: false as const,
+        message: error.message || "Failed to expire pending deposits",
+      };
+    }
+  }
+
+  /**
    * Admin: Get all transactions (with optional filters)
    * If status is not provided, returns all transactions (not just pending)
+   * Automatically expires pending deposits older than 30 minutes before fetching
    */
   static async getPendingTransactions(
     req: AuthenticatedRequest,
@@ -602,6 +642,9 @@ export default class WalletService {
     }
   ) {
     try {
+      // Auto-expire pending deposits older than 30 minutes before fetching
+      await WalletService.expirePendingDeposits();
+
       const page = parseInt(query.page as any) || 1;
       const limit = parseInt(query.limit as any) || 10;
       const skip = (page - 1) * limit;
@@ -620,6 +663,10 @@ export default class WalletService {
 
       const [transactions, total] = await Promise.all([
         WalletTransactionModel.find(filter)
+          .populate({
+            path: "userId",
+            select: "_id name email avatar phone",
+          })
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limit)

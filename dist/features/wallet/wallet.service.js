@@ -170,7 +170,7 @@ class WalletService {
                 amount: sepayAmount,
                 status: WalletModel_1.WalletTransactionStatus.PENDING,
                 description: data.description ||
-                    `Nạp tiền vào ví - ${data.amount.toLocaleString("vi-VN")} VNĐ`,
+                    `Nạp tiền vào ví + ${data.amount.toLocaleString("vi-VN")} VNĐ`,
                 bankAccount: bankAccountInfo,
                 metadata: {
                     originalAmount: data.amount,
@@ -506,11 +506,47 @@ class WalletService {
         }
     }
     /**
+     * Auto-expire pending deposit transactions older than 30 minutes
+     * This method checks and updates pending deposit transactions that are older than 30 minutes
+     */
+    static async expirePendingDeposits() {
+        try {
+            const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+            const expiredTransactions = await WalletModel_1.WalletTransactionModel.updateMany({
+                type: WalletModel_1.WalletTransactionType.DEPOSIT,
+                status: WalletModel_1.WalletTransactionStatus.PENDING,
+                createdAt: { $lt: thirtyMinutesAgo },
+            }, {
+                $set: {
+                    status: WalletModel_1.WalletTransactionStatus.FAILED,
+                    updatedAt: new Date(),
+                },
+            });
+            if (expiredTransactions.modifiedCount > 0) {
+                console.log(`[Wallet] Expired ${expiredTransactions.modifiedCount} pending deposit transactions older than 30 minutes`);
+            }
+            return {
+                ok: true,
+                expiredCount: expiredTransactions.modifiedCount,
+            };
+        }
+        catch (error) {
+            console.error("[Wallet] Error expiring pending deposits:", error);
+            return {
+                ok: false,
+                message: error.message || "Failed to expire pending deposits",
+            };
+        }
+    }
+    /**
      * Admin: Get all transactions (with optional filters)
      * If status is not provided, returns all transactions (not just pending)
+     * Automatically expires pending deposits older than 30 minutes before fetching
      */
     static async getPendingTransactions(req, query) {
         try {
+            // Auto-expire pending deposits older than 30 minutes before fetching
+            await WalletService.expirePendingDeposits();
             const page = parseInt(query.page) || 1;
             const limit = parseInt(query.limit) || 10;
             const skip = (page - 1) * limit;
@@ -526,6 +562,10 @@ class WalletService {
             }
             const [transactions, total] = await Promise.all([
                 WalletModel_1.WalletTransactionModel.find(filter)
+                    .populate({
+                    path: "userId",
+                    select: "_id name email avatar phone",
+                })
                     .sort({ createdAt: -1 })
                     .skip(skip)
                     .limit(limit)

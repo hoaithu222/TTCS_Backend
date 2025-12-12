@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUsersController = exports.updateUserAvatarController = exports.deleteUserController = exports.updateUserController = exports.getUserController = void 0;
+exports.unlockUserController = exports.suspendUserController = exports.getUsersController = exports.updateUserAvatarController = exports.deleteUserController = exports.updateUserController = exports.getUserController = void 0;
 const users_service_1 = __importDefault(require("./users.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 const getUserController = async (req, res) => {
@@ -77,3 +77,21 @@ const getUsersController = async (req, res) => {
     }, "Lấy danh sách người dùng thành công", 200, 1, paginationMeta);
 };
 exports.getUsersController = getUsersController;
+const suspendUserController = async (req, res) => {
+    const { id } = req.params;
+    const result = await users_service_1.default.suspendUser(id);
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, result.message, result.status, undefined, req.path, req.method);
+    }
+    return response_util_1.ResponseUtil.success(res, result.user, "Đã khóa người dùng thành công");
+};
+exports.suspendUserController = suspendUserController;
+const unlockUserController = async (req, res) => {
+    const { id } = req.params;
+    const result = await users_service_1.default.unlockUser(id);
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, result.message, result.status, undefined, req.path, req.method);
+    }
+    return response_util_1.ResponseUtil.success(res, result.user, "Đã mở khóa người dùng thành công");
+};
+exports.unlockUserController = unlockUserController;

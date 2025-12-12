@@ -167,9 +167,13 @@ export default class UsersService {
         ];
       }
 
-      // Add status filter
+      // Add status filter - map "suspended" to "inactive" for compatibility
       if (status) {
-        filterQuery.status = status;
+        if (status === "suspended") {
+          filterQuery.status = "inactive";
+        } else {
+          filterQuery.status = status;
+        }
       }
 
       // Add role filter
@@ -228,5 +232,99 @@ export default class UsersService {
       return { ok: false as const, status: 400, message: "User không tồn tại" };
     }
     return { ok: true as const, user };
+  }
+
+  // Suspend user (admin only) - khóa người dùng
+  static async suspendUser(id: string) {
+    try {
+      const user = await UserModel.findByIdAndUpdate(
+        id,
+        { status: UserStatus.INACTIVE },
+        { new: true }
+      );
+      if (!user) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Người dùng không tồn tại",
+        };
+      }
+
+      // Khóa shop và ẩn sản phẩm nếu user có shop
+      try {
+        const shop = await ShopModel.findOne({ userId: id }).select("_id status").lean();
+        
+        if (shop) {
+          await ShopModel.findByIdAndUpdate(shop._id, {
+            status: ShopStatus.BLOCKED,
+            isActive: false,
+          });
+          
+          const hiddenProducts = await ProductModel.updateMany(
+            { shopId: shop._id },
+            { $set: { isActive: false } }
+          );
+          console.log(`[users] Suspended user ${id}, blocked shop ${shop._id} and hidden ${hiddenProducts.modifiedCount} products`);
+        }
+      } catch (error) {
+        console.error("[users] Error blocking shop and products:", error);
+        // Không fail nếu xử lý shop lỗi
+      }
+
+      return { ok: true as const, user };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 400,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Unlock user (admin only) - mở khóa người dùng
+  static async unlockUser(id: string) {
+    try {
+      const user = await UserModel.findByIdAndUpdate(
+        id,
+        { status: UserStatus.ACTIVE },
+        { new: true }
+      );
+      if (!user) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Người dùng không tồn tại",
+        };
+      }
+
+      // Mở khóa shop và hiện lại sản phẩm nếu user có shop
+      try {
+        const shop = await ShopModel.findOne({ userId: id }).select("_id status").lean();
+        
+        if (shop) {
+          await ShopModel.findByIdAndUpdate(shop._id, {
+            status: ShopStatus.ACTIVE,
+            isActive: true,
+          });
+          
+          const shownProducts = await ProductModel.updateMany(
+            { shopId: shop._id },
+            { $set: { isActive: true } }
+          );
+          console.log(`[users] Unlocked user ${id}, activated shop ${shop._id} and shown ${shownProducts.modifiedCount} products`);
+        }
+      } catch (error) {
+        console.error("[users] Error activating shop and products:", error);
+        // Không fail nếu xử lý shop lỗi
+      }
+
+      return { ok: true as const, user };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 400,
+        message: (error as Error).message,
+      };
+    }
   }
 }

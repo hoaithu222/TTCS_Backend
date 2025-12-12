@@ -193,3 +193,93 @@
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  */
+
+/**
+ * @swagger
+ * /users/{id}/suspend:
+ *   post:
+ *     summary: Khóa người dùng (chỉ admin)
+ *     description: Khóa người dùng và tự động khóa shop cùng ẩn sản phẩm nếu user có shop
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của người dùng cần khóa
+ *     responses:
+ *       200:
+ *         description: Khóa người dùng thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/User'
+ *                     message:
+ *                       type: string
+ *                       example: Đã khóa người dùng thành công
+ *       400:
+ *         description: Người dùng không tồn tại hoặc yêu cầu không hợp lệ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       401:
+ *         description: Không có quyền truy cập
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+
+/**
+ * @swagger
+ * /users/{id}/unlock:
+ *   post:
+ *     summary: Mở khóa người dùng (chỉ admin)
+ *     description: Mở khóa người dùng và tự động mở khóa shop cùng hiện lại sản phẩm nếu user có shop
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của người dùng cần mở khóa
+ *     responses:
+ *       200:
+ *         description: Mở khóa người dùng thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/User'
+ *                     message:
+ *                       type: string
+ *                       example: Đã mở khóa người dùng thành công
+ *       400:
+ *         description: Người dùng không tồn tại hoặc yêu cầu không hợp lệ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       401:
+ *         description: Không có quyền truy cập
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */

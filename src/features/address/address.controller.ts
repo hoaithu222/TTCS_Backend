@@ -46,7 +46,7 @@ export const setDefaultAddressController = async (
     id
   );
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, result.items);
+  return ResponseUtil.success(res, result.items, "Đã đặt địa chỉ mặc định thành công");
 };
 
 export const getAddressByIdController = async (req: Request, res: Response) => {

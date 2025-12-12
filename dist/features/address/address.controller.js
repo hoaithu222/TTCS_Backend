@@ -41,7 +41,7 @@ const setDefaultAddressController = async (req, res) => {
     const result = await address_service_1.default.setDefault(req, id);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, result.items);
+    return response_util_1.ResponseUtil.success(res, result.items, "Đã đặt địa chỉ mặc định thành công");
 };
 exports.setDefaultAddressController = setDefaultAddressController;
 const getAddressByIdController = async (req, res) => {
