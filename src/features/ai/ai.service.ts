@@ -41,8 +41,12 @@ const GEMINI_FALLBACK_MODELS = [
 ];
 
 const systemPrompt =
-  "Bạn là chuyên gia copywriting và SEO trong lĩnh vực thương mại điện tử. " +
-  "Hãy viết mô tả sản phẩm giàu thông tin, văn phong tự nhiên, chia thành nhiều đoạn rõ ràng, có tiêu đề phụ, " +
+  "Bạn là chuyên gia copywriting và SEO chuyên nghiệp trong lĩnh vực thương mại điện tử. " +
+  "Hãy viết mô tả sản phẩm hiện đại, thu hút với phong cách marketing đương đại. " +
+  "QUAN TRỌNG: Bắt đầu trực tiếp với nội dung về sản phẩm, KHÔNG có phần chào hỏi, giới thiệu bản thân hay câu mở đầu. " +
+  "KHÔNG sử dụng dấu '---' để phân cách. " +
+  "Sử dụng emoji/icon phù hợp để làm nổi bật thông tin quan trọng, tạo điểm nhấn trực quan. " +
+  "Văn phong tự nhiên, chia thành nhiều đoạn rõ ràng với tiêu đề phụ có icon, " +
   "tập trung vào lợi ích khách hàng và tối ưu SEO. Luôn viết bằng ngôn ngữ được yêu cầu.";
 
 interface NormalizedComparisonProduct {
@@ -280,7 +284,7 @@ class AiService {
         ? "giọng điệu chuyên gia, nhiều thông tin kỹ thuật"
         : dto.tone === "casual"
           ? "giọng điệu gần gũi, thân thiện"
-          : "giọng điệu marketing hiện đại, lôi cuốn";
+          : "giọng điệu marketing hiện đại, lôi cuốn, trẻ trung";
 
     return `
 Sản phẩm: ${dto.productName}
@@ -289,11 +293,21 @@ Ngôn ngữ: ${dto.language === "vi" ? "Tiếng Việt" : dto.language}
 Thông số nổi bật:
 ${specList}
 
-Yêu cầu:
-1. Viết khoảng 4-6 đoạn, mỗi đoạn có tiêu đề phụ rõ ràng.
-2. Nhấn mạnh lợi ích, trải nghiệm người dùng, điểm khác biệt.
-3. Kết thúc với lời kêu gọi hành động hấp dẫn.
-4. Bổ sung gợi ý từ khóa SEO nếu phù hợp.
+Yêu cầu QUAN TRỌNG - Tạo mô tả hiện đại và thu hút:
+1. BẮT ĐẦU TRỰC TIẾP với nội dung chính về sản phẩm. KHÔNG có phần chào hỏi, giới thiệu bản thân, hay câu mở đầu kiểu "Chào bạn", "Xin chào", "Chuyên gia đây", v.v.
+2. KHÔNG sử dụng dấu "---" để phân cách các đoạn. Chỉ sử dụng xuống dòng và tiêu đề phụ.
+3. Viết khoảng 4-6 đoạn, mỗi đoạn có tiêu đề phụ với emoji/icon phù hợp (ví dụ: ✨, 🎯, 💎, 🚀, ⚡, 🎁, 🔥, 💪, 🌟, 📱, 🎨, ⭐).
+4. Sử dụng emoji một cách thông minh và có chủ đích để:
+   - Làm nổi bật điểm mạnh chính (ví dụ: ⚡ cho hiệu năng, 💎 cho chất lượng cao cấp)
+   - Tạo điểm nhấn cho lợi ích quan trọng (ví dụ: 🎁 cho ưu đãi, 🔥 cho tính năng hot)
+   - Thu hút sự chú ý đến thông tin quan trọng (ví dụ: ⭐ cho đánh giá, 💪 cho độ bền)
+5. Nhấn mạnh lợi ích, trải nghiệm người dùng, điểm khác biệt với ngôn ngữ sống động.
+6. Sử dụng bullet points với icon khi liệt kê tính năng nổi bật.
+7. Kết thúc với lời kêu gọi hành động hấp dẫn, có emoji phù hợp.
+8. Tạo cảm giác cấp thiết và giá trị độc quyền.
+9. Tránh lạm dụng emoji - chỉ dùng ở những vị trí quan trọng để tăng hiệu quả.
+
+LƯU Ý: Bắt đầu ngay với tiêu đề sản phẩm hoặc đoạn mô tả đầu tiên về sản phẩm, không có phần mở đầu hay chào hỏi.
 `;
   }
 
@@ -340,14 +354,21 @@ Yêu cầu:
       : "Thông số đang được cập nhật.";
 
     return `
-${dto.productName}: nâng tầm trải nghiệm mỗi ngày
+✨ **${dto.productName}**: Nâng tầm trải nghiệm mỗi ngày
 
-• Hiệu năng vượt trội: ${specs}
-• Thiết kế sang trọng, dễ dàng thu hút ánh nhìn.
-• Tối ưu cho công việc, giải trí và chụp ảnh sắc nét.
-• Bảo hành chính hãng, hỗ trợ đổi trả linh hoạt.
+🚀 **Hiệu năng vượt trội**
+${specs}
 
-Đặt mua ngay hôm nay để nhận ưu đãi độc quyền và dịch vụ hỗ trợ tận tâm!`.trim();
+💎 **Thiết kế sang trọng**
+Thiết kế hiện đại, tinh tế, dễ dàng thu hút ánh nhìn và tạo ấn tượng mạnh mẽ.
+
+⚡ **Đa năng và tiện ích**
+Tối ưu cho công việc, giải trí và chụp ảnh sắc nét. Trải nghiệm hoàn hảo cho mọi nhu cầu.
+
+🛡️ **Bảo hành và hỗ trợ**
+Bảo hành chính hãng, hỗ trợ đổi trả linh hoạt. An tâm tuyệt đối khi sử dụng.
+
+🎁 **Đặt mua ngay hôm nay** để nhận ưu đãi độc quyền và dịch vụ hỗ trợ tận tâm!`.trim();
   }
 
   private generateFallbackResponse(

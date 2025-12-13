@@ -43,6 +43,12 @@ export const generateProductDescriptionController = async (req: Request, res: Re
       specs,
     });
 
+    // Normalize response: only return content and provider
+    const normalizedResult = {
+      content: result.content,
+      provider: result.provider,
+    };
+
     const providerMessages: Record<string, string> = {
       gemini: "AI product description generated (Google Gemini)",
       openai: "AI product description generated (OpenAI)",
@@ -51,7 +57,7 @@ export const generateProductDescriptionController = async (req: Request, res: Re
 
     return ResponseUtil.success(
       res,
-      result,
+      normalizedResult,
       providerMessages[result.provider] || "AI product description generated",
       200
     );

@@ -36,6 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const mongoose_1 = __importDefault(require("mongoose"));
 const ShopModel_1 = __importDefault(require("../../models/ShopModel"));
 const ProductModal_1 = __importDefault(require("../../models/ProductModal"));
 const OrderModel_1 = __importStar(require("../../models/OrderModel"));
@@ -928,6 +929,145 @@ class ShopManagementService {
             }))
                 .sort((a, b) => b.totalSold - a.totalSold)
                 .slice(0, 10);
+            // Thống kê tồn kho
+            const inventoryStats = await ProductModal_1.default.aggregate([
+                { $match: { shopId: shop._id } },
+                {
+                    $group: {
+                        _id: null,
+                        totalStock: { $sum: "$stock" },
+                        lowStockCount: {
+                            $sum: {
+                                $cond: [{ $lte: ["$stock", 10] }, 1, 0],
+                            },
+                        },
+                        outOfStockCount: {
+                            $sum: {
+                                $cond: [{ $eq: ["$stock", 0] }, 1, 0],
+                            },
+                        },
+                        productsWithVariants: {
+                            $sum: {
+                                $cond: [
+                                    { $gt: [{ $size: { $ifNull: ["$variants", []] } }, 0] },
+                                    1,
+                                    0,
+                                ],
+                            },
+                        },
+                    },
+                },
+            ]);
+            // Tính tồn kho từ variants
+            const productsWithVariants = await ProductModal_1.default.find({
+                shopId: shop._id,
+                "variants.0": { $exists: true },
+            }).select("variants").lean();
+            let variantStockTotal = 0;
+            productsWithVariants.forEach((product) => {
+                if (product.variants && Array.isArray(product.variants)) {
+                    product.variants.forEach((variant) => {
+                        variantStockTotal += variant.stock || 0;
+                    });
+                }
+            });
+            const inventoryData = inventoryStats[0] || {
+                totalStock: 0,
+                lowStockCount: 0,
+                outOfStockCount: 0,
+                productsWithVariants: 0,
+            };
+            inventoryData.totalStock += variantStockTotal;
+            // Thống kê khách hàng thân thiết (top customers)
+            const topCustomers = await OrderModel_1.default.aggregate([
+                { $match: ordersMatch },
+                {
+                    $group: {
+                        _id: "$userId",
+                        totalOrders: { $sum: 1 },
+                        totalSpent: { $sum: "$totalAmount" },
+                        lastOrderDate: { $max: "$createdAt" },
+                    },
+                },
+                { $sort: { totalSpent: -1 } },
+                { $limit: 10 },
+            ]);
+            // Populate user info cho top customers
+            const topCustomersWithInfo = await Promise.all(topCustomers.map(async (customer) => {
+                const user = await mongoose_1.default.model("User").findById(customer._id).select("name email").lean();
+                return {
+                    userId: customer._id.toString(),
+                    userName: user?.name || "Khách hàng",
+                    userEmail: user?.email || "",
+                    totalOrders: customer.totalOrders,
+                    totalSpent: customer.totalSpent,
+                    lastOrderDate: customer.lastOrderDate,
+                };
+            }));
+            // Doanh thu theo thời gian (7 ngày gần nhất)
+            const revenueByDate = await OrderModel_1.default.aggregate([
+                {
+                    $match: {
+                        ...revenueMatch,
+                        createdAt: {
+                            $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+                        },
+                    },
+                },
+                {
+                    $group: {
+                        _id: {
+                            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+                        },
+                        revenue: { $sum: "$totalAmount" },
+                        orders: { $sum: 1 },
+                    },
+                },
+                { $sort: { _id: 1 } },
+            ]);
+            // Doanh thu theo tháng (6 tháng gần nhất)
+            const revenueByMonth = await OrderModel_1.default.aggregate([
+                {
+                    $match: {
+                        ...revenueMatch,
+                        createdAt: {
+                            $gte: new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000),
+                        },
+                    },
+                },
+                {
+                    $group: {
+                        _id: {
+                            $dateToString: { format: "%Y-%m", date: "$createdAt" },
+                        },
+                        revenue: { $sum: "$totalAmount" },
+                        orders: { $sum: 1 },
+                    },
+                },
+                { $sort: { _id: 1 } },
+            ]);
+            // Thống kê sản phẩm theo danh mục
+            const productsByCategory = await ProductModal_1.default.aggregate([
+                { $match: { shopId: shop._id } },
+                {
+                    $group: {
+                        _id: "$categoryId",
+                        count: { $sum: 1 },
+                        totalStock: { $sum: "$stock" },
+                    },
+                },
+                { $limit: 10 },
+            ]);
+            // Populate category names
+            const productsByCategoryWithNames = await Promise.all(productsByCategory.map(async (item) => {
+                const category = await mongoose_1.default.model("Category").findById(item._id).select("name").lean();
+                return {
+                    categoryId: item._id.toString(),
+                    categoryName: category?.name || "Chưa phân loại",
+                    count: item.count,
+                    totalStock: item.totalStock,
+                };
+            }));
             const analytics = {
                 revenue: revenueResult[0]?.totalRevenue || 0,
                 totalOrders,
@@ -937,6 +1077,24 @@ class ShopManagementService {
                     return acc;
                 }, {}),
                 topProducts,
+                inventory: {
+                    totalStock: inventoryData.totalStock,
+                    lowStockCount: inventoryData.lowStockCount,
+                    outOfStockCount: inventoryData.outOfStockCount,
+                    productsWithVariants: inventoryData.productsWithVariants,
+                },
+                topCustomers: topCustomersWithInfo,
+                revenueByDate: revenueByDate.map((item) => ({
+                    date: item._id,
+                    revenue: item.revenue,
+                    orders: item.orders,
+                })),
+                revenueByMonth: revenueByMonth.map((item) => ({
+                    month: item._id,
+                    revenue: item.revenue,
+                    orders: item.orders,
+                })),
+                productsByCategory: productsByCategoryWithNames,
             };
             return { ok: true, analytics };
         }

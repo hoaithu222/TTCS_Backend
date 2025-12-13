@@ -30,12 +30,17 @@ const generateProductDescriptionController = async (req, res) => {
             keywords,
             specs,
         });
+        // Normalize response: only return content and provider
+        const normalizedResult = {
+            content: result.content,
+            provider: result.provider,
+        };
         const providerMessages = {
             gemini: "AI product description generated (Google Gemini)",
             openai: "AI product description generated (OpenAI)",
             fallback: "AI fallback description generated",
         };
-        return response_util_1.ResponseUtil.success(res, result, providerMessages[result.provider] || "AI product description generated", 200);
+        return response_util_1.ResponseUtil.success(res, normalizedResult, providerMessages[result.provider] || "AI product description generated", 200);
     }
     catch (error) {
         console.error("[AI] Controller error", error);
