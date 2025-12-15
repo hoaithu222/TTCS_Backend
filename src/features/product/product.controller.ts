@@ -45,7 +45,12 @@ export const listProductController = async (req: Request, res: Response) => {
     isActive,
     sortBy,
     sortOrder,
+    rating,
+    inStock,
   } = req.query as any;
+  
+  console.log("[listProductController] Query params:", req.query);
+  
   const result = await ProductService.list({
     page: Number(page) || 1,
     limit: Number(limit) || 50,
@@ -78,9 +83,14 @@ export const searchProductController = async (req: Request, res: Response) => {
     search,
     minPrice,
     maxPrice,
+    rating,
+    inStock,
     sortBy,
     sortOrder,
   } = req.query as any;
+  
+  console.log("[searchProductController] Query params:", req.query);
+  
   const result = await ProductService.search({
     page: Number(page) || 1,
     limit: Number(limit) || 20,
@@ -90,6 +100,8 @@ export const searchProductController = async (req: Request, res: Response) => {
     search,
     minPrice: minPrice != null ? Number(minPrice) : undefined,
     maxPrice: maxPrice != null ? Number(maxPrice) : undefined,
+    rating: rating != null ? Number(rating) : undefined,
+    inStock: inStock === "true" ? true : undefined,
     sortBy,
     sortOrder,
   });

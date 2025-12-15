@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -6,11 +39,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const ProductModal_1 = __importDefault(require("../../models/ProductModal"));
 const ReviewModel_1 = __importDefault(require("../../models/ReviewModel"));
 // Helper function to map product to frontend format
-const mapProduct = (product) => {
+const mapProduct = async (product) => {
     if (!product)
         return product;
+    // Populate variant images if they are ObjectIds
+    let mappedVariants = product.variants || [];
+    if (mappedVariants.length > 0) {
+        const ImageModel = (await Promise.resolve().then(() => __importStar(require("../../models/ImageModel")))).default;
+        mappedVariants = await Promise.all(mappedVariants.map(async (variant) => {
+            // If variant.image is an ObjectId string, fetch the image URL
+            if (variant.image &&
+                typeof variant.image === "string" &&
+                variant.image.match(/^[0-9a-fA-F]{24}$/)) {
+                try {
+                    const imageDoc = await ImageModel.findById(variant.image).lean();
+                    if (imageDoc && imageDoc.url) {
+                        return { ...variant, image: imageDoc.url };
+                    }
+                }
+                catch (err) {
+                    console.error("Failed to populate variant image:", err);
+                }
+            }
+            return variant;
+        }));
+    }
     return {
         ...product,
+        variants: mappedVariants,
         shop: product.shopId
             ? {
                 _id: product.shopId._id || product.shopId,
@@ -64,7 +120,7 @@ class ProductService {
             };
         // Increment view count (don't await to avoid blocking response)
         ProductModal_1.default.findByIdAndUpdate(id, { $inc: { viewCount: 1 } }).catch(() => { });
-        return { ok: true, product: mapProduct(product) };
+        return { ok: true, product: await mapProduct(product) };
     }
     static async create(data) {
         try {
@@ -155,7 +211,7 @@ class ProductService {
                     .lean(),
                 ProductModal_1.default.countDocuments(filter),
             ]);
-            const mappedItems = items.map(mapProduct);
+            const mappedItems = await Promise.all(items.map(mapProduct));
             return { ok: true, items: mappedItems, total, page, limit };
         }
         catch (error) {
@@ -224,7 +280,7 @@ class ProductService {
                     .lean(),
                 ProductModal_1.default.countDocuments(filter),
             ]);
-            const mappedItems = items.map(mapProduct);
+            const mappedItems = await Promise.all(items.map(mapProduct));
             return { ok: true, items: mappedItems, total, page, limit };
         }
         catch (error) {
@@ -277,7 +333,7 @@ class ProductService {
                     .lean(),
                 ProductModal_1.default.countDocuments(filter),
             ]);
-            const mappedItems = items.map(mapProduct);
+            const mappedItems = await Promise.all(items.map(mapProduct));
             return { ok: true, items: mappedItems, total, page, limit };
         }
         catch (error) {
@@ -331,7 +387,7 @@ class ProductService {
                     .lean(),
                 ProductModal_1.default.countDocuments(filter),
             ]);
-            const mappedItems = items.map(mapProduct);
+            const mappedItems = await Promise.all(items.map(mapProduct));
             return { ok: true, items: mappedItems, total, page, limit };
         }
         catch (error) {
@@ -382,7 +438,7 @@ class ProductService {
                 .limit(limit)
                 .sort({ rating: -1, salesCount: -1 })
                 .lean();
-            const mappedItems = items.map(mapProduct);
+            const mappedItems = await Promise.all(items.map(mapProduct));
             return { ok: true, items: mappedItems };
         }
         catch (error) {

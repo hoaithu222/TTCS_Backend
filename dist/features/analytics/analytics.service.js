@@ -316,5 +316,134 @@ class AnalyticsService {
             ...(result || { averageOrderValue: 0, orders: 0 }),
         };
     }
+    // New method for revenue vs profit data (Area Chart)
+    static async revenueVsProfitTimeSeries(params) {
+        const match = { status: OrderModel_1.OrderStatus.DELIVERED };
+        if (params.shopId)
+            match.shopId = params.shopId;
+        if (params.from || params.to) {
+            match.createdAt = {};
+            if (params.from)
+                match.createdAt.$gte = params.from;
+            if (params.to)
+                match.createdAt.$lte = params.to;
+        }
+        const format = params.granularity === "month" ? "%Y-%m" : "%Y-%m-%d";
+        const items = await OrderModel_1.default.aggregate([
+            { $match: match },
+            {
+                $project: {
+                    bucket: { $dateToString: { format, date: "$createdAt" } },
+                    totalAmount: 1,
+                    shippingFee: 1,
+                    discountAmount: 1,
+                },
+            },
+            {
+                $group: {
+                    _id: "$bucket",
+                    revenue: { $sum: "$totalAmount" },
+                    shippingFees: { $sum: "$shippingFee" },
+                    discounts: { $sum: "$discountAmount" },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    date: "$_id",
+                    revenue: 1,
+                    // Calculate profit as revenue + shipping - discounts (assuming 30% profit margin for demo)
+                    profit: {
+                        $multiply: [
+                            { $subtract: [{ $add: ["$revenue", "$shippingFees"] }, "$discounts"] },
+                            0.3 // 30% profit margin
+                        ]
+                    },
+                },
+            },
+            { $sort: { date: 1 } },
+        ]);
+        return { ok: true, items };
+    }
+    // New method for wallet transactions (Stacked Bar Chart)
+    static async walletTransactionsTimeSeries(params) {
+        const match = { status: OrderModel_1.OrderStatus.DELIVERED };
+        if (params.shopId)
+            match.shopId = params.shopId;
+        if (params.from || params.to) {
+            match.createdAt = {};
+            if (params.from)
+                match.createdAt.$gte = params.from;
+            if (params.to)
+                match.createdAt.$lte = params.to;
+        }
+        const items = await OrderModel_1.default.aggregate([
+            { $match: match },
+            {
+                $project: {
+                    month: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+                    totalAmount: 1,
+                    shippingFee: 1,
+                    discountAmount: 1,
+                },
+            },
+            {
+                $group: {
+                    _id: "$month",
+                    revenue: { $sum: "$totalAmount" },
+                    shippingFees: { $sum: "$shippingFee" },
+                    discounts: { $sum: "$discountAmount" },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    month: "$_id",
+                    // Income: revenue + shipping
+                    income: { $add: ["$revenue", "$shippingFees"] },
+                    // Expense: discounts + platform fees (assuming 5% platform fee)
+                    expense: {
+                        $add: [
+                            "$discounts",
+                            { $multiply: [{ $add: ["$revenue", "$shippingFees"] }, 0.05] }
+                        ]
+                    },
+                },
+            },
+            { $sort: { month: 1 } },
+        ]);
+        return { ok: true, items };
+    }
+    // Enhanced order status distribution with colors
+    static async orderStatusDistributionWithColors(params) {
+        const match = {};
+        if (params.shopId)
+            match.shopId = params.shopId;
+        if (params.from || params.to) {
+            match.createdAt = {};
+            if (params.from)
+                match.createdAt.$gte = params.from;
+            if (params.to)
+                match.createdAt.$lte = params.to;
+        }
+        const items = await OrderModel_1.default.aggregate([
+            { $match: match },
+            { $group: { _id: "$status", count: { $sum: 1 } } },
+            { $project: { _id: 0, status: "$_id", count: 1 } },
+        ]);
+        // Add colors for donut chart
+        const statusColors = {
+            [OrderModel_1.OrderStatus.PENDING]: "#f59e0b", // Vàng (Amber-500) - Chờ xác nhận
+            [OrderModel_1.OrderStatus.PROCESSING]: "#3b82f6", // Xanh dương (Blue-500) - Đang xử lý
+            [OrderModel_1.OrderStatus.SHIPPED]: "#10b981", // Xanh lá (Emerald-500) - Đang giao
+            [OrderModel_1.OrderStatus.DELIVERED]: "#22c55e", // Xanh lá đậm (Green-500) - Hoàn thành
+            [OrderModel_1.OrderStatus.CANCELLED]: "#ef4444", // Đỏ (Red-500) - Đã hủy
+        };
+        const itemsWithColors = items.map(item => ({
+            ...item,
+            fill: statusColors[item.status] || "#6b7280", // Màu xám mặc định
+        }));
+        return { ok: true, items: itemsWithColors };
+    }
 }
 exports.default = AnalyticsService;

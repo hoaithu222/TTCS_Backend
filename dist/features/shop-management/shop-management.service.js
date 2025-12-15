@@ -45,6 +45,7 @@ const ReviewModel_1 = __importDefault(require("../../models/ReviewModel"));
 const OrderHistory_1 = __importDefault(require("../../models/OrderHistory"));
 const OrderInternalNote_1 = __importDefault(require("../../models/OrderInternalNote"));
 const notification_service_1 = require("../../shared/services/notification.service");
+const analytics_service_1 = __importDefault(require("../analytics/analytics.service"));
 class ShopManagementService {
     // Lấy thông tin shop của user hiện tại
     static async getMyShop(req) {
@@ -142,7 +143,7 @@ class ShopManagementService {
             const sortField = query.sortBy || "createdAt";
             const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
             const sort = { [sortField]: sortDir };
-            const [products, total] = await Promise.all([
+            const [productsRaw, total] = await Promise.all([
                 ProductModal_1.default.find(filter)
                     .populate("images", "url publicId")
                     .skip(skip)
@@ -151,6 +152,30 @@ class ShopManagementService {
                     .lean(),
                 ProductModal_1.default.countDocuments(filter),
             ]);
+            // Populate variant images
+            const ImageModel = (await Promise.resolve().then(() => __importStar(require("../../models/ImageModel")))).default;
+            const products = await Promise.all(productsRaw.map(async (product) => {
+                if (product.variants && Array.isArray(product.variants)) {
+                    product.variants = await Promise.all(product.variants.map(async (variant) => {
+                        // If variant.image is an ObjectId string, fetch the image URL
+                        if (variant.image &&
+                            typeof variant.image === "string" &&
+                            variant.image.match(/^[0-9a-fA-F]{24}$/)) {
+                            try {
+                                const imageDoc = await ImageModel.findById(variant.image).lean();
+                                if (imageDoc && imageDoc.url) {
+                                    return { ...variant, image: imageDoc.url };
+                                }
+                            }
+                            catch (err) {
+                                console.error("Failed to populate variant image:", err);
+                            }
+                        }
+                        return variant;
+                    }));
+                }
+                return product;
+            }));
             return {
                 ok: true,
                 products,
@@ -1068,6 +1093,23 @@ class ShopManagementService {
                     totalStock: item.totalStock,
                 };
             }));
+            // Get additional analytics data
+            const revenueVsProfitResult = await analytics_service_1.default.revenueVsProfitTimeSeries({
+                shopId: shop._id.toString(),
+                granularity: "day",
+                from: query.startDate ? new Date(query.startDate) : undefined,
+                to: query.endDate ? new Date(query.endDate) : undefined,
+            });
+            const walletTransactionsResult = await analytics_service_1.default.walletTransactionsTimeSeries({
+                shopId: shop._id.toString(),
+                from: query.startDate ? new Date(query.startDate) : undefined,
+                to: query.endDate ? new Date(query.endDate) : undefined,
+            });
+            const orderStatusWithColorsResult = await analytics_service_1.default.orderStatusDistributionWithColors({
+                shopId: shop._id.toString(),
+                from: query.startDate ? new Date(query.startDate) : undefined,
+                to: query.endDate ? new Date(query.endDate) : undefined,
+            });
             const analytics = {
                 revenue: revenueResult[0]?.totalRevenue || 0,
                 totalOrders,
@@ -1095,6 +1137,10 @@ class ShopManagementService {
                     orders: item.orders,
                 })),
                 productsByCategory: productsByCategoryWithNames,
+                // New analytics data
+                revenueVsProfit: revenueVsProfitResult.ok ? revenueVsProfitResult.items : [],
+                walletTransactions: walletTransactionsResult.ok ? walletTransactionsResult.items : [],
+                orderStatusWithColors: orderStatusWithColorsResult.ok ? orderStatusWithColorsResult.items : [],
             };
             return { ok: true, analytics };
         }

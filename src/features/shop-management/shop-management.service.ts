@@ -16,6 +16,7 @@ import {
 } from "./types";
 import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
 import { notificationService } from "../../shared/services/notification.service";
+import AnalyticsService from "../analytics/analytics.service";
 
 export default class ShopManagementService {
   // Lấy thông tin shop của user hiện tại
@@ -129,7 +130,7 @@ export default class ShopManagementService {
       const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
       const sort: any = { [sortField]: sortDir };
 
-      const [products, total] = await Promise.all([
+      const [productsRaw, total] = await Promise.all([
         ProductModel.find(filter)
           .populate("images", "url publicId")
           .skip(skip)
@@ -138,6 +139,36 @@ export default class ShopManagementService {
           .lean(),
         ProductModel.countDocuments(filter),
       ]);
+
+      // Populate variant images
+      const ImageModel = (await import("../../models/ImageModel")).default;
+      const products = await Promise.all(
+        productsRaw.map(async (product: any) => {
+          if (product.variants && Array.isArray(product.variants)) {
+            product.variants = await Promise.all(
+              product.variants.map(async (variant: any) => {
+                // If variant.image is an ObjectId string, fetch the image URL
+                if (
+                  variant.image &&
+                  typeof variant.image === "string" &&
+                  variant.image.match(/^[0-9a-fA-F]{24}$/)
+                ) {
+                  try {
+                    const imageDoc = await ImageModel.findById(variant.image).lean();
+                    if (imageDoc && imageDoc.url) {
+                      return { ...variant, image: imageDoc.url };
+                    }
+                  } catch (err) {
+                    console.error("Failed to populate variant image:", err);
+                  }
+                }
+                return variant;
+              })
+            );
+          }
+          return product;
+        })
+      );
 
       return {
         ok: true as const,
@@ -1212,6 +1243,26 @@ export default class ShopManagementService {
         })
       );
 
+      // Get additional analytics data
+      const revenueVsProfitResult = await AnalyticsService.revenueVsProfitTimeSeries({
+        shopId: shop._id.toString(),
+        granularity: "day",
+        from: query.startDate ? new Date(query.startDate) : undefined,
+        to: query.endDate ? new Date(query.endDate) : undefined,
+      });
+
+      const walletTransactionsResult = await AnalyticsService.walletTransactionsTimeSeries({
+        shopId: shop._id.toString(),
+        from: query.startDate ? new Date(query.startDate) : undefined,
+        to: query.endDate ? new Date(query.endDate) : undefined,
+      });
+
+      const orderStatusWithColorsResult = await AnalyticsService.orderStatusDistributionWithColors({
+        shopId: shop._id.toString(),
+        from: query.startDate ? new Date(query.startDate) : undefined,
+        to: query.endDate ? new Date(query.endDate) : undefined,
+      });
+
       const analytics = {
         revenue: revenueResult[0]?.totalRevenue || 0,
         totalOrders,
@@ -1239,6 +1290,10 @@ export default class ShopManagementService {
           orders: item.orders,
         })),
         productsByCategory: productsByCategoryWithNames,
+        // New analytics data
+        revenueVsProfit: revenueVsProfitResult.ok ? revenueVsProfitResult.items : [],
+        walletTransactions: walletTransactionsResult.ok ? walletTransactionsResult.items : [],
+        orderStatusWithColors: orderStatusWithColorsResult.ok ? orderStatusWithColorsResult.items : [],
       };
 
       return { ok: true as const, analytics };

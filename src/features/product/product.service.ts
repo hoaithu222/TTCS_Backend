@@ -7,11 +7,38 @@ import {
 } from "./types";
 
 // Helper function to map product to frontend format
-const mapProduct = (product: any) => {
+const mapProduct = async (product: any) => {
   if (!product) return product;
+
+  // Populate variant images if they are ObjectIds
+  let mappedVariants = product.variants || [];
+  if (mappedVariants.length > 0) {
+    const ImageModel = (await import("../../models/ImageModel")).default;
+    mappedVariants = await Promise.all(
+      mappedVariants.map(async (variant: any) => {
+        // If variant.image is an ObjectId string, fetch the image URL
+        if (
+          variant.image &&
+          typeof variant.image === "string" &&
+          variant.image.match(/^[0-9a-fA-F]{24}$/)
+        ) {
+          try {
+            const imageDoc = await ImageModel.findById(variant.image).lean();
+            if (imageDoc && imageDoc.url) {
+              return { ...variant, image: imageDoc.url };
+            }
+          } catch (err) {
+            console.error("Failed to populate variant image:", err);
+          }
+        }
+        return variant;
+      })
+    );
+  }
 
   return {
     ...product,
+    variants: mappedVariants,
     shop: product.shopId
       ? {
           _id: product.shopId._id || product.shopId,
@@ -70,7 +97,7 @@ export default class ProductService {
       () => {}
     );
 
-    return { ok: true as const, product: mapProduct(product) };
+    return { ok: true as const, product: await mapProduct(product) };
   }
 
   static async create(data: CreateProductRequest) {
@@ -122,16 +149,45 @@ export default class ProductService {
           : 50;
       const skip = (page - 1) * limit;
       const filter: any = {};
-      if (typeof query.isActive === "boolean") filter.isActive = query.isActive;
+      
+      // Default to active products for public list
+      if (typeof query.isActive === "boolean") {
+        filter.isActive = query.isActive;
+      } else {
+        filter.isActive = true; // Default show only active products
+      }
+      
       if (query.categoryId) filter.categoryId = query.categoryId;
       if (query.subCategoryId) filter.subCategoryId = query.subCategoryId;
       if (query.shopId) filter.shopId = query.shopId;
+      
+      // Price range filter
       if (query.minPrice != null || query.maxPrice != null) {
         filter.price = {};
         if (query.minPrice != null) filter.price.$gte = query.minPrice;
         if (query.maxPrice != null) filter.price.$lte = query.maxPrice;
       }
-      if (query.search) filter.$text = { $search: query.search };
+      
+      // Rating filter
+      if (query.rating != null) {
+        filter.rating = { $gte: query.rating };
+      }
+      
+      // In stock filter
+      if (query.inStock) {
+        filter.stock = { $gt: 0 };
+      }
+      
+      // Search by text
+      if (query.search) {
+        filter.$or = [
+          { name: { $regex: query.search, $options: "i" } },
+          { description: { $regex: query.search, $options: "i" } },
+          { metaKeywords: { $regex: query.search, $options: "i" } },
+        ];
+      }
+
+      console.log("[ProductService.list] Filter:", JSON.stringify(filter, null, 2));
 
       const sortField = query.sortBy || "createdAt";
       const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
@@ -162,7 +218,7 @@ export default class ProductService {
         ProductModel.countDocuments(filter),
       ]);
 
-      const mappedItems = items.map(mapProduct);
+      const mappedItems = await Promise.all(items.map(mapProduct));
       return { ok: true as const, items: mappedItems, total, page, limit };
     } catch (error) {
       return {
@@ -190,11 +246,25 @@ export default class ProductService {
       if (query.categoryId) filter.categoryId = query.categoryId;
       if (query.subCategoryId) filter.subCategoryId = query.subCategoryId;
       if (query.shopId) filter.shopId = query.shopId;
+      
+      // Price range filter
       if (query.minPrice != null || query.maxPrice != null) {
         filter.price = {};
         if (query.minPrice != null) filter.price.$gte = query.minPrice;
         if (query.maxPrice != null) filter.price.$lte = query.maxPrice;
       }
+      
+      // Rating filter
+      if (query.rating != null) {
+        filter.rating = { $gte: query.rating };
+      }
+      
+      // In stock filter
+      if (query.inStock) {
+        filter.stock = { $gt: 0 };
+      }
+      
+      // Search by text
       if (query.search) {
         filter.$or = [
           { name: { $regex: query.search, $options: "i" } },
@@ -202,6 +272,8 @@ export default class ProductService {
           { metaKeywords: { $regex: query.search, $options: "i" } },
         ];
       }
+
+      console.log("[ProductService.search] Filter:", JSON.stringify(filter, null, 2));
 
       const sortField = query.sortBy || "createdAt";
       const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
@@ -232,7 +304,7 @@ export default class ProductService {
         ProductModel.countDocuments(filter),
       ]);
 
-      const mappedItems = items.map(mapProduct);
+      const mappedItems = await Promise.all(items.map(mapProduct));
       return { ok: true as const, items: mappedItems, total, page, limit };
     } catch (error) {
       return {
@@ -288,7 +360,7 @@ export default class ProductService {
         ProductModel.countDocuments(filter),
       ]);
 
-      const mappedItems = items.map(mapProduct);
+      const mappedItems = await Promise.all(items.map(mapProduct));
       return { ok: true as const, items: mappedItems, total, page, limit };
     } catch (error) {
       return {
@@ -345,7 +417,7 @@ export default class ProductService {
         ProductModel.countDocuments(filter),
       ]);
 
-      const mappedItems = items.map(mapProduct);
+      const mappedItems = await Promise.all(items.map(mapProduct));
       return { ok: true as const, items: mappedItems, total, page, limit };
     } catch (error) {
       return {
@@ -399,7 +471,7 @@ export default class ProductService {
         .sort({ rating: -1, salesCount: -1 })
         .lean();
 
-      const mappedItems = items.map(mapProduct);
+      const mappedItems = await Promise.all(items.map(mapProduct));
       return { ok: true as const, items: mappedItems };
     } catch (error) {
       return {

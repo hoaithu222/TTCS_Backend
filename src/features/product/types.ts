@@ -29,6 +29,8 @@ export interface ListProductQuery {
   search?: string;
   minPrice?: number;
   maxPrice?: number;
+  rating?: number;
+  inStock?: boolean;
   isActive?: boolean;
   sortBy?: "createdAt" | "price" | "rating" | "salesCount" | "viewCount";
   sortOrder?: "asc" | "desc";
