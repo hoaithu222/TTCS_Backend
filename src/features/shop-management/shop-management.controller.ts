@@ -111,6 +111,15 @@ export const getMyShopOrdersController = async (req: Request, res: Response) => 
   });
 };
 
+// Lấy thống kê đơn hàng theo trạng thái
+export const getMyShopOrderStatisticsController = async (req: Request, res: Response) => {
+  const result = await ShopManagementService.getMyShopOrderStatistics(req as AuthenticatedRequest);
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, result.stats);
+};
+
 // Lấy chi tiết đơn hàng
 export const getMyShopOrderController = async (req: Request, res: Response) => {
   const { orderId } = req.params;

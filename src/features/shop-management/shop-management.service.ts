@@ -819,6 +819,62 @@ export default class ShopManagementService {
     }
   }
 
+  // Lấy thống kê số lượng đơn hàng theo trạng thái
+  static async getMyShopOrderStatistics(req: AuthenticatedRequest) {
+    try {
+      const userId =
+        (req as any).user?.userId || (req as any).currentUser?._id?.toString();
+      if (!userId) {
+        return { ok: false as const, status: 401, message: "Unauthorized" };
+      }
+
+      const shop = await ShopModel.findOne({ userId }).select("_id");
+      if (!shop) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Shop không tồn tại",
+        };
+      }
+
+      const ordersByStatus = await OrderModel.aggregate([
+        { $match: { shopId: shop._id } },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const totalOrders = await OrderModel.countDocuments({ shopId: shop._id });
+
+      const stats = {
+        all: totalOrders,
+        pending: 0,
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0,
+        returned: 0,
+      };
+
+      ordersByStatus.forEach((item: any) => {
+        if (item._id in stats) {
+          (stats as any)[item._id] = item.count;
+        }
+      });
+
+      return { ok: true as const, stats };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
   // Lấy chi tiết đơn hàng
   static async getMyShopOrder(req: AuthenticatedRequest, orderId: string) {
     try {

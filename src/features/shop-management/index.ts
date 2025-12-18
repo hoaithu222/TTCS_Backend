@@ -8,6 +8,7 @@ import {
   updateMyShopProductController,
   deleteMyShopProductController,
   getMyShopOrdersController,
+  getMyShopOrderStatisticsController,
   getMyShopOrderController,
   updateMyShopOrderStatusController,
   getMyShopAnalyticsController,
@@ -50,6 +51,7 @@ shopManagementRouter.delete(
 
 // Orders
 shopManagementRouter.get("/my-shop/orders", getMyShopOrdersController);
+shopManagementRouter.get("/my-shop/orders/statistics", getMyShopOrderStatisticsController);
 // Batch printing must be before :orderId route to avoid route conflict
 shopManagementRouter.post("/my-shop/orders/batch-print", batchPrintOrdersController);
 shopManagementRouter.get("/my-shop/orders/:orderId", getMyShopOrderController);
