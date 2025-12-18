@@ -618,6 +618,49 @@ Yêu cầu (trả về JSON):
   }
 
   /**
+   * Detect what the user is specifically looking for (Products, Shops, or Categories)
+   */
+  private detectSearchIntent(userMessage: string): { products: boolean, shops: boolean, categories: boolean } {
+    const lowerMessage = userMessage.toLowerCase();
+    
+    // Explicit keywords
+    const shopKeywords = ["shop", "cửa hàng", "gian hàng", "người bán", "tiệm", "địa chỉ mua"];
+    const categoryKeywords = ["danh mục", "loại sản phẩm", "nhóm sản phẩm", "thể loại", "ngành hàng", "phân loại"];
+    const productKeywords = ["sản phẩm", "mẫu", "chiếc", "cái", "con", "máy", "thiết bị", "đồ", "mua"];
+
+    const isAskingForShop = shopKeywords.some(kw => lowerMessage.includes(kw));
+    const isAskingForCategory = categoryKeywords.some(kw => lowerMessage.includes(kw));
+    const isAskingForProduct = productKeywords.some(kw => lowerMessage.includes(kw));
+
+    // Determine intent based on priority
+    let products = false;
+    let shops = false;
+    let categories = false;
+
+    if (isAskingForShop) {
+      shops = true;
+    }
+    
+    if (isAskingForCategory) {
+      categories = true;
+    }
+
+    // If user explicitly asks for products, OR if they didn't ask for shop/category but used a brand/model
+    const brandModelPattern = /(iphone|samsung|xiaomi|oppo|vivo|realme|oneplus|huawei|nokia|sony|macbook|ipad|laptop|dell|hp|asus|acer|lenovo|msi)/i;
+    const hasBrandModel = brandModelPattern.test(lowerMessage);
+
+    if (isAskingForProduct || hasBrandModel || (!isAskingForShop && !isAskingForCategory)) {
+      products = true;
+      // If user specifically asked for "sản phẩm", we might want to suppress shops/categories 
+      // unless they also mentioned them
+      if (isAskingForProduct && !isAskingForShop) shops = false;
+      if (isAskingForProduct && !isAskingForCategory) categories = false;
+    }
+
+    return { products, shops, categories };
+  }
+
+  /**
    * Check if user is requesting suggestions (wants to see product/shop list)
    */
   private isRequestingSuggestions(userMessage: string): boolean {
@@ -625,11 +668,23 @@ Yêu cầu (trả về JSON):
       "gợi ý", "gợi ý cho", "cho tôi xem", "xem", "tìm", "tìm cho", 
       "hiển thị", "danh sách", "list", "show", "suggest", "recommend",
       "có gì", "có những", "những sản phẩm", "sản phẩm nào", "shop nào",
-      "cửa hàng nào", "mua", "muốn mua", "cần mua", "đang tìm mua"
+      "cửa hàng nào", "mua", "muốn mua", "cần mua", "đang tìm mua",
+      "tư vấn", "loại nào tốt", "nên mua", "phù hợp", "giá rẻ", "cao cấp",
+      "iphone", "samsung", "xiaomi", "oppo", "vivo", "realme", "laptop",
+      "điện thoại", "tai nghe", "phụ kiện", "thời trang", "giày", "áo",
+      "danh mục", "shop", "cửa hàng"
     ];
     
     const lowerMessage = userMessage.toLowerCase();
-    return suggestionKeywords.some(keyword => lowerMessage.includes(keyword));
+    
+    // Check for explicit keywords
+    const hasExplicitKeyword = suggestionKeywords.some(keyword => lowerMessage.includes(keyword));
+    
+    // Check for implicit search (e.g., brand + model)
+    const brandModelPattern = /(iphone|samsung|xiaomi|oppo|vivo|macbook|ipad|laptop)\s*(\d+[a-z]*|pro|air|ultra|plus|s|x|max)/i;
+    const hasBrandModel = brandModelPattern.test(lowerMessage);
+    
+    return hasExplicitKeyword || hasBrandModel;
   }
 
   /**
@@ -651,19 +706,20 @@ Yêu cầu (trả về JSON):
       };
     }
 
-    // Check if user is requesting suggestions
+    // Check if user is requesting suggestions and detect specific intent
     const isRequestingSuggestions = this.isRequestingSuggestions(userMessage);
+    const intent = this.detectSearchIntent(userMessage);
 
     // Step 1: Search products, shops, and categories based on user message
-    // Only search if user is requesting suggestions or asking about specific product
+    // Only search what the user actually asked for
     const [products, shops, categories] = await Promise.all([
-      isRequestingSuggestions ? this.searchProductsForChat(userMessage) : Promise.resolve([]),
-      isRequestingSuggestions ? this.searchShopsForChat(userMessage) : Promise.resolve([]),
-      isRequestingSuggestions ? this.searchCategoriesForChat(userMessage) : Promise.resolve([]),
+      (isRequestingSuggestions && intent.products) ? this.searchProductsForChat(userMessage) : Promise.resolve([]),
+      (isRequestingSuggestions && intent.shops) ? this.searchShopsForChat(userMessage) : Promise.resolve([]),
+      (isRequestingSuggestions && intent.categories) ? this.searchCategoriesForChat(userMessage) : Promise.resolve([]),
     ]);
 
     // Step 2: Build prompt with product, shop, and category context
-    const prompt = this.buildChatPrompt(userMessage, products, shops, categories, dto.conversationHistory || [], language, isRequestingSuggestions);
+    const prompt = this.buildChatPrompt(userMessage, products, shops, categories, dto.conversationHistory || [], language, isRequestingSuggestions, intent);
 
     // Step 3: Generate response using AI
     if (this.provider === "fallback") {
@@ -681,44 +737,28 @@ Yêu cầu (trả về JSON):
         response = this.generateFallbackChatResponse(userMessage, products, shops, categories, language, isRequestingSuggestions).response;
       }
 
-      // Determine response type
-      const hasProducts = products.length > 0;
-      const hasShops = shops.length > 0;
-      const hasCategories = categories.length > 0;
-      let responseType: "text" | "product" | "shop" | "category" | "mixed" = "text";
-      const typeCount = [hasProducts, hasShops, hasCategories].filter(Boolean).length;
-      if (typeCount > 1) {
-        responseType = "mixed";
-      } else if (hasProducts) {
-        responseType = "product";
-      } else if (hasShops) {
-        responseType = "shop";
-      } else if (hasCategories) {
-        responseType = "category";
-      }
-
-      // Only return suggested products/shops if user is requesting suggestions
+      // Step 4: Determine final response type and filter suggestions
       let suggestedProducts: any[] = [];
       let suggestedShops: any[] = [];
       let suggestedCategories: any[] = [];
       
       if (isRequestingSuggestions) {
-        // Filter products to only show exact matches if user asked for specific product
+        // Post-filter products based on AI's response if possible, 
+        // or just use the highly ranked ones from searchProductsForChat
+        const brandModelPattern = /(iphone|samsung|xiaomi|oppo|vivo|realme|oneplus|huawei|nokia|sony|macbook|ipad|laptop)\s*(\d+[a-z]*|pro|air|ultra|plus|s|x|max)/i;
+        const brandMatch = userMessage.match(brandModelPattern);
+        const exactBrandModel = brandMatch ? brandMatch[0].toLowerCase() : null;
+
         let filteredProducts = products;
-        const productNamePattern = userMessage.match(/(iphone|samsung|xiaomi|oppo|vivo|realme|oneplus|huawei|nokia|sony)\s*(\d+[a-z]*)/i);
-        if (productNamePattern) {
-          const exactProductName = `${productNamePattern[1]} ${productNamePattern[2]}`.toLowerCase();
-          // Only show products that contain the exact product name
+        if (exactBrandModel) {
           filteredProducts = products.filter((p: any) => {
-            const productName = (p.name || "").toLowerCase();
-            return productName.includes(exactProductName) || 
-                   productName.includes(exactProductName.replace(/\s+/g, "")) ||
-                   productName.includes(exactProductName.replace(/\s+/g, "-"));
+            const name = (p.name || "").toLowerCase();
+            return name.includes(exactBrandModel) || name.includes(exactBrandModel.replace(/\s+/g, ""));
           });
           
-          // If no exact match, show closest match (first product)
+          // If filtering too much, fallback to original top results
           if (filteredProducts.length === 0 && products.length > 0) {
-            filteredProducts = [products[0]]; // Show closest match as fallback
+            filteredProducts = products.slice(0, 3);
           }
         }
 
@@ -727,7 +767,7 @@ Yêu cầu (trả về JSON):
           name: p.name,
           price: p.price,
           finalPrice: p.price - (p.discount || 0),
-          images: p.images?.slice(0, 1) || [],
+          images: p.images?.slice(0, 1).map((img: any) => ({ url: img.url })) || [],
           shop: p.shopId ? {
             name: p.shopId.name || "",
             _id: p.shopId._id?.toString() || "",
@@ -750,19 +790,20 @@ Yêu cầu (trả về JSON):
           _id: c._id.toString(),
           name: c.name,
           description: c.description,
-          image: c.image_Icon?.url || c.image?.[0]?.url,
+          image: c.image_Icon?.url || (Array.isArray(c.image) ? c.image[0]?.url : c.image?.url),
           productCount: c.productCount || 0,
           slug: c.slug,
         }));
       }
 
-      // Update response type based on whether suggestions are returned
+      // Determine response type based on what we actually have
       let finalResponseType: "text" | "product" | "shop" | "category" | "mixed" = "text";
       if (isRequestingSuggestions) {
         const hasProducts = suggestedProducts.length > 0;
         const hasShops = suggestedShops.length > 0;
         const hasCategories = suggestedCategories.length > 0;
         const typeCount = [hasProducts, hasShops, hasCategories].filter(Boolean).length;
+        
         if (typeCount > 1) {
           finalResponseType = "mixed";
         } else if (hasProducts) {
@@ -795,135 +836,132 @@ Yêu cầu (trả về JSON):
    */
   private async searchProductsForChat(userMessage: string): Promise<any[]> {
     try {
-      // Extract product name/model from message (e.g., "iPhone 17", "Samsung S24")
-      // Look for patterns like: brand + number, or specific product names
-      const productNamePattern = userMessage.match(/(iphone|samsung|xiaomi|oppo|vivo|realme|oneplus|huawei|nokia|sony)\s*(\d+[a-z]*)/i);
-      const exactProductName = productNamePattern 
-        ? `${productNamePattern[1]} ${productNamePattern[2]}`.toLowerCase()
-        : null;
+      // Extract product name/model from message
+      const brandModelPattern = /(iphone|samsung|xiaomi|oppo|vivo|realme|oneplus|huawei|nokia|sony|macbook|ipad|laptop|dell|hp|asus|acer|lenovo|msi)\s*(\d+[a-z]*|pro|air|ultra|plus|s|x|max|ti|super)?/i;
+      const brandMatch = userMessage.match(brandModelPattern);
+      const exactBrand = brandMatch ? brandMatch[1].toLowerCase() : null;
+      const exactModel = brandMatch && brandMatch[2] ? brandMatch[2].toLowerCase() : null;
+      const exactProductName = brandMatch ? `${exactBrand}${exactModel ? ' ' + exactModel : ''}` : null;
 
       // Extract keywords for text search
+      const stopWords = ["mình", "cần", "tìm", "cho", "với", "để", "và", "tư", "vấn", "muốn", "bạn", "shop", "cái", "chiếc", "loại", "nào"];
       const keywords = userMessage
         .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
+        .replace(/[^\w\sàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/g, " ")
         .split(/\s+/)
-        .filter((w) => w.length > 2 && !["mình", "cần", "tìm", "cho", "với", "để", "và", "tư", "vấn", "muốn"].includes(w))
-        .slice(0, 5)
+        .filter((w) => w.length > 1 && !stopWords.includes(w))
+        .slice(0, 7)
         .join(" ");
 
-      // Extract price range from message (e.g., "15 triệu", "15tr", "15 million")
-      const priceMatch = userMessage.match(/(\d+)\s*(triệu|tr|million|m)/i);
+      // Extract price range from message
+      // Matches "15 triệu", "15tr", "dưới 10tr", "tầm 20 triệu", "khoảng 5tr"
+      const priceMatch = userMessage.match(/(dưới|trên|tầm|khoảng|đến|-)\s*(\d+)\s*(triệu|tr|trđ|m|k)/i) || 
+                         userMessage.match(/(\d+)\s*(triệu|tr|trđ|m|k)/i);
       
-      // Step 1: Try exact match first (if we found a product name pattern)
-      let exactMatchProducts: any[] = [];
-      if (exactProductName) {
-        const exactFilter: any = {
-          isActive: true,
-          $or: [
-            { name: { $regex: exactProductName, $options: "i" } },
-            { name: { $regex: exactProductName.replace(/\s+/g, ""), $options: "i" } }, // "iphone17"
-          ],
-        };
-        
-        if (priceMatch) {
-          const priceValue = parseInt(priceMatch[1]) * 1000000;
-          exactFilter.price = { $lte: priceValue * 1.2, $gte: priceValue * 0.7 };
-        }
-
-        exactMatchProducts = await ProductModel.find(exactFilter)
-          .populate({
-            path: "images",
-            select: "url publicId _id",
-          })
-          .populate({
-            path: "shopId",
-            select: "name logo rating _id",
-          })
-          .populate({
-            path: "categoryId",
-            select: "name slug _id",
-          })
-          .limit(10)
-          .sort({ price: priceMatch ? 1 : -1, createdAt: -1 })
-          .lean();
-      }
-
-      // Step 2: If exact match found, return it (prioritize exact matches)
-      if (exactMatchProducts.length > 0) {
-        return exactMatchProducts;
-      }
-
-      // Step 3: Fallback to broader search
-      const filter: any = { isActive: true };
+      let minPrice = 0;
+      let maxPrice = Number.MAX_SAFE_INTEGER;
       
       if (priceMatch) {
-        const priceValue = parseInt(priceMatch[1]) * 1000000;
-        filter.price = { $lte: priceValue * 1.2, $gte: priceValue * 0.7 };
+        const value = parseInt(priceMatch[2] || priceMatch[1]);
+        const unit = (priceMatch[3] || priceMatch[2]).toLowerCase();
+        const multiplier = ["triệu", "tr", "trđ", "m"].some(u => unit.includes(u)) ? 1000000 : 1000;
+        const totalValue = value * multiplier;
+        
+        const prefix = priceMatch[1] ? priceMatch[1].toLowerCase() : "";
+        if (prefix === "dưới") {
+          maxPrice = totalValue;
+        } else if (prefix === "trên") {
+          minPrice = totalValue;
+        } else {
+          // Range ± 20%
+          minPrice = totalValue * 0.8;
+          maxPrice = totalValue * 1.2;
+        }
       }
 
-      // Use regex for more precise matching
-      if (keywords) {
-        // Try to match product name more accurately
+      // Step 1: Build filter
+      const filter: any = { isActive: true };
+      
+      if (minPrice > 0 || maxPrice < Number.MAX_SAFE_INTEGER) {
+        filter.price = { $gte: minPrice };
+        if (maxPrice < Number.MAX_SAFE_INTEGER) {
+          filter.price.$lte = maxPrice;
+        }
+      }
+
+      // Step 2: Try to match by brand/model first if available
+      if (exactBrand) {
+        filter.$or = [
+          { name: { $regex: exactBrand, $options: "i" } },
+          { brand: { $regex: exactBrand, $options: "i" } }
+        ];
+        
+        if (exactModel) {
+          // If we have a model, make it more specific
+          const modelRegex = new RegExp(`(?=.*${exactBrand})(?=.*${exactModel})`, "i");
+          filter.$or.push({ name: { $regex: modelRegex } });
+        }
+      } else if (keywords) {
+        // Fallback to keyword search
         const searchTerms = keywords.split(/\s+/).filter(t => t.length > 1);
         if (searchTerms.length > 0) {
-          // Build regex pattern that requires all terms to be present
           const regexPattern = searchTerms.map(term => `(?=.*${term})`).join('') + '.*';
           filter.$or = [
             { name: { $regex: regexPattern, $options: "i" } },
             { name: { $regex: keywords, $options: "i" } },
+            { description: { $regex: keywords, $options: "i" } }
           ];
-        } else {
-          filter.$text = { $search: keywords };
         }
       }
 
-      // Search products
-      const products = await ProductModel.find(filter)
-        .populate({
-          path: "images",
-          select: "url publicId _id",
-        })
-        .populate({
-          path: "shopId",
-          select: "name logo rating _id",
-        })
-        .populate({
-          path: "categoryId",
-          select: "name slug _id",
-        })
-        .limit(10)
+      // Step 3: Execute search
+      let products = await ProductModel.find(filter)
+        .populate({ path: "images", select: "url" })
+        .populate({ path: "shopId", select: "name logo rating" })
+        .populate({ path: "categoryId", select: "name slug" })
+        .limit(20)
         .lean();
 
-      // Rank products by relevance (exact matches in name first)
-      if (keywords && products.length > 0) {
-        const searchTerms = keywords.toLowerCase().split(/\s+/);
+      // Step 4: Better ranking
+      if (products.length > 0) {
+        const searchTerms = (exactProductName || keywords).toLowerCase().split(/\s+/);
+        
         products.sort((a: any, b: any) => {
           const aName = (a.name || "").toLowerCase();
           const bName = (b.name || "").toLowerCase();
           
-          // Count how many search terms match in product name
-          const aMatches = searchTerms.filter(term => aName.includes(term)).length;
-          const bMatches = searchTerms.filter(term => bName.includes(term)).length;
+          // 1. Priority: Exact product name match
+          if (exactProductName) {
+            const aHasExact = aName.includes(exactProductName);
+            const bHasExact = bName.includes(exactProductName);
+            if (aHasExact !== bHasExact) return bHasExact ? 1 : -1;
+          }
           
-          // Also check if product name starts with search term (higher priority)
+          // 2. Priority: Starts with search terms
           const aStartsWith = searchTerms.some(term => aName.startsWith(term)) ? 1 : 0;
           const bStartsWith = searchTerms.some(term => bName.startsWith(term)) ? 1 : 0;
+          if (aStartsWith !== bStartsWith) return bStartsWith - aStartsWith;
           
-          // Sort by: starts with match > number of matches > price (if priceMatch)
-          if (aStartsWith !== bStartsWith) {
-            return bStartsWith - aStartsWith;
-          }
-          if (aMatches !== bMatches) {
-            return bMatches - aMatches;
-          }
-          if (priceMatch) {
-            return a.price - b.price;
-          }
+          // 3. Priority: Number of matching terms
+          const aMatches = searchTerms.filter(term => aName.includes(term)).length;
+          const bMatches = searchTerms.filter(term => bName.includes(term)).length;
+          if (aMatches !== bMatches) return bMatches - aMatches;
+          
+          // 4. Priority: Shop rating
+          const aRating = a.shopId?.rating || 0;
+          const bRating = b.shopId?.rating || 0;
+          if (aRating !== bRating) return bRating - aRating;
+          
+          // 5. Priority: Discount
+          const aDiscount = a.discount || 0;
+          const bDiscount = b.discount || 0;
+          if (aDiscount !== bDiscount) return bDiscount - aDiscount;
+
           return 0;
         });
       }
 
-      return products || [];
+      return products.slice(0, 10);
     } catch (error) {
       console.error("[AI] Product search failed:", error);
       return [];
@@ -1047,7 +1085,8 @@ Yêu cầu (trả về JSON):
     categories: any[],
     conversationHistory: Array<{ role: "user" | "assistant"; content: string }>,
     language: string,
-    isRequestingSuggestions: boolean = false
+    isRequestingSuggestions: boolean = false,
+    intent?: { products: boolean, shops: boolean, categories: boolean }
   ): string {
     const isVietnamese = language === "vi";
     const currentDate = isVietnamese ? this.getCurrentDateVietnamese() : this.getCurrentDateEnglish();
@@ -1087,59 +1126,79 @@ Yêu cầu (trả về JSON):
     }
 
     const historyContext = conversationHistory
-      .slice(-4) // Last 4 messages
+      .slice(-6) // Last 6 messages for better context
       .map((msg) => `${msg.role === "user" ? "Khách hàng" : "Bạn"}: ${msg.content}`)
       .join("\n");
 
-    const suggestionInstruction = isRequestingSuggestions
-      ? `\n\n**QUAN TRỌNG**: Khách hàng đang YÊU CẦU gợi ý/xem danh sách sản phẩm/cửa hàng. Hãy trả lời và hệ thống sẽ hiển thị danh sách các sản phẩm/cửa hàng phù hợp.`
-      : `\n\n**QUAN TRỌNG**: Khách hàng đang TƯ VẤN/HỎI THÔNG TIN, KHÔNG yêu cầu xem danh sách. Hãy chỉ trả lời bằng text tư vấn, KHÔNG đề xuất hiển thị danh sách sản phẩm/cửa hàng. Tập trung vào việc tư vấn, giải đáp thắc mắc, so sánh, đưa ra lời khuyên.`;
+    let suggestionInstruction = "";
+    if (isRequestingSuggestions) {
+      let focus = "sản phẩm/cửa hàng/danh mục";
+      if (intent) {
+        const parts = [];
+        if (intent.products) parts.push("sản phẩm");
+        if (intent.shops) parts.push("cửa hàng");
+        if (intent.categories) parts.push("danh mục");
+        if (parts.length > 0) focus = parts.join("/");
+      }
+      
+      suggestionInstruction = isVietnamese
+        ? `\n\n**QUAN TRỌNG**: Khách hàng đang YÊU CẦU gợi ý hoặc tìm kiếm tập trung vào **${focus}**. Hãy xem xét danh sách đã tìm thấy ở trên và đưa ra lời khuyên phù hợp nhất. TUYỆT ĐỐI KHÔNG giới thiệu loại khác nếu khách đã chỉ định rõ (ví dụ khách hỏi sản phẩm thì đừng giới thiệu shop).`
+        : `\n\n**IMPORTANT**: Customer is REQUESTING suggestions/search focusing on **${focus}**. Review the list above and provide the best advice. DO NOT recommend other types if the customer specified clearly (e.g., if they asked for products, don't recommend shops).`;
+    } else {
+      suggestionInstruction = isVietnamese
+        ? `\n\n**QUAN TRỌNG**: Khách hàng đang hỏi thông tin chung hoặc tư vấn. Hãy trả lời bằng văn bản, không cần đề xuất xem danh sách.`
+        : `\n\n**IMPORTANT**: Customer is asking for general info or consultation. Respond with text, no need to suggest viewing lists.`;
+    }
 
     return isVietnamese
-      ? `Bạn là nhân viên tư vấn bán hàng thân thiện và chuyên nghiệp của một nền tảng thương mại điện tử.
+      ? `Bạn là một trợ lý mua sắm thông minh, thân thiện và am hiểu sản phẩm. 
+Nhiệm vụ của bạn là giúp khách hàng tìm được sản phẩm ưng ý nhất trên nền tảng của chúng tôi.
 
-**THÔNG TIN QUAN TRỌNG VỀ THỜI GIAN:**
+**THÔNG TIN QUẬN TRỌNG VỀ THỜI GIAN:**
 Hôm nay là: ${currentDate}
-Khi khách hàng hỏi về ngày tháng hoặc thời gian, hãy sử dụng thông tin này. KHÔNG sử dụng thông tin ngày tháng từ training data cũ.
+
+**DỮ LIỆU TÌM KIẾM THỰC TẾ (RAG):**
+${productContext ? `Sản phẩm phù hợp tìm thấy:\n${productContext}\n` : "Không tìm thấy sản phẩm cụ thể.\n"}${shopContext ? `Cửa hàng uy tín:\n${shopContext}\n` : ""}${categoryContext ? `Danh mục liên quan:\n${categoryContext}\n` : ""}
+
+**LỊCH SỬ HỘI THOẠI:**
+${historyContext || "Mới bắt đầu cuộc hội thoại."}
 
 Khách hàng hỏi: "${userMessage}"
 
-${historyContext ? `Lịch sử hội thoại gần đây:\n${historyContext}\n\n` : ""}${isRequestingSuggestions && productContext ? `Danh sách sản phẩm hiện có (đã được lọc phù hợp với yêu cầu):\n${productContext}\n\n` : ""}${isRequestingSuggestions && shopContext ? `Danh sách cửa hàng uy tín:\n${shopContext}\n\n` : ""}${isRequestingSuggestions && categoryContext ? `Danh sách danh mục sản phẩm:\n${categoryContext}\n\n` : ""}Yêu cầu QUAN TRỌNG:
-1. Trả lời tự nhiên, thân thiện như đang tư vấn trực tiếp
-2. **CHỈ giới thiệu các sản phẩm CHÍNH XÁC phù hợp với yêu cầu của khách hàng**. Ví dụ: nếu khách hỏi "iPhone 17" thì CHỈ giới thiệu iPhone 17, KHÔNG giới thiệu iPhone 15, iPhone 16 hay các model khác.
-${isRequestingSuggestions ? `3. Khách hàng đang YÊU CẦU gợi ý/xem danh sách. Hãy trả lời và hệ thống sẽ hiển thị danh sách sản phẩm/cửa hàng phù hợp.` : `3. Khách hàng đang TƯ VẤN/HỎI THÔNG TIN, KHÔNG yêu cầu xem danh sách. Hãy chỉ trả lời bằng text tư vấn, KHÔNG đề xuất hiển thị danh sách. Tập trung vào việc tư vấn, giải đáp thắc mắc, so sánh, đưa ra lời khuyên.`}
-4. Nếu có sản phẩm phù hợp CHÍNH XÁC, hãy giới thiệu cụ thể (tên, giá, lý do phù hợp)${isRequestingSuggestions ? ` và chỉ hiển thị những sản phẩm đó` : `. Chỉ mô tả bằng text, không đề xuất hiển thị danh sách`}.
-5. Nếu không có sản phẩm CHÍNH XÁC phù hợp (ví dụ: hỏi iPhone 17 nhưng chỉ có iPhone 15), hãy thông báo rõ ràng và gợi ý sản phẩm tương tự gần nhất, giải thích tại sao.
-6. Nếu khách hàng hỏi về cửa hàng hoặc muốn tìm shop${isRequestingSuggestions ? `, hãy gợi ý các cửa hàng uy tín từ danh sách trên` : `, hãy tư vấn bằng text, không đề xuất hiển thị danh sách`}.
-7. Nếu khách hàng hỏi về danh mục hoặc loại sản phẩm${isRequestingSuggestions ? `, hãy gợi ý các danh mục phù hợp` : `, hãy tư vấn bằng text`}.
-8. Nếu không có sản phẩm/cửa hàng/danh mục phù hợp, hãy gợi ý các tiêu chí khác hoặc hỏi thêm thông tin
-9. Luôn tập trung vào lợi ích của khách hàng
-10. Trả lời ngắn gọn, dễ hiểu (khoảng 3-5 câu)
+**NGUYÊN TẮC TRẢ LỜI:**
+1. **TRUNG THỰC**: Chỉ giới thiệu những gì có trong dữ liệu tìm kiếm ở trên. Nếu không thấy iPhone 17, đừng bịa ra là có.
+2. **CHÍNH XÁC**: Nếu khách hỏi model cụ thể (ví dụ: iPhone 13 Pro Max), hãy ưu tiên giới thiệu đúng model đó. Nếu chỉ có iPhone 13, hãy nói rõ là chúng ta có iPhone 13 và nó gần nhất với yêu cầu.
+3. **TỰ NHIÊN**: Trả lời như một người tư vấn thật thụ, không máy móc. Sử dụng ngôn ngữ gần gũi (ví dụ: "Dạ", "Chào bạn", "Theo mình thấy...").
+4. **HỖ TRỢ**: Nếu khách hỏi "iPhone nào tốt nhất để chụp ảnh", hãy dựa vào thông tin sản phẩm (nếu có mô tả) hoặc kiến thức chung để tư vấn trong số các sản phẩm chúng ta CÓ.
+5. **KÊU GỌI**: Khuyến khích khách hàng xem chi tiết sản phẩm hoặc đặt câu hỏi thêm.
 ${suggestionInstruction}
 
-Hãy trả lời:`
-      : `You are a friendly and professional sales consultant for an e-commerce platform.
+Hãy trả lời ngắn gọn (3-5 câu), tập trung vào giá trị:
+`
+      : `You are an intelligent, friendly, and knowledgeable shopping assistant.
+Your mission is to help customers find the best products on our platform.
 
 **IMPORTANT TIME INFORMATION:**
 Today is: ${currentDate}
-When customers ask about dates or time, use this information. DO NOT use date information from old training data.
+
+**REAL SEARCH DATA (RAG):**
+${productContext ? `Matching products found:\n${productContext}\n` : "No specific products found.\n"}${shopContext ? `Trusted shops:\n${shopContext}\n` : ""}${categoryContext ? `Related categories:\n${categoryContext}\n` : ""}
+
+**CONVERSATION HISTORY:**
+${historyContext || "Started a new conversation."}
 
 Customer asks: "${userMessage}"
 
-${historyContext ? `Recent conversation history:\n${historyContext}\n\n` : ""}${isRequestingSuggestions && productContext ? `Available products (filtered to match request):\n${productContext}\n\n` : ""}${isRequestingSuggestions && shopContext ? `Trusted shops:\n${shopContext}\n\n` : ""}${isRequestingSuggestions && categoryContext ? `Product categories:\n${categoryContext}\n\n` : ""}IMPORTANT Requirements:
-1. Respond naturally and friendly as if consulting directly
-2. **ONLY recommend products that EXACTLY match the customer's request**. For example: if customer asks for "iPhone 17", ONLY recommend iPhone 17, NOT iPhone 15, iPhone 16 or other models.
-${isRequestingSuggestions ? `3. Customer is REQUESTING suggestions/viewing list. Respond and the system will display the list of products/shops.` : `3. Customer is CONSULTING/ASKING FOR INFORMATION, NOT requesting to view list. Only respond with text consultation, DO NOT suggest displaying product/shop lists. Focus on consulting, answering questions, comparing, giving advice.`}
-4. If there are EXACTLY matching products, introduce them specifically (name, price, why suitable)${isRequestingSuggestions ? ` and only show those products` : `. Only describe in text, do not suggest displaying list`}.
-5. If no EXACTLY matching products exist (e.g., asking for iPhone 17 but only iPhone 15 available), clearly inform and suggest the closest similar product, explaining why.
-6. If customer asks about shops or wants to find a shop${isRequestingSuggestions ? `, suggest trusted shops from the list above` : `, consult in text, do not suggest displaying list`}.
-7. If customer asks about categories or product types${isRequestingSuggestions ? `, suggest suitable categories` : `, consult in text`}.
-8. If no suitable products/shops/categories, suggest other criteria or ask for more information
-9. Always focus on customer benefits
-10. Keep response concise and easy to understand (about 3-5 sentences)
-${isRequestingSuggestions ? `\n\n**IMPORTANT**: Customer is REQUESTING suggestions/viewing list. Respond and the system will display the list of matching products/shops.` : `\n\n**IMPORTANT**: Customer is CONSULTING/ASKING FOR INFORMATION, NOT requesting to view list. Only respond with text consultation, DO NOT suggest displaying product/shop lists.`}
+**RESPONSE PRINCIPLES:**
+1. **HONESTY**: Only recommend what is in the search data above. If iPhone 17 is not found, do not make it up.
+2. **ACCURACY**: If the customer asks for a specific model (e.g., iPhone 13 Pro Max), prioritize recommending that exact model. If only iPhone 13 is available, clearly state that we have iPhone 13 and it's the closest to their request.
+3. **NATURAL**: Respond like a real consultant, not a machine. Use friendly language.
+4. **SUPPORTIVE**: If the customer asks "Which iPhone is best for photography?", use product info (if available) or general knowledge to advise among the products we HAVE.
+5. **CALL TO ACTION**: Encourage customers to view product details or ask more questions.
+${suggestionInstruction}
 
-Please respond:`;
+Please respond concisely (3-5 sentences), focusing on value:
+`;
   }
 
   /**
