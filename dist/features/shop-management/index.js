@@ -19,6 +19,7 @@ shopManagementRouter.put("/my-shop/products/:productId", shop_management_control
 shopManagementRouter.delete("/my-shop/products/:productId", shop_management_controller_1.deleteMyShopProductController);
 // Orders
 shopManagementRouter.get("/my-shop/orders", shop_management_controller_1.getMyShopOrdersController);
+shopManagementRouter.get("/my-shop/orders/statistics", shop_management_controller_1.getMyShopOrderStatisticsController);
 // Batch printing must be before :orderId route to avoid route conflict
 shopManagementRouter.post("/my-shop/orders/batch-print", shop_management_controller_1.batchPrintOrdersController);
 shopManagementRouter.get("/my-shop/orders/:orderId", shop_management_controller_1.getMyShopOrderController);

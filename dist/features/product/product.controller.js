@@ -39,7 +39,8 @@ const deleteProductController = async (req, res) => {
 };
 exports.deleteProductController = deleteProductController;
 const listProductController = async (req, res) => {
-    const { page, limit, categoryId, subCategoryId, shopId, search, minPrice, maxPrice, isActive, sortBy, sortOrder, } = req.query;
+    const { page, limit, categoryId, subCategoryId, shopId, search, minPrice, maxPrice, isActive, sortBy, sortOrder, rating, inStock, } = req.query;
+    console.log("[listProductController] Query params:", req.query);
     const result = await product_service_1.default.list({
         page: Number(page) || 1,
         limit: Number(limit) || 50,
@@ -64,7 +65,8 @@ const listProductController = async (req, res) => {
 };
 exports.listProductController = listProductController;
 const searchProductController = async (req, res) => {
-    const { page, limit, categoryId, subCategoryId, shopId, search, minPrice, maxPrice, sortBy, sortOrder, } = req.query;
+    const { page, limit, categoryId, subCategoryId, shopId, search, minPrice, maxPrice, rating, inStock, sortBy, sortOrder, } = req.query;
+    console.log("[searchProductController] Query params:", req.query);
     const result = await product_service_1.default.search({
         page: Number(page) || 1,
         limit: Number(limit) || 20,
@@ -74,6 +76,8 @@ const searchProductController = async (req, res) => {
         search,
         minPrice: minPrice != null ? Number(minPrice) : undefined,
         maxPrice: maxPrice != null ? Number(maxPrice) : undefined,
+        rating: rating != null ? Number(rating) : undefined,
+        inStock: inStock === "true" ? true : undefined,
         sortBy,
         sortOrder,
     });

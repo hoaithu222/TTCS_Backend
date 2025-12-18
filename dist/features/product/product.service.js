@@ -167,14 +167,20 @@ class ProductService {
                 : 50;
             const skip = (page - 1) * limit;
             const filter = {};
-            if (typeof query.isActive === "boolean")
+            // Default to active products for public list
+            if (typeof query.isActive === "boolean") {
                 filter.isActive = query.isActive;
+            }
+            else {
+                filter.isActive = true; // Default show only active products
+            }
             if (query.categoryId)
                 filter.categoryId = query.categoryId;
             if (query.subCategoryId)
                 filter.subCategoryId = query.subCategoryId;
             if (query.shopId)
                 filter.shopId = query.shopId;
+            // Price range filter
             if (query.minPrice != null || query.maxPrice != null) {
                 filter.price = {};
                 if (query.minPrice != null)
@@ -182,8 +188,23 @@ class ProductService {
                 if (query.maxPrice != null)
                     filter.price.$lte = query.maxPrice;
             }
-            if (query.search)
-                filter.$text = { $search: query.search };
+            // Rating filter
+            if (query.rating != null) {
+                filter.rating = { $gte: query.rating };
+            }
+            // In stock filter
+            if (query.inStock) {
+                filter.stock = { $gt: 0 };
+            }
+            // Search by text
+            if (query.search) {
+                filter.$or = [
+                    { name: { $regex: query.search, $options: "i" } },
+                    { description: { $regex: query.search, $options: "i" } },
+                    { metaKeywords: { $regex: query.search, $options: "i" } },
+                ];
+            }
+            console.log("[ProductService.list] Filter:", JSON.stringify(filter, null, 2));
             const sortField = query.sortBy || "createdAt";
             const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
             const sort = { [sortField]: sortDir };
@@ -239,6 +260,7 @@ class ProductService {
                 filter.subCategoryId = query.subCategoryId;
             if (query.shopId)
                 filter.shopId = query.shopId;
+            // Price range filter
             if (query.minPrice != null || query.maxPrice != null) {
                 filter.price = {};
                 if (query.minPrice != null)
@@ -246,6 +268,15 @@ class ProductService {
                 if (query.maxPrice != null)
                     filter.price.$lte = query.maxPrice;
             }
+            // Rating filter
+            if (query.rating != null) {
+                filter.rating = { $gte: query.rating };
+            }
+            // In stock filter
+            if (query.inStock) {
+                filter.stock = { $gt: 0 };
+            }
+            // Search by text
             if (query.search) {
                 filter.$or = [
                     { name: { $regex: query.search, $options: "i" } },
@@ -253,6 +284,7 @@ class ProductService {
                     { metaKeywords: { $regex: query.search, $options: "i" } },
                 ];
             }
+            console.log("[ProductService.search] Filter:", JSON.stringify(filter, null, 2));
             const sortField = query.sortBy || "createdAt";
             const sortDir = (query.sortOrder || "desc") === "asc" ? 1 : -1;
             const sort = { [sortField]: sortDir };

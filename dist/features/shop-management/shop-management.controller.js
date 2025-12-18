@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getOrderTimelineController = exports.deleteInternalNoteController = exports.getInternalNotesController = exports.addInternalNoteController = exports.batchPrintOrdersController = exports.getMyShopFollowersController = exports.getMyShopReviewsController = exports.getMyShopAnalyticsController = exports.updateMyShopOrderStatusController = exports.getMyShopOrderController = exports.getMyShopOrdersController = exports.deleteMyShopProductController = exports.getMyShopProductController = exports.updateMyShopProductController = exports.createMyShopProductController = exports.getMyShopProductsController = exports.updateMyShopController = exports.getMyShopController = void 0;
+exports.getOrderTimelineController = exports.deleteInternalNoteController = exports.getInternalNotesController = exports.addInternalNoteController = exports.batchPrintOrdersController = exports.getMyShopFollowersController = exports.getMyShopReviewsController = exports.getMyShopAnalyticsController = exports.updateMyShopOrderStatusController = exports.getMyShopOrderController = exports.getMyShopOrderStatisticsController = exports.getMyShopOrdersController = exports.deleteMyShopProductController = exports.getMyShopProductController = exports.updateMyShopProductController = exports.createMyShopProductController = exports.getMyShopProductsController = exports.updateMyShopController = exports.getMyShopController = void 0;
 const shop_management_service_1 = __importDefault(require("./shop-management.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 // Lấy thông tin shop của user hiện tại
@@ -93,6 +93,15 @@ const getMyShopOrdersController = async (req, res) => {
     });
 };
 exports.getMyShopOrdersController = getMyShopOrdersController;
+// Lấy thống kê đơn hàng theo trạng thái
+const getMyShopOrderStatisticsController = async (req, res) => {
+    const result = await shop_management_service_1.default.getMyShopOrderStatistics(req);
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
+    return response_util_1.ResponseUtil.success(res, result.stats);
+};
+exports.getMyShopOrderStatisticsController = getMyShopOrderStatisticsController;
 // Lấy chi tiết đơn hàng
 const getMyShopOrderController = async (req, res) => {
     const { orderId } = req.params;
