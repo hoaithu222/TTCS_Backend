@@ -92,6 +92,10 @@ export const topShopsController = async (req: Request, res: Response) => {
       (result as any).message,
       (result as any).status
     );
+  
+  // Debug: Log để kiểm tra dữ liệu
+  console.log("🔍 [TopShops Controller] Result items:", JSON.stringify(result.items, null, 2));
+  
   return ResponseUtil.success(res, result.items);
 };
 

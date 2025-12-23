@@ -73,6 +73,8 @@ const topShopsController = async (req, res) => {
     const result = await analytics_service_1.default.topShops({ from, to, limit });
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    // Debug: Log để kiểm tra dữ liệu
+    console.log("🔍 [TopShops Controller] Result items:", JSON.stringify(result.items, null, 2));
     return response_util_1.ResponseUtil.success(res, result.items);
 };
 exports.topShopsController = topShopsController;

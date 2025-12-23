@@ -254,11 +254,96 @@ export default class AnalyticsService {
   }
 
   static async topShops(params: { from?: Date; to?: Date; limit?: number }) {
-    const { items } = await this.revenueAllShops({
-      from: params.from,
-      to: params.to,
+    console.log("🚀 [Analytics Service] topShops called with params:", params);
+    
+    const match: any = { status: OrderStatus.DELIVERED };
+    if (params.from || params.to) {
+      match.createdAt = {};
+      if (params.from) match.createdAt.$gte = params.from;
+      if (params.to) match.createdAt.$lte = params.to;
+    }
+    
+    console.log("🚀 [Analytics Service] Match condition:", JSON.stringify(match));
+    
+    // Use aggregation with $lookup to join with Shop collection
+    const items = await OrderModel.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: "$shopId",
+          orders: { $sum: 1 },
+          grossRevenue: { $sum: "$totalAmount" },
+          shippingFees: { $sum: "$shippingFee" },
+          discounts: { $sum: "$discountAmount" },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          shopId: "$_id", // Keep as ObjectId
+          orders: 1,
+          grossRevenue: 1,
+          shippingFees: 1,
+          discounts: 1,
+          netRevenue: {
+            $subtract: [
+              { $add: ["$grossRevenue", "$shippingFees"] },
+              "$discounts",
+            ],
+          },
+        },
+      },
+      // Lookup shop information - shopId is already ObjectId from $group
+      {
+        $lookup: {
+          from: "shops",
+          localField: "shopId",
+          foreignField: "_id",
+          as: "shopInfo",
+        },
+      },
+      {
+        $project: {
+          shopId: 1,
+          orders: 1,
+          grossRevenue: 1,
+          shippingFees: 1,
+          discounts: 1,
+          netRevenue: 1,
+          shopName: {
+            $ifNull: [
+              { $arrayElemAt: ["$shopInfo.name", 0] },
+              "Unknown Shop"
+            ]
+          },
+          shopLogo: { $arrayElemAt: ["$shopInfo.logo", 0] },
+          // Calculate AOV
+          averageOrderValue: {
+            $cond: {
+              if: { $gt: ["$orders", 0] },
+              then: { $round: [{ $divide: ["$netRevenue", "$orders"] }] },
+              else: 0,
+            },
+          },
+        },
+      },
+      { $sort: { netRevenue: -1 } },
+      { $limit: params.limit ?? 10 },
+    ]);
+    
+    // Debug: Log để kiểm tra dữ liệu từ aggregation
+    console.log("🔍 [Analytics Service] Top shops aggregation result:", JSON.stringify(items, null, 2));
+    console.log("🔍 [Analytics Service] Number of shops:", items.length);
+    items.forEach((item, index) => {
+      console.log(`🔍 [Analytics Service] Shop ${index + 1}:`, {
+        shopId: item.shopId,
+        shopName: item.shopName,
+        shopInfo: item.shopInfo,
+        hasShopInfo: !!item.shopInfo,
+      });
     });
-    return { ok: true as const, items: items.slice(0, params.limit ?? 10) };
+    
+    return { ok: true as const, items };
   }
 
   static async orderStatusDistribution(params: { from?: Date; to?: Date }) {
