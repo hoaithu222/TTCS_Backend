@@ -972,19 +972,26 @@ class ShopManagementService {
                     },
                 },
             ]);
-            // Top sản phẩm bán chạy (cần populate orderItems)
+            // Top sản phẩm bán chạy (cần populate orderItems và productId)
             const ordersWithItems = await OrderModel_1.default.find(revenueMatch)
-                .populate("orderItems")
+                .populate({
+                path: "orderItems",
+                populate: {
+                    path: "productId",
+                    select: "name",
+                },
+            })
                 .limit(100)
                 .lean();
             const productStats = {};
             ordersWithItems.forEach((order) => {
                 if (order.orderItems && Array.isArray(order.orderItems)) {
                     order.orderItems.forEach((item) => {
-                        const productId = item.productId?.toString() || "unknown";
+                        const product = item.productId;
+                        const productId = product?._id?.toString() || item.productId?.toString() || "unknown";
                         if (!productStats[productId]) {
                             productStats[productId] = {
-                                productName: item.productName || "Unknown",
+                                productName: product?.name || item.productName || "Sản phẩm",
                                 totalSold: 0,
                                 totalRevenue: 0,
                             };

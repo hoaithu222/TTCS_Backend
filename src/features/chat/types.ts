@@ -5,7 +5,7 @@ export interface ChatMessageResponse {
   senderName?: string;
   senderAvatar?: string;
   message: string;
-  type?: "text" | "product" | "call" | "image" | "file";
+  type?: 'text' | 'product' | 'call' | 'image' | 'file';
   attachments?: Array<{
     id?: string;
     url: string;
@@ -31,7 +31,7 @@ export interface ChatConversationResponse {
   unreadCountMe?: number; // Messages from others that current user hasn't read
   unreadCountTo?: number; // Messages from current user that others haven't read
   unreadCount?: number; // Deprecated: kept for backward compatibility, same as unreadCountMe
-  type?: "direct" | "group" | "admin" | "shop" | "ai";
+  type?: 'direct' | 'group' | 'admin' | 'shop' | 'ai';
   channel?: string;
   metadata?: Record<string, any>;
   createdAt: string;
@@ -41,7 +41,7 @@ export interface ChatConversationResponse {
 export interface ConversationListQuery {
   page?: number;
   limit?: number;
-  type?: ChatConversationResponse["type"];
+  type?: ChatConversationResponse['type'];
   channel?: string;
 }
 
@@ -54,13 +54,60 @@ export interface MessageListQuery {
 
 export interface SendMessageRequest {
   message: string;
-  type?: "text" | "product" | "call" | "image" | "file";
+  type?: 'text' | 'product' | 'call' | 'image' | 'file';
   attachments?: Array<{
     url: string;
     type: string;
     name?: string;
   }>;
   metadata?: Record<string, any> | ProductMetadata;
+}
+
+// Call-related types
+export type CallType = 'voice' | 'video';
+export type CallStatus =
+  | 'initiating'
+  | 'ringing'
+  | 'answered'
+  | 'rejected'
+  | 'ended'
+  | 'cancelled'
+  | 'busy'
+  | 'missed';
+
+export interface CallMetadata {
+  callId: string;
+  callType: CallType;
+  status: CallStatus;
+  duration?: number; // in seconds
+  startedAt?: string;
+  endedAt?: string;
+  initiatorId: string;
+  receiverId: string;
+  conversationId: string;
+}
+
+export interface CallInitiateRequest {
+  conversationId: string;
+  callType: CallType; // "voice" | "video"
+  metadata?: Record<string, any>;
+}
+
+export interface CallAnswerRequest {
+  callId: string;
+  conversationId: string;
+}
+
+export interface CallRejectRequest {
+  callId: string;
+  conversationId: string;
+  reason?: string;
+}
+
+export interface CallEndRequest {
+  callId: string;
+  conversationId: string;
+  duration?: number;
 }
 
 // Product metadata structure for shop chat
@@ -75,7 +122,7 @@ export interface ProductMetadata {
 }
 
 export interface CreateConversationRequest {
-  type: "admin" | "shop" | "ai";
+  type: 'admin' | 'shop' | 'ai';
   targetId?: string; // shopId nếu type là "shop" (không cần cho "ai" hoặc "admin")
   metadata?: Record<string, any> | ShopConversationMetadata; // context: productId, orderId, etc.
   initialMessage?: string;
@@ -111,4 +158,3 @@ export interface MessageListResponse {
     totalPages: number;
   };
 }
-

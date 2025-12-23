@@ -44,9 +44,9 @@ const CHANNEL_TO_NAMESPACE = {
 const ensureAuthenticated = (socket, namespace) => {
     const socketUser = (0, types_1.getSocketUser)(socket);
     if (!socketUser) {
-        socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "Unauthorized chat socket" });
+        socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: 'Unauthorized chat socket' });
         socket.disconnect(true);
-        throw new Error("Unauthorized chat socket");
+        throw new Error('Unauthorized chat socket');
     }
     return socketUser;
 };
@@ -59,7 +59,7 @@ const registerChatNamespace = (io, authMiddleware, options) => {
         if (options.allowedRoles &&
             (!socketUser.role || !options.allowedRoles.includes(socketUser.role))) {
             socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
-                message: "Forbidden: role not allowed in chat channel",
+                message: 'Forbidden: role not allowed in chat channel',
             });
             socket.disconnect(true);
             return;
@@ -117,27 +117,31 @@ const registerChatNamespace = (io, authMiddleware, options) => {
             }
         });
         socket.on(socket_1.SOCKET_EVENTS.CHAT_MESSAGE_SEND, async (payload) => {
-            // Allow empty message if there are attachments  
+            // Allow empty message if there are attachments
             const hasAttachments = payload.attachments && payload.attachments.length > 0;
             if (!payload?.message && !hasAttachments) {
-                socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "Message or attachment is required" });
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: 'Message or attachment is required',
+                });
                 return;
             }
             try {
                 // Import ChatService dynamically to avoid circular dependency
-                const ChatService = (await Promise.resolve().then(() => __importStar(require("../../features/chat/chat.service")))).default;
-                const UserModel = (await Promise.resolve().then(() => __importStar(require("../../models/UserModel")))).default;
-                const ChatConversationModel = (await Promise.resolve().then(() => __importStar(require("../../models/ChatConversation")))).default;
-                const ChatMessageModel = (await Promise.resolve().then(() => __importStar(require("../../models/ChatMessage")))).default;
-                const ShopModel = (await Promise.resolve().then(() => __importStar(require("../../models/ShopModel")))).default;
+                const ChatService = (await Promise.resolve().then(() => __importStar(require('../../features/chat/chat.service'))))
+                    .default;
+                const UserModel = (await Promise.resolve().then(() => __importStar(require('../../models/UserModel')))).default;
+                const ChatConversationModel = (await Promise.resolve().then(() => __importStar(require('../../models/ChatConversation')))).default;
+                const ChatMessageModel = (await Promise.resolve().then(() => __importStar(require('../../models/ChatMessage'))))
+                    .default;
+                const ShopModel = (await Promise.resolve().then(() => __importStar(require('../../models/ShopModel')))).default;
                 let conversationId = payload.conversationId;
                 // If no conversationId, create a new conversation
                 if (!conversationId) {
                     const currentUser = await UserModel.findById(socketUser.userId)
-                        .select("name fullName email avatar role")
+                        .select('name fullName email avatar role')
                         .lean();
                     if (!currentUser) {
-                        socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "User not found" });
+                        socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: 'User not found' });
                         return;
                     }
                     let participants = [
@@ -148,18 +152,22 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                             role: currentUser.role,
                         },
                     ];
-                    let conversationType = "direct";
+                    let conversationType = 'direct';
                     let channel = options.channel;
                     let metadata = payload.metadata || {};
                     // Use conversationType from payload, fallback to type for backward compatibility
                     const convType = payload.conversationType || payload.type;
-                    if (convType === "admin") {
+                    if (convType === 'admin') {
                         // Find an admin user
-                        const admin = await UserModel.findOne({ role: { $in: ["admin", "moderator"] } })
-                            .select("_id name fullName email avatar role")
+                        const admin = await UserModel.findOne({
+                            role: { $in: ['admin', 'moderator'] },
+                        })
+                            .select('_id name fullName email avatar role')
                             .lean();
                         if (!admin) {
-                            socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "Không tìm thấy admin để chat" });
+                            socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                                message: 'Không tìm thấy admin để chat',
+                            });
                             return;
                         }
                         participants.push({
@@ -168,40 +176,46 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                             avatar: admin.avatar,
                             role: admin.role,
                         });
-                        conversationType = "admin";
-                        channel = "admin";
-                        metadata.context = metadata.context || "CSKH";
+                        conversationType = 'admin';
+                        channel = 'admin';
+                        metadata.context = metadata.context || 'CSKH';
                         metadata.isSupport = true;
                     }
-                    else if (convType === "shop" && payload.targetId) {
+                    else if (convType === 'shop' && payload.targetId) {
                         // Find shop owner
                         const shop = await ShopModel.findById(payload.targetId)
-                            .populate("userId", "name fullName email avatar role logo")
+                            .populate('userId', 'name fullName email avatar role logo')
                             .lean();
                         if (!shop) {
-                            socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "Cửa hàng không tồn tại" });
+                            socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                                message: 'Cửa hàng không tồn tại',
+                            });
                             return;
                         }
                         const shopOwner = shop.userId;
                         if (!shopOwner) {
-                            socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "Chủ cửa hàng không tồn tại" });
+                            socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                                message: 'Chủ cửa hàng không tồn tại',
+                            });
                             return;
                         }
                         participants.push({
                             userId: shopOwner._id,
                             name: shop.name,
                             avatar: shop.logo,
-                            role: "shop",
+                            role: 'shop',
                         });
-                        conversationType = "shop";
+                        conversationType = 'shop';
                         channel = options.channel;
                         metadata.shopId = payload.targetId;
                         metadata.shopName = shop.name;
                     }
                     else {
                         // Default to admin chat if no type specified
-                        const admin = await UserModel.findOne({ role: { $in: ["admin", "moderator"] } })
-                            .select("_id name fullName email avatar role")
+                        const admin = await UserModel.findOne({
+                            role: { $in: ['admin', 'moderator'] },
+                        })
+                            .select('_id name fullName email avatar role')
                             .lean();
                         if (admin) {
                             participants.push({
@@ -210,23 +224,27 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                                 avatar: admin.avatar,
                                 role: admin.role,
                             });
-                            conversationType = "admin";
-                            channel = "admin";
-                            metadata.context = "CSKH";
+                            conversationType = 'admin';
+                            channel = 'admin';
+                            metadata.context = 'CSKH';
                             metadata.isSupport = true;
                         }
                         else {
-                            socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "Không thể tạo cuộc trò chuyện" });
+                            socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                                message: 'Không thể tạo cuộc trò chuyện',
+                            });
                             return;
                         }
                     }
                     // Check if conversation already exists
                     const existingConversation = await ChatConversationModel.findOne({
-                        "participants.userId": { $all: participants.map((p) => p.userId) },
+                        'participants.userId': {
+                            $all: participants.map((p) => p.userId),
+                        },
                         type: conversationType,
                         channel: channel,
-                        ...(convType === "shop" && payload.targetId
-                            ? { "metadata.shopId": payload.targetId }
+                        ...(convType === 'shop' && payload.targetId
+                            ? { 'metadata.shopId': payload.targetId }
                             : {}),
                     }).lean();
                     if (existingConversation) {
@@ -248,24 +266,26 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                 // Verify conversation exists and user is participant
                 const conversation = await ChatConversationModel.findOne({
                     _id: conversationId,
-                    "participants.userId": socketUser.userId,
+                    'participants.userId': socketUser.userId,
                 });
                 if (!conversation) {
-                    socket.emit(socket_1.SOCKET_EVENTS.ERROR, { message: "Cuộc trò chuyện không tồn tại" });
+                    socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                        message: 'Cuộc trò chuyện không tồn tại',
+                    });
                     return;
                 }
                 // Get sender info
                 const sender = await UserModel.findById(socketUser.userId)
-                    .select("name fullName email avatar role")
+                    .select('name fullName email avatar role')
                     .lean();
                 // Determine message type
-                let messageType = payload.type || "text";
+                let messageType = payload.type || 'text';
                 // Auto-detect type from metadata if not provided
                 if (!payload.type && payload.metadata?.productId) {
-                    messageType = "product";
+                    messageType = 'product';
                 }
                 // Ensure message has a value (empty string is allowed if attachments exist)
-                const messageText = payload.message != null ? String(payload.message) : "";
+                const messageText = payload.message != null ? String(payload.message) : '';
                 // Create message in database
                 const message = await ChatMessageModel.create({
                     conversationId,
@@ -313,16 +333,18 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                     senderId: socketUser.userId,
                     sentAt: message.createdAt.toISOString(),
                 };
-                namespace.to(room).emit(socket_1.SOCKET_EVENTS.CHAT_MESSAGE_RECEIVE, enrichedPayload);
+                namespace
+                    .to(room)
+                    .emit(socket_1.SOCKET_EVENTS.CHAT_MESSAGE_RECEIVE, enrichedPayload);
                 // Also emit conversation update
                 const updatedConversation = await ChatConversationModel.findById(conversationId)
-                    .populate("lastMessageId")
+                    .populate('lastMessageId')
                     .lean();
                 if (updatedConversation) {
                     // Populate participants
                     const populatedParticipants = await Promise.all(updatedConversation.participants.map(async (p) => {
                         const user = await UserModel.findById(p.userId)
-                            .select("name fullName email avatar role")
+                            .select('name fullName email avatar role')
                             .lean();
                         return {
                             userId: p.userId.toString(),
@@ -353,15 +375,21 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                             unreadCountMe, // Messages from others that this user hasn't read
                             unreadCountTo, // Messages from this user that others haven't read
                             unreadCount: unreadCountMe, // Backward compatibility
-                            type: updatedConversation.type || "direct",
-                            channel: updatedConversation.channel ? String(updatedConversation.channel) : undefined,
+                            type: updatedConversation.type || 'direct',
+                            channel: updatedConversation.channel
+                                ? String(updatedConversation.channel)
+                                : undefined,
                             metadata: updatedConversation.metadata || {},
-                            createdAt: updatedConversation.createdAt?.toISOString() || new Date().toISOString(),
-                            updatedAt: updatedConversation.updatedAt?.toISOString() || new Date().toISOString(),
+                            createdAt: updatedConversation.createdAt?.toISOString() ||
+                                new Date().toISOString(),
+                            updatedAt: updatedConversation.updatedAt?.toISOString() ||
+                                new Date().toISOString(),
                         };
                         // Emit to this specific user's direct room
                         const userRoom = (0, socket_1.buildDirectUserRoom)(participantUserId);
-                        namespace.to(userRoom).emit(socket_1.SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
+                        namespace
+                            .to(userRoom)
+                            .emit(socket_1.SOCKET_EVENTS.CHAT_CONVERSATION_JOIN, {
                             conversationId,
                             conversation: conversationResponse,
                         });
@@ -372,9 +400,9 @@ const registerChatNamespace = (io, authMiddleware, options) => {
                 }
             }
             catch (error) {
-                console.error("[Chat Socket] Error sending message:", error);
+                console.error('[Chat Socket] Error sending message:', error);
                 socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
-                    message: error.message || "Lỗi khi gửi tin nhắn",
+                    message: error.message || 'Lỗi khi gửi tin nhắn',
                 });
             }
         });
@@ -404,6 +432,363 @@ const registerChatNamespace = (io, authMiddleware, options) => {
             socket.to(room).emit(socket_1.SOCKET_EVENTS.CHAT_DELIVERED, {
                 ...payload,
                 userId: socketUser.userId,
+            });
+        });
+        // ============= CALL EVENTS HANDLERS =============
+        // Handle call initiation
+        socket.on(socket_1.SOCKET_EVENTS.CALL_INITIATE, async (payload) => {
+            if (!payload?.conversationId || !payload?.callType) {
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: 'conversationId and callType are required',
+                });
+                return;
+            }
+            try {
+                const ChatConversationModel = (await Promise.resolve().then(() => __importStar(require('../../models/ChatConversation')))).default;
+                const ChatMessageModel = (await Promise.resolve().then(() => __importStar(require('../../models/ChatMessage'))))
+                    .default;
+                const UserModel = (await Promise.resolve().then(() => __importStar(require('../../models/UserModel')))).default;
+                // Verify conversation exists and user is participant
+                const conversation = await ChatConversationModel.findOne({
+                    _id: payload.conversationId,
+                    'participants.userId': socketUser.userId,
+                });
+                if (!conversation) {
+                    socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                        message: 'Conversation not found',
+                    });
+                    return;
+                }
+                // Generate unique call ID
+                const callId = `call_${Date.now()}_${Math.random()
+                    .toString(36)
+                    .substring(7)}`;
+                // Find receiver (the other participant)
+                const receiver = conversation.participants.find((p) => p.userId.toString() !== socketUser.userId.toString());
+                if (!receiver) {
+                    socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                        message: 'Receiver not found in conversation',
+                    });
+                    return;
+                }
+                // Get sender info
+                const sender = await UserModel.findById(socketUser.userId)
+                    .select('name fullName email avatar role')
+                    .lean();
+                // Create call message in database
+                const callMessage = await ChatMessageModel.create({
+                    conversationId: payload.conversationId,
+                    senderId: socketUser.userId,
+                    senderName: sender?.fullName || sender?.name || sender?.email,
+                    senderAvatar: sender?.avatar,
+                    message: payload.callType === 'video'
+                        ? 'Cuộc gọi video'
+                        : 'Cuộc gọi thoại',
+                    type: 'call',
+                    metadata: {
+                        callId,
+                        callType: payload.callType,
+                        status: 'ringing',
+                        initiatorId: socketUser.userId,
+                        receiverId: receiver.userId.toString(),
+                        conversationId: payload.conversationId,
+                        ...payload.metadata,
+                    },
+                    isDelivered: false,
+                    isRead: false,
+                });
+                // Update conversation
+                await ChatConversationModel.findByIdAndUpdate(payload.conversationId, {
+                    lastMessageId: callMessage._id,
+                    lastMessageAt: new Date(),
+                    updatedAt: new Date(),
+                });
+                // Emit call to receiver
+                const receiverRoom = (0, socket_1.buildDirectUserRoom)(receiver.userId.toString());
+                namespace.to(receiverRoom).emit(socket_1.SOCKET_EVENTS.CALL_INCOMING, {
+                    callId,
+                    conversationId: payload.conversationId,
+                    callType: payload.callType,
+                    initiator: {
+                        userId: socketUser.userId,
+                        name: sender?.fullName || sender?.name || sender?.email,
+                        avatar: sender?.avatar,
+                    },
+                    metadata: payload.metadata || {},
+                });
+                // Emit ringing status to initiator
+                socket.emit(socket_1.SOCKET_EVENTS.CALL_RINGING, {
+                    callId,
+                    conversationId: payload.conversationId,
+                    status: 'ringing',
+                });
+                // Emit message to conversation room (for call history)
+                const messageResponse = {
+                    _id: callMessage._id.toString(),
+                    conversationId: payload.conversationId,
+                    senderId: socketUser.userId,
+                    senderName: sender?.fullName || sender?.name || sender?.email,
+                    senderAvatar: sender?.avatar,
+                    message: payload.callType === 'video'
+                        ? 'Cuộc gọi video'
+                        : 'Cuộc gọi thoại',
+                    type: 'call',
+                    metadata: callMessage.metadata,
+                    isRead: false,
+                    isDelivered: false,
+                    createdAt: callMessage.createdAt.toISOString(),
+                    updatedAt: callMessage.updatedAt.toISOString(),
+                };
+                const conversationRoom = (0, socket_1.buildChatConversationRoom)(options.channel, payload.conversationId);
+                namespace
+                    .to(conversationRoom)
+                    .emit(socket_1.SOCKET_EVENTS.CHAT_MESSAGE_RECEIVE, {
+                    conversationId: payload.conversationId,
+                    message: messageResponse,
+                });
+            }
+            catch (error) {
+                console.error('[Chat Socket] Error initiating call:', error);
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: error.message || 'Failed to initiate call',
+                });
+            }
+        });
+        // Handle call answer
+        socket.on(socket_1.SOCKET_EVENTS.CALL_ANSWER, async (payload) => {
+            if (!payload?.callId || !payload?.conversationId) {
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: 'callId and conversationId are required',
+                });
+                return;
+            }
+            try {
+                const ChatMessageModel = (await Promise.resolve().then(() => __importStar(require('../../models/ChatMessage'))))
+                    .default;
+                const ChatConversationModel = (await Promise.resolve().then(() => __importStar(require('../../models/ChatConversation')))).default;
+                // Find call message by callId in metadata
+                const callMessage = await ChatMessageModel.findOne({
+                    conversationId: payload.conversationId,
+                    type: 'call',
+                    'metadata.callId': payload.callId,
+                });
+                if (!callMessage ||
+                    callMessage.metadata?.receiverId !== socketUser.userId) {
+                    socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                        message: 'Call not found or unauthorized',
+                    });
+                    return;
+                }
+                // Update call status
+                const updatedMetadata = {
+                    ...callMessage.metadata,
+                    status: 'answered',
+                    startedAt: new Date().toISOString(),
+                };
+                await ChatMessageModel.findByIdAndUpdate(callMessage._id, {
+                    metadata: updatedMetadata,
+                });
+                // Emit to initiator
+                const initiatorRoom = (0, socket_1.buildDirectUserRoom)(callMessage.metadata?.initiatorId || '');
+                namespace.to(initiatorRoom).emit(socket_1.SOCKET_EVENTS.CALL_STATUS, {
+                    callId: payload.callId,
+                    conversationId: payload.conversationId,
+                    status: 'answered',
+                    receiverId: socketUser.userId,
+                });
+                // Emit to conversation room
+                const conversationRoom = (0, socket_1.buildChatConversationRoom)(options.channel, payload.conversationId);
+                namespace.to(conversationRoom).emit(socket_1.SOCKET_EVENTS.CALL_STATUS, {
+                    callId: payload.callId,
+                    conversationId: payload.conversationId,
+                    status: 'answered',
+                });
+            }
+            catch (error) {
+                console.error('[Chat Socket] Error answering call:', error);
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: error.message || 'Failed to answer call',
+                });
+            }
+        });
+        // Handle call rejection
+        socket.on(socket_1.SOCKET_EVENTS.CALL_REJECT, async (payload) => {
+            if (!payload?.callId || !payload?.conversationId) {
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: 'callId and conversationId are required',
+                });
+                return;
+            }
+            try {
+                const ChatMessageModel = (await Promise.resolve().then(() => __importStar(require('../../models/ChatMessage'))))
+                    .default;
+                // Find and update call message
+                const callMessage = await ChatMessageModel.findOne({
+                    conversationId: payload.conversationId,
+                    type: 'call',
+                    'metadata.callId': payload.callId,
+                });
+                if (callMessage) {
+                    const updatedMetadata = {
+                        ...callMessage.metadata,
+                        status: 'rejected',
+                        endedAt: new Date().toISOString(),
+                        reason: payload.reason,
+                    };
+                    await ChatMessageModel.findByIdAndUpdate(callMessage._id, {
+                        metadata: updatedMetadata,
+                    });
+                    // Emit to initiator
+                    const initiatorRoom = (0, socket_1.buildDirectUserRoom)(callMessage.metadata?.initiatorId || '');
+                    namespace.to(initiatorRoom).emit(socket_1.SOCKET_EVENTS.CALL_STATUS, {
+                        callId: payload.callId,
+                        conversationId: payload.conversationId,
+                        status: 'rejected',
+                        reason: payload.reason,
+                    });
+                }
+            }
+            catch (error) {
+                console.error('[Chat Socket] Error rejecting call:', error);
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: error.message || 'Failed to reject call',
+                });
+            }
+        });
+        // Handle call end
+        socket.on(socket_1.SOCKET_EVENTS.CALL_END, async (payload) => {
+            if (!payload?.callId || !payload?.conversationId) {
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: 'callId and conversationId are required',
+                });
+                return;
+            }
+            try {
+                const ChatMessageModel = (await Promise.resolve().then(() => __importStar(require('../../models/ChatMessage'))))
+                    .default;
+                // Find and update call message
+                const callMessage = await ChatMessageModel.findOne({
+                    conversationId: payload.conversationId,
+                    type: 'call',
+                    'metadata.callId': payload.callId,
+                });
+                if (callMessage) {
+                    const updatedMetadata = {
+                        ...callMessage.metadata,
+                        status: 'ended',
+                        endedAt: new Date().toISOString(),
+                        duration: payload.duration || 0,
+                    };
+                    await ChatMessageModel.findByIdAndUpdate(callMessage._id, {
+                        metadata: updatedMetadata,
+                    });
+                    // Emit to conversation room
+                    const conversationRoom = (0, socket_1.buildChatConversationRoom)(options.channel, payload.conversationId);
+                    namespace.to(conversationRoom).emit(socket_1.SOCKET_EVENTS.CALL_STATUS, {
+                        callId: payload.callId,
+                        conversationId: payload.conversationId,
+                        status: 'ended',
+                        duration: payload.duration,
+                    });
+                }
+            }
+            catch (error) {
+                console.error('[Chat Socket] Error ending call:', error);
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: error.message || 'Failed to end call',
+                });
+            }
+        });
+        // Handle call cancel (initiator cancels before answer)
+        socket.on(socket_1.SOCKET_EVENTS.CALL_CANCEL, async (payload) => {
+            if (!payload?.callId || !payload?.conversationId) {
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: 'callId and conversationId are required',
+                });
+                return;
+            }
+            try {
+                const ChatMessageModel = (await Promise.resolve().then(() => __importStar(require('../../models/ChatMessage'))))
+                    .default;
+                const callMessage = await ChatMessageModel.findOne({
+                    conversationId: payload.conversationId,
+                    type: 'call',
+                    'metadata.callId': payload.callId,
+                    'metadata.initiatorId': socketUser.userId,
+                });
+                if (callMessage && callMessage.metadata?.status === 'ringing') {
+                    const updatedMetadata = {
+                        ...callMessage.metadata,
+                        status: 'cancelled',
+                        endedAt: new Date().toISOString(),
+                    };
+                    await ChatMessageModel.findByIdAndUpdate(callMessage._id, {
+                        metadata: updatedMetadata,
+                    });
+                    // Emit to receiver
+                    const receiverRoom = (0, socket_1.buildDirectUserRoom)(callMessage.metadata?.receiverId || '');
+                    namespace.to(receiverRoom).emit(socket_1.SOCKET_EVENTS.CALL_STATUS, {
+                        callId: payload.callId,
+                        conversationId: payload.conversationId,
+                        status: 'cancelled',
+                    });
+                }
+            }
+            catch (error) {
+                console.error('[Chat Socket] Error cancelling call:', error);
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: error.message || 'Failed to cancel call',
+                });
+            }
+        });
+        // Handle WebRTC offer
+        socket.on(socket_1.SOCKET_EVENTS.CALL_OFFER, (payload) => {
+            if (!payload?.callId || !payload?.conversationId || !payload?.offer) {
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: 'callId, conversationId, and offer are required',
+                });
+                return;
+            }
+            const conversationRoom = (0, socket_1.buildChatConversationRoom)(options.channel, payload.conversationId);
+            socket.to(conversationRoom).emit(socket_1.SOCKET_EVENTS.CALL_OFFER, {
+                callId: payload.callId,
+                conversationId: payload.conversationId,
+                offer: payload.offer,
+                senderId: socketUser.userId,
+            });
+        });
+        // Handle WebRTC answer
+        socket.on(socket_1.SOCKET_EVENTS.CALL_ANSWER_SDP, (payload) => {
+            if (!payload?.callId || !payload?.conversationId || !payload?.answer) {
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: 'callId, conversationId, and answer are required',
+                });
+                return;
+            }
+            const conversationRoom = (0, socket_1.buildChatConversationRoom)(options.channel, payload.conversationId);
+            socket.to(conversationRoom).emit(socket_1.SOCKET_EVENTS.CALL_ANSWER_SDP, {
+                callId: payload.callId,
+                conversationId: payload.conversationId,
+                answer: payload.answer,
+                senderId: socketUser.userId,
+            });
+        });
+        // Handle ICE candidates
+        socket.on(socket_1.SOCKET_EVENTS.CALL_ICE_CANDIDATE, (payload) => {
+            if (!payload?.callId ||
+                !payload?.conversationId ||
+                !payload?.candidate) {
+                socket.emit(socket_1.SOCKET_EVENTS.ERROR, {
+                    message: 'callId, conversationId, and candidate are required',
+                });
+                return;
+            }
+            const conversationRoom = (0, socket_1.buildChatConversationRoom)(options.channel, payload.conversationId);
+            socket.to(conversationRoom).emit(socket_1.SOCKET_EVENTS.CALL_ICE_CANDIDATE, {
+                callId: payload.callId,
+                conversationId: payload.conversationId,
+                candidate: payload.candidate,
+                senderId: socketUser.userId,
             });
         });
         socket.on(socket_1.SOCKET_EVENTS.DISCONNECT, (reason) => {
