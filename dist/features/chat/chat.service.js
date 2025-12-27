@@ -254,16 +254,50 @@ class ChatService {
             };
         }
         // Check if conversation already exists
-        const existingConversation = await ChatConversation_1.default.findOne({
-            "participants.userId": { $all: participants.map((p) => p.userId) },
-            type: conversationType,
-            channel: channel,
-            ...(data.type === "shop" && data.targetId
-                ? { "metadata.shopId": data.targetId }
-                : data.type === "ai"
+        // For admin-shop conversations, check both "admin" and "shop" types to avoid duplicates
+        // This ensures CSKH (admin) and shop owner always use the same conversation
+        let existingConversation = null;
+        if (data.type === "admin" || (data.type === "shop" && data.targetId)) {
+            // For admin-shop conversations, find any existing conversation between these participants
+            // regardless of type (admin or shop) to ensure only one conversation exists
+            const participantIds = participants.map((p) => p.userId);
+            // Build query to find conversation with same participants, regardless of type
+            const query = {
+                "participants.userId": { $all: participantIds },
+                $or: [
+                    // Check for type "admin" conversation (created by shop owner)
+                    {
+                        type: "admin",
+                        channel: "admin",
+                    },
+                    // Check for type "shop" conversation (created by admin)
+                    {
+                        type: "shop",
+                        channel: "shop",
+                    },
+                ],
+            };
+            // If shopId is provided, also check metadata.shopId for more accurate matching
+            if (data.type === "shop" && data.targetId) {
+                query.$or.push({
+                    type: "shop",
+                    channel: "shop",
+                    "metadata.shopId": data.targetId,
+                });
+            }
+            existingConversation = await ChatConversation_1.default.findOne(query).lean();
+        }
+        else {
+            // For other conversation types, use original logic
+            existingConversation = await ChatConversation_1.default.findOne({
+                "participants.userId": { $all: participants.map((p) => p.userId) },
+                type: conversationType,
+                channel: channel,
+                ...(data.type === "ai"
                     ? { "metadata.isAi": true }
                     : {}),
-        }).lean();
+            }).lean();
+        }
         if (existingConversation) {
             // Return existing conversation - use getConversation logic
             const lastMessage = existingConversation.lastMessageId

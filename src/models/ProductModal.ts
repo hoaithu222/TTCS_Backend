@@ -1,5 +1,12 @@
 import mongoose from "mongoose";
 
+export enum ProductStatus {
+  PENDING = "pending",
+  APPROVED = "approved",
+  HIDDEN = "hidden",
+  VIOLATED = "violated",
+}
+
 export const productSchema = new mongoose.Schema(
   {
     name: {
@@ -111,6 +118,24 @@ export const productSchema = new mongoose.Schema(
       required: true,
       default: true,
     },
+    status: {
+      type: String,
+      enum: Object.values(ProductStatus),
+      default: ProductStatus.APPROVED,
+      required: true,
+    },
+    violationNote: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    reviewedAt: {
+      type: Date,
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
     // Product variants (for different colors, sizes, etc.)
     variants: {
       type: [
@@ -166,6 +191,8 @@ export const productSchema = new mongoose.Schema(
 
 // Useful indexes for performance and searchability
 productSchema.index({ shopId: 1, isActive: 1 });
+productSchema.index({ shopId: 1, status: 1 });
+productSchema.index({ status: 1 });
 productSchema.index({ categoryId: 1, subCategoryId: 1, isActive: 1 });
 productSchema.index({ price: 1 });
 productSchema.index({ salesCount: -1 });

@@ -18,4 +18,6 @@ productRouter.get("/:id", product_controller_1.getProductController);
 productRouter.post("/", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin", "shop"]), product_controller_1.createProductController);
 productRouter.put("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin", "shop"]), product_controller_1.updateProductController);
 productRouter.delete("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin", "shop"]), product_controller_1.deleteProductController);
+// Admin only - Update product status
+productRouter.patch("/:id/status", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), product_controller_1.updateProductStatusController);
 exports.default = productRouter;

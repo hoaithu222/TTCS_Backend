@@ -43,6 +43,7 @@ export const listProductController = async (req: Request, res: Response) => {
     minPrice,
     maxPrice,
     isActive,
+    status,
     sortBy,
     sortOrder,
     rating,
@@ -61,6 +62,7 @@ export const listProductController = async (req: Request, res: Response) => {
     minPrice: minPrice != null ? Number(minPrice) : undefined,
     maxPrice: maxPrice != null ? Number(maxPrice) : undefined,
     isActive: typeof isActive === "string" ? isActive === "true" : undefined,
+    status: status as "approved" | "hidden" | "violated" | undefined,
     sortBy,
     sortOrder,
   });
@@ -209,4 +211,13 @@ export const createProductReviewController = async (req: Request, res: Response)
   });
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
   return ResponseUtil.created(res, result.review, "Tạo đánh giá sản phẩm thành công");
+};
+
+// Update product status (admin only)
+export const updateProductStatusController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const payload = req.body;
+  const result = await ProductService.updateStatus(req as AuthenticatedRequest, id, payload);
+  if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
+  return ResponseUtil.success(res, result.product, "Cập nhật trạng thái sản phẩm thành công");
 };

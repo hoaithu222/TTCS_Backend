@@ -155,6 +155,58 @@ export const getMyShopAnalyticsController = async (req: Request, res: Response) 
   return ResponseUtil.success(res, result.analytics);
 };
 
+// 1. Product Portfolio Analysis
+export const getProductPortfolioAnalysisController = async (req: Request, res: Response) => {
+  const query = req.query as unknown as GetAnalyticsQuery;
+  const result = await ShopManagementService.getProductPortfolioAnalysis(
+    req as AuthenticatedRequest,
+    query
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, result.portfolio);
+};
+
+// 2. Customer Trend Compass
+export const getCustomerTrendCompassController = async (req: Request, res: Response) => {
+  const query = req.query as unknown as GetAnalyticsQuery & { productId?: string };
+  const result = await ShopManagementService.getCustomerTrendCompass(
+    req as AuthenticatedRequest,
+    query
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, { trailData: result.trailData });
+};
+
+// 3. Order Forecast
+export const getOrderForecastController = async (req: Request, res: Response) => {
+  const query = req.query as unknown as GetAnalyticsQuery;
+  const result = await ShopManagementService.getOrderForecast(
+    req as AuthenticatedRequest,
+    query
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, { forecastData: result.forecastData });
+};
+
+// 4. Order Cancellation Analysis
+export const getOrderCancellationAnalysisController = async (req: Request, res: Response) => {
+  const query = req.query as unknown as GetAnalyticsQuery;
+  const result = await ShopManagementService.getOrderCancellationAnalysis(
+    req as AuthenticatedRequest,
+    query
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(res, { cancellationData: result.cancellationData });
+};
+
 // Lấy đánh giá shop
 export const getMyShopReviewsController = async (req: Request, res: Response) => {
   const query = req.query as unknown as GetReviewsQuery;

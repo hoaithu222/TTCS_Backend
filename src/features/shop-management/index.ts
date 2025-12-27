@@ -19,6 +19,10 @@ import {
   getInternalNotesController,
   deleteInternalNoteController,
   getOrderTimelineController,
+  getProductPortfolioAnalysisController,
+  getCustomerTrendCompassController,
+  getOrderForecastController,
+  getOrderCancellationAnalysisController,
 } from "./shop-management.controller";
 import {
   authenticateToken,
@@ -67,6 +71,10 @@ shopManagementRouter.delete("/my-shop/orders/notes/:noteId", deleteInternalNoteC
 
 // Analytics
 shopManagementRouter.get("/my-shop/analytics", getMyShopAnalyticsController);
+shopManagementRouter.get("/my-shop/analytics/portfolio", getProductPortfolioAnalysisController);
+shopManagementRouter.get("/my-shop/analytics/customer-trend", getCustomerTrendCompassController);
+shopManagementRouter.get("/my-shop/analytics/order-forecast", getOrderForecastController);
+shopManagementRouter.get("/my-shop/analytics/cancellation", getOrderCancellationAnalysisController);
 
 // Reviews
 shopManagementRouter.get("/my-shop/reviews", getMyShopReviewsController);

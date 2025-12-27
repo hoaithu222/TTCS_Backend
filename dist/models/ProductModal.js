@@ -3,8 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.productSchema = void 0;
+exports.productSchema = exports.ProductStatus = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
+var ProductStatus;
+(function (ProductStatus) {
+    ProductStatus["PENDING"] = "pending";
+    ProductStatus["APPROVED"] = "approved";
+    ProductStatus["HIDDEN"] = "hidden";
+    ProductStatus["VIOLATED"] = "violated";
+})(ProductStatus || (exports.ProductStatus = ProductStatus = {}));
 exports.productSchema = new mongoose_1.default.Schema({
     name: {
         type: String,
@@ -115,6 +122,24 @@ exports.productSchema = new mongoose_1.default.Schema({
         required: true,
         default: true,
     },
+    status: {
+        type: String,
+        enum: Object.values(ProductStatus),
+        default: ProductStatus.APPROVED,
+        required: true,
+    },
+    violationNote: {
+        type: String,
+        trim: true,
+        default: "",
+    },
+    reviewedAt: {
+        type: Date,
+    },
+    reviewedBy: {
+        type: mongoose_1.default.Schema.Types.ObjectId,
+        ref: "User",
+    },
     // Product variants (for different colors, sizes, etc.)
     variants: {
         type: [
@@ -167,6 +192,8 @@ exports.productSchema = new mongoose_1.default.Schema({
 }, { timestamps: true });
 // Useful indexes for performance and searchability
 exports.productSchema.index({ shopId: 1, isActive: 1 });
+exports.productSchema.index({ shopId: 1, status: 1 });
+exports.productSchema.index({ status: 1 });
 exports.productSchema.index({ categoryId: 1, subCategoryId: 1, isActive: 1 });
 exports.productSchema.index({ price: 1 });
 exports.productSchema.index({ salesCount: -1 });

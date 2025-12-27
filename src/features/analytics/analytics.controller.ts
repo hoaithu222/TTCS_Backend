@@ -131,3 +131,183 @@ export const averageOrderValueController = async (
     );
   return ResponseUtil.success(res, result);
 };
+
+// 1. Shop Strength Quadrant
+export const shopStrengthQuadrantController = async (
+  req: Request,
+  res: Response
+) => {
+  const from = req.query.from ? new Date(String(req.query.from)) : undefined;
+  const to = req.query.to ? new Date(String(req.query.to)) : undefined;
+  const period = (req.query.period as "day" | "week" | "month" | "year") || undefined;
+  
+  // Calculate date range based on period if not provided
+  let dateFrom = from;
+  let dateTo = to;
+  if (!dateFrom && !dateTo && period) {
+    const now = new Date();
+    dateTo = new Date(now);
+    dateFrom = new Date(now);
+    switch (period) {
+      case "day":
+        dateFrom.setDate(dateFrom.getDate() - 1);
+        break;
+      case "week":
+        dateFrom.setDate(dateFrom.getDate() - 7);
+        break;
+      case "month":
+        dateFrom.setMonth(dateFrom.getMonth() - 1);
+        break;
+      case "year":
+        dateFrom.setFullYear(dateFrom.getFullYear() - 1);
+        break;
+    }
+  }
+  
+  const result = await AnalyticsService.shopStrengthQuadrant({ from: dateFrom, to: dateTo });
+  if (!result.ok)
+    return ResponseUtil.error(
+      res,
+      (result as any).message,
+      (result as any).status
+    );
+  return ResponseUtil.success(res, result.items);
+};
+
+// 2. Cash Flow Growth with MA30 and Net Profit
+export const cashFlowGrowthController = async (req: Request, res: Response) => {
+  const from = req.query.from ? new Date(String(req.query.from)) : undefined;
+  const to = req.query.to ? new Date(String(req.query.to)) : undefined;
+  const period = (req.query.period as "day" | "week" | "month" | "year") || undefined;
+  const granularity = (req.query.granularity as "day" | "month") || 
+    (period === "year" ? "month" : "day");
+  
+  // Calculate date range based on period if not provided
+  let dateFrom = from;
+  let dateTo = to;
+  if (!dateFrom && !dateTo && period) {
+    const now = new Date();
+    dateTo = new Date(now);
+    dateFrom = new Date(now);
+    switch (period) {
+      case "day":
+        dateFrom.setDate(dateFrom.getDate() - 1);
+        break;
+      case "week":
+        dateFrom.setDate(dateFrom.getDate() - 7);
+        break;
+      case "month":
+        dateFrom.setMonth(dateFrom.getMonth() - 1);
+        break;
+      case "year":
+        dateFrom.setFullYear(dateFrom.getFullYear() - 1);
+        break;
+    }
+  }
+  
+  const result = await AnalyticsService.cashFlowGrowth({
+    from: dateFrom,
+    to: dateTo,
+    granularity,
+  });
+  if (!result.ok)
+    return ResponseUtil.error(
+      res,
+      (result as any).message,
+      (result as any).status
+    );
+  return ResponseUtil.success(res, result.items);
+};
+
+// 3. Payment Method & Device Type Distribution
+export const paymentAndDeviceDistributionController = async (
+  req: Request,
+  res: Response
+) => {
+  const from = req.query.from ? new Date(String(req.query.from)) : undefined;
+  const to = req.query.to ? new Date(String(req.query.to)) : undefined;
+  const period = (req.query.period as "day" | "week" | "month" | "year") || undefined;
+  
+  // Calculate date range based on period if not provided
+  let dateFrom = from;
+  let dateTo = to;
+  if (!dateFrom && !dateTo && period) {
+    const now = new Date();
+    dateTo = new Date(now);
+    dateFrom = new Date(now);
+    switch (period) {
+      case "day":
+        dateFrom.setDate(dateFrom.getDate() - 1);
+        break;
+      case "week":
+        dateFrom.setDate(dateFrom.getDate() - 7);
+        break;
+      case "month":
+        dateFrom.setMonth(dateFrom.getMonth() - 1);
+        break;
+      case "year":
+        dateFrom.setFullYear(dateFrom.getFullYear() - 1);
+        break;
+    }
+  }
+  
+  const result = await AnalyticsService.paymentAndDeviceDistribution({
+    from: dateFrom,
+    to: dateTo,
+  });
+  if (!result.ok)
+    return ResponseUtil.error(
+      res,
+      (result as any).message,
+      (result as any).status
+    );
+  return ResponseUtil.success(res, {
+    paymentMethods: result.paymentMethods,
+    deviceTypes: result.deviceTypes,
+  });
+};
+
+// 4. System Load Stats (API Request Tracking)
+export const systemLoadStatsController = async (req: Request, res: Response) => {
+  const from = req.query.from ? new Date(String(req.query.from)) : undefined;
+  const to = req.query.to ? new Date(String(req.query.to)) : undefined;
+  const period = (req.query.period as "day" | "week" | "month" | "year") || undefined;
+  const granularity = (req.query.granularity as "hour" | "day") || 
+    (period === "year" || period === "month" ? "day" : "hour");
+  
+  // Calculate date range based on period if not provided
+  let dateFrom = from;
+  let dateTo = to;
+  if (!dateFrom && !dateTo && period) {
+    const now = new Date();
+    dateTo = new Date(now);
+    dateFrom = new Date(now);
+    switch (period) {
+      case "day":
+        dateFrom.setDate(dateFrom.getDate() - 1);
+        break;
+      case "week":
+        dateFrom.setDate(dateFrom.getDate() - 7);
+        break;
+      case "month":
+        dateFrom.setMonth(dateFrom.getMonth() - 1);
+        break;
+      case "year":
+        dateFrom.setFullYear(dateFrom.getFullYear() - 1);
+        break;
+    }
+  }
+  
+  const result = await AnalyticsService.systemLoadStats({
+    from: dateFrom,
+    to: dateTo,
+    granularity,
+  });
+  if (!result.ok)
+    return ResponseUtil.error(
+      res,
+      (result as any).message,
+      (result as any).status
+    );
+  return ResponseUtil.success(res, result.items);
+};

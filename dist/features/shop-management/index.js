@@ -31,6 +31,10 @@ shopManagementRouter.get("/my-shop/orders/:orderId/timeline", shop_management_co
 shopManagementRouter.delete("/my-shop/orders/notes/:noteId", shop_management_controller_1.deleteInternalNoteController);
 // Analytics
 shopManagementRouter.get("/my-shop/analytics", shop_management_controller_1.getMyShopAnalyticsController);
+shopManagementRouter.get("/my-shop/analytics/portfolio", shop_management_controller_1.getProductPortfolioAnalysisController);
+shopManagementRouter.get("/my-shop/analytics/customer-trend", shop_management_controller_1.getCustomerTrendCompassController);
+shopManagementRouter.get("/my-shop/analytics/order-forecast", shop_management_controller_1.getOrderForecastController);
+shopManagementRouter.get("/my-shop/analytics/cancellation", shop_management_controller_1.getOrderCancellationAnalysisController);
 // Reviews
 shopManagementRouter.get("/my-shop/reviews", shop_management_controller_1.getMyShopReviewsController);
 // Followers

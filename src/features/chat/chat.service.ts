@@ -303,16 +303,53 @@ export default class ChatService {
     }
 
     // Check if conversation already exists
-    const existingConversation = await ChatConversationModel.findOne({
-      "participants.userId": { $all: participants.map((p) => p.userId) },
-      type: conversationType,
-      channel: channel,
-      ...(data.type === "shop" && data.targetId
-        ? { "metadata.shopId": data.targetId }
-        : data.type === "ai"
-        ? { "metadata.isAi": true }
-        : {}),
-    }).lean();
+    // For admin-shop conversations, check both "admin" and "shop" types to avoid duplicates
+    // This ensures CSKH (admin) and shop owner always use the same conversation
+    let existingConversation: any = null;
+    
+    if (data.type === "admin" || (data.type === "shop" && data.targetId)) {
+      // For admin-shop conversations, find any existing conversation between these participants
+      // regardless of type (admin or shop) to ensure only one conversation exists
+      const participantIds = participants.map((p) => p.userId);
+      
+      // Build query to find conversation with same participants, regardless of type
+      const query: any = {
+        "participants.userId": { $all: participantIds },
+        $or: [
+          // Check for type "admin" conversation (created by shop owner)
+          {
+            type: "admin",
+            channel: "admin",
+          },
+          // Check for type "shop" conversation (created by admin)
+          {
+            type: "shop",
+            channel: "shop",
+          },
+        ],
+      };
+      
+      // If shopId is provided, also check metadata.shopId for more accurate matching
+      if (data.type === "shop" && data.targetId) {
+        query.$or.push({
+          type: "shop",
+          channel: "shop",
+          "metadata.shopId": data.targetId,
+        });
+      }
+      
+      existingConversation = await ChatConversationModel.findOne(query).lean();
+    } else {
+      // For other conversation types, use original logic
+      existingConversation = await ChatConversationModel.findOne({
+        "participants.userId": { $all: participants.map((p) => p.userId) },
+        type: conversationType,
+        channel: channel,
+        ...(data.type === "ai"
+          ? { "metadata.isAi": true }
+          : {}),
+      }).lean();
+    }
 
     if (existingConversation) {
       // Return existing conversation - use getConversation logic

@@ -12,6 +12,7 @@ import {
   trackProductViewController,
   getProductReviewsController,
   createProductReviewController,
+  updateProductStatusController,
 } from "./product.controller";
 import {
   authenticateToken,
@@ -53,6 +54,14 @@ productRouter.delete(
   authenticateToken,
   authorize(["admin", "shop"]),
   deleteProductController
+);
+
+// Admin only - Update product status
+productRouter.patch(
+  "/:id/status",
+  authenticateToken,
+  authorize(["admin"]),
+  updateProductStatusController
 );
 
 export default productRouter;

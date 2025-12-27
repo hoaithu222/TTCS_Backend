@@ -7,6 +7,10 @@ import {
   topShopsController,
   orderStatusDistributionController,
   averageOrderValueController,
+  shopStrengthQuadrantController,
+  cashFlowGrowthController,
+  paymentAndDeviceDistributionController,
+  systemLoadStatsController,
 } from "./analytics.controller";
 import {
   authenticateToken,
@@ -81,6 +85,38 @@ analyticsRouter.get(
   authenticateToken,
   authorize(["admin", "shop"]),
   averageOrderValueController
+);
+
+// 1. Shop Strength Quadrant (Admin only)
+analyticsRouter.get(
+  "/admin/shop-strength",
+  authenticateToken,
+  authorize(["admin"]),
+  shopStrengthQuadrantController
+);
+
+// 2. Cash Flow Growth with MA30 and Net Profit
+analyticsRouter.get(
+  "/admin/cash-flow-growth",
+  authenticateToken,
+  authorize(["admin"]),
+  cashFlowGrowthController
+);
+
+// 3. Payment Method & Device Type Distribution
+analyticsRouter.get(
+  "/admin/payment-device-distribution",
+  authenticateToken,
+  authorize(["admin"]),
+  paymentAndDeviceDistributionController
+);
+
+// 4. System Load Stats (API Request Tracking)
+analyticsRouter.get(
+  "/admin/system-load",
+  authenticateToken,
+  authorize(["admin"]),
+  systemLoadStatsController
 );
 
 export default analyticsRouter;

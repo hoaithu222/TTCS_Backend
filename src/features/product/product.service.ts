@@ -1,10 +1,17 @@
-import ProductModel from "../../models/ProductModal";
+import ProductModel, { ProductStatus } from "../../models/ProductModal";
 import ReviewModel from "../../models/ReviewModel";
+import ShopModel from "../../models/ShopModel";
+import ChatConversationModel from "../../models/ChatConversation";
+import { Types } from "mongoose";
 import {
   CreateProductRequest,
   UpdateProductRequest,
   ListProductQuery,
+  UpdateProductStatusRequest,
 } from "./types";
+import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
+import { notificationService } from "../../shared/services/notification.service";
+import ChatService from "../chat/chat.service";
 
 // Helper function to map product to frontend format
 const mapProduct = async (product: any) => {
@@ -102,7 +109,13 @@ export default class ProductService {
 
   static async create(data: CreateProductRequest) {
     try {
-      const product = await ProductModel.create(data as any);
+      // Auto approve products when shop creates them
+      const productData = {
+        ...data,
+        status: ProductStatus.APPROVED,
+        isActive: true,
+      };
+      const product = await ProductModel.create(productData as any);
       return { ok: true as const, product };
     } catch (error) {
       return {
@@ -150,12 +163,23 @@ export default class ProductService {
       const skip = (page - 1) * limit;
       const filter: any = {};
       
-      // Default to active products for public list
+      // Handle status filter
+      if (query.status) {
+        filter.status = query.status;
+        // If status is approved, also check isActive
+        if (query.status === "approved") {
+          filter.isActive = true;
+        }
+      }
+      // If no status filter, show all products (admin can see all including violated)
+      // Violated products will be excluded in search/featured/recommended (public APIs)
+      
+      // Handle isActive filter (only apply if explicitly provided)
       if (typeof query.isActive === "boolean") {
         filter.isActive = query.isActive;
-      } else {
-        filter.isActive = true; // Default show only active products
       }
+      
+      // If no status and no isActive filter provided, show all products (for admin panel)
       
       if (query.categoryId) filter.categoryId = query.categoryId;
       if (query.subCategoryId) filter.subCategoryId = query.subCategoryId;
@@ -229,7 +253,7 @@ export default class ProductService {
     }
   }
 
-  // Search products
+  // Search products (public - exclude violated products)
   static async search(query: ListProductQuery) {
     try {
       const page =
@@ -241,7 +265,10 @@ export default class ProductService {
           ? Math.min(query.limit as number, 500)
           : 20;
       const skip = (page - 1) * limit;
-      const filter: any = { isActive: true };
+      const filter: any = { 
+        isActive: true,
+        status: { $ne: ProductStatus.VIOLATED }, // Exclude violated products
+      };
 
       if (query.categoryId) filter.categoryId = query.categoryId;
       if (query.subCategoryId) filter.subCategoryId = query.subCategoryId;
@@ -327,7 +354,11 @@ export default class ProductService {
           ? Math.min(query.limit as number, 500)
           : 20;
       const skip = (page - 1) * limit;
-      const filter: any = { isActive: true, rating: { $gte: 4 } };
+      const filter: any = { 
+        isActive: true, 
+        rating: { $gte: 4 },
+        status: { $ne: ProductStatus.VIOLATED }, // Exclude violated products
+      };
 
       if (query.categoryId) filter.categoryId = query.categoryId;
       if (query.subCategoryId) filter.subCategoryId = query.subCategoryId;
@@ -383,7 +414,10 @@ export default class ProductService {
           ? Math.min(query.limit as number, 500)
           : 20;
       const skip = (page - 1) * limit;
-      const filter: any = { isActive: true };
+      const filter: any = { 
+        isActive: true,
+        status: { $ne: ProductStatus.VIOLATED }, // Exclude violated products
+      };
 
       if (query.categoryId) filter.categoryId = query.categoryId;
       if (query.subCategoryId) filter.subCategoryId = query.subCategoryId;
@@ -443,6 +477,7 @@ export default class ProductService {
       const filter: any = {
         _id: { $ne: productId },
         isActive: true,
+        status: { $ne: ProductStatus.VIOLATED }, // Exclude violated products
         $or: [
           { categoryId: product.categoryId },
           { subCategoryId: product.subCategoryId },
@@ -587,6 +622,293 @@ export default class ProductService {
         page,
         limit,
         total,
+      };
+    } catch (error) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: (error as Error).message,
+      };
+    }
+  }
+
+  // Update product status (for admin)
+  static async updateStatus(
+    req: AuthenticatedRequest,
+    id: string,
+    data: UpdateProductStatusRequest
+  ) {
+    try {
+      const product = await ProductModel.findById(id)
+        .populate("shopId", "userId name")
+        .lean();
+      
+      if (!product) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Sản phẩm không tồn tại",
+        };
+      }
+
+      const currentUser = (req as any).currentUser as any;
+      const reviewerId = currentUser?._id?.toString();
+
+      const updateData: any = {
+        status: data.status,
+        reviewedAt: new Date(),
+        reviewedBy: reviewerId,
+      };
+
+      // If status is violated, set violationNote and isActive to false
+      if (data.status === ProductStatus.VIOLATED) {
+        updateData.violationNote = data.violationNote || "Sản phẩm vi phạm quy định";
+        updateData.isActive = false;
+      } else if (data.status === ProductStatus.APPROVED) {
+        updateData.isActive = true;
+      } else if (data.status === ProductStatus.HIDDEN) {
+        updateData.isActive = false;
+      }
+
+      const updatedProduct = await ProductModel.findByIdAndUpdate(
+        id,
+        updateData,
+        { new: true }
+      )
+        .populate({
+          path: "images",
+          select: "url publicId _id",
+        })
+        .populate({
+          path: "shopId",
+          select: "name logo rating _id userId",
+        })
+        .populate({
+          path: "categoryId",
+          select: "name slug _id",
+        })
+        .populate({
+          path: "subCategoryId",
+          select: "name slug _id",
+        })
+        .lean();
+
+      if (!updatedProduct) {
+        return {
+          ok: false as const,
+          status: 404,
+          message: "Không thể cập nhật sản phẩm",
+        };
+      }
+
+      // If product is reopened (changed from VIOLATED to APPROVED), send notification
+      const previousStatus = (product as any).status;
+      if (previousStatus === ProductStatus.VIOLATED && data.status === ProductStatus.APPROVED) {
+        const shop = product.shopId as any;
+        if (shop?.userId) {
+          const shopOwnerId = shop.userId.toString();
+
+          // Send notification
+          try {
+            await notificationService.createAndEmit({
+              userId: shopOwnerId,
+              title: "Sản phẩm đã được mở lại",
+              content: `Sản phẩm "${product.name}" đã được mở lại và có thể hiển thị cho khách hàng.`,
+              type: "success",
+              icon: "check-circle",
+              actionUrl: `/shop/list-product`,
+              metadata: {
+                productId: id,
+                productName: product.name,
+              },
+              priority: "normal",
+            });
+          } catch (notifyError) {
+            console.error("[product] Failed to send reopen notification:", notifyError);
+          }
+
+          // Send chat message to shop - find existing conversation or create new one
+          try {
+            const adminUserId = (req as any).user?.userId;
+            if (!adminUserId) {
+              console.error("[product] Admin userId not found in request");
+            } else {
+              const adminUserIdObj = new Types.ObjectId(adminUserId);
+              const shopOwnerIdObj = new Types.ObjectId(shopOwnerId);
+              
+              const existingConversation = await ChatConversationModel.findOne({
+                $or: [
+                  {
+                    type: "admin",
+                    channel: "admin",
+                    "participants.userId": { $all: [adminUserIdObj, shopOwnerIdObj] },
+                  },
+                  {
+                    type: "shop",
+                    channel: "shop",
+                    "metadata.shopId": shop._id.toString(),
+                    "participants.userId": { $all: [adminUserIdObj, shopOwnerIdObj] },
+                  },
+                ],
+              }).lean();
+
+              let conversationId: string;
+
+              if (existingConversation) {
+                conversationId = existingConversation._id.toString();
+                console.log("[product] Found existing conversation for reopen:", conversationId);
+              } else {
+                const chatResult = await ChatService.createConversation(req, {
+                  type: "shop",
+                  targetId: shop._id.toString(),
+                  metadata: {
+                    context: "product_reopened",
+                    shopId: shop._id.toString(),
+                  },
+                });
+
+                if (!chatResult.ok || !chatResult.data) {
+                  console.error("[product] Failed to create chat conversation for reopen:", chatResult.message);
+                  throw new Error(chatResult.message || "Failed to create conversation");
+                }
+
+                conversationId = chatResult.data._id;
+                console.log("[product] Created new conversation for reopen:", conversationId);
+              }
+
+              // Send message in the conversation
+              const messageResult = await ChatService.sendMessage(req, conversationId, {
+                message: `Sản phẩm "${product.name}" đã được mở lại và có thể hiển thị cho khách hàng.\n\nSản phẩm hiện đã được duyệt và hoạt động bình thường.`,
+                type: "text",
+                metadata: {
+                  productId: id,
+                  productName: product.name,
+                  isSystemMessage: true,
+                },
+              });
+
+              if (!messageResult.ok) {
+                console.error("[product] Failed to send reopen chat message:", messageResult.message);
+              } else {
+                console.log("[product] Successfully sent reopen message to shop");
+              }
+            }
+          } catch (chatError) {
+            console.error("[product] Failed to send reopen chat message:", chatError);
+          }
+        }
+      }
+
+      // If product is violated, send notification and message to shop
+      if (data.status === ProductStatus.VIOLATED) {
+        const shop = product.shopId as any;
+        if (shop?.userId) {
+          const shopOwnerId = shop.userId.toString();
+          const violationNote = data.violationNote || "Sản phẩm vi phạm quy định của sàn";
+
+          // Send notification
+          try {
+            await notificationService.createAndEmit({
+              userId: shopOwnerId,
+              title: "Sản phẩm bị đánh dấu vi phạm",
+              content: `Sản phẩm "${product.name}" đã bị đánh dấu vi phạm. Lý do: ${violationNote}`,
+              type: "warning",
+              icon: "alert-triangle",
+              actionUrl: `/chat`,
+              metadata: {
+                productId: id,
+                productName: product.name,
+                violationNote,
+              },
+              priority: "high",
+            });
+          } catch (notifyError) {
+            console.error("[product] Failed to send notification:", notifyError);
+          }
+
+          // Send chat message to shop - find existing conversation or create new one
+          try {
+            // First, try to find existing conversation between admin and shop owner
+            const adminUserId = (req as any).user?.userId;
+            if (!adminUserId) {
+              console.error("[product] Admin userId not found in request");
+            } else {
+              // Find existing conversation between admin and shop owner
+              // Convert to ObjectId for proper comparison
+              const adminUserIdObj = new Types.ObjectId(adminUserId);
+              const shopOwnerIdObj = new Types.ObjectId(shopOwnerId);
+              
+              const existingConversation = await ChatConversationModel.findOne({
+                $or: [
+                  // Conversation with type "admin" (created by shop owner)
+                  {
+                    type: "admin",
+                    channel: "admin",
+                    "participants.userId": { $all: [adminUserIdObj, shopOwnerIdObj] },
+                  },
+                  // Conversation with type "shop" (created by admin)
+                  {
+                    type: "shop",
+                    channel: "shop",
+                    "metadata.shopId": shop._id.toString(),
+                    "participants.userId": { $all: [adminUserIdObj, shopOwnerIdObj] },
+                  },
+                ],
+              }).lean();
+
+              let conversationId: string;
+
+              if (existingConversation) {
+                // Use existing conversation
+                conversationId = existingConversation._id.toString();
+                console.log("[product] Found existing conversation:", conversationId);
+              } else {
+                // Create new conversation if not found
+                const chatResult = await ChatService.createConversation(req, {
+                  type: "shop",
+                  targetId: shop._id.toString(),
+                  metadata: {
+                    context: "product_violation",
+                    shopId: shop._id.toString(),
+                  },
+                });
+
+                if (!chatResult.ok || !chatResult.data) {
+                  console.error("[product] Failed to create chat conversation:", chatResult.message);
+                  throw new Error(chatResult.message || "Failed to create conversation");
+                }
+
+                conversationId = chatResult.data._id;
+                console.log("[product] Created new conversation:", conversationId);
+              }
+
+              // Send message in the conversation
+              const messageResult = await ChatService.sendMessage(req, conversationId, {
+                message: `Sản phẩm "${product.name}" đã bị đánh dấu vi phạm.\n\nLý do: ${violationNote}\n\nVui lòng kiểm tra và chỉnh sửa sản phẩm để tuân thủ quy định của sàn.`,
+                type: "text",
+                metadata: {
+                  productId: id,
+                  productName: product.name,
+                  violationNote,
+                  isSystemMessage: true,
+                },
+              });
+
+              if (!messageResult.ok) {
+                console.error("[product] Failed to send chat message:", messageResult.message);
+              } else {
+                console.log("[product] Successfully sent violation message to shop");
+              }
+            }
+          } catch (chatError) {
+            console.error("[product] Failed to send chat message:", chatError);
+          }
+        }
+      }
+
+      return {
+        ok: true as const,
+        product: await mapProduct(updatedProduct),
       };
     } catch (error) {
       return {

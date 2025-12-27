@@ -24,4 +24,12 @@ analyticsRouter.get("/top/shops", auth_middleware_1.authenticateToken, (0, auth_
 analyticsRouter.get("/orders/status-distribution", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), analytics_controller_1.orderStatusDistributionController);
 // Average order value
 analyticsRouter.get("/orders/aov", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin", "shop"]), analytics_controller_1.averageOrderValueController);
+// 1. Shop Strength Quadrant (Admin only)
+analyticsRouter.get("/admin/shop-strength", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), analytics_controller_1.shopStrengthQuadrantController);
+// 2. Cash Flow Growth with MA30 and Net Profit
+analyticsRouter.get("/admin/cash-flow-growth", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), analytics_controller_1.cashFlowGrowthController);
+// 3. Payment Method & Device Type Distribution
+analyticsRouter.get("/admin/payment-device-distribution", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), analytics_controller_1.paymentAndDeviceDistributionController);
+// 4. System Load Stats (API Request Tracking)
+analyticsRouter.get("/admin/system-load", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), analytics_controller_1.systemLoadStatsController);
 exports.default = analyticsRouter;

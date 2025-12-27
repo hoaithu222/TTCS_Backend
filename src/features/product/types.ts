@@ -32,6 +32,12 @@ export interface ListProductQuery {
   rating?: number;
   inStock?: boolean;
   isActive?: boolean;
+  status?: "approved" | "hidden" | "violated";
   sortBy?: "createdAt" | "price" | "rating" | "salesCount" | "viewCount";
   sortOrder?: "asc" | "desc";
+}
+
+export interface UpdateProductStatusRequest {
+  status: "pending" | "approved" | "hidden" | "violated";
+  violationNote?: string;
 }
