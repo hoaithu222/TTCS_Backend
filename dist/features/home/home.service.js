@@ -60,7 +60,7 @@ const mapHomeProduct = (product) => {
     return {
         ...product,
         images: formatImages(product.images),
-        finalPrice: product.price - (product.discount || 0),
+        finalPrice: product.price - (product.price * (product.discount || 0)) / 100,
         shop: product.shopId
             ? {
                 _id: product.shopId._id || product.shopId,

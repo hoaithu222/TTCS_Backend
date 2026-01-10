@@ -17,6 +17,8 @@ walletRouter.post("/withdraw", auth_middleware_1.authenticateToken, wallet_contr
 walletRouter.put("/bank-info", auth_middleware_1.authenticateToken, wallet_controller_1.updateBankInfoController);
 // Transfer between user and shop wallets (authenticated - shop owner only)
 walletRouter.post("/transfer", auth_middleware_1.authenticateToken, wallet_controller_1.transferBetweenWalletsController);
+// Retry a pending/failed transaction (authenticated)
+walletRouter.post("/transactions/:transactionId/retry", auth_middleware_1.authenticateToken, wallet_controller_1.retryTransactionController);
 // Webhook receiver for bank transfer (no auth required)
 // This route should be accessible at /api/webhook-receiver
 walletRouter.post("/webhook-receiver", webhook_controller_1.webhookReceiverController);

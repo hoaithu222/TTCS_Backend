@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPendingTransactionsController = exports.updateTransactionStatusController = exports.transferBetweenWalletsController = exports.updateBankInfoController = exports.withdrawFromShopController = exports.getTransactionsController = exports.createDepositController = exports.getBalanceController = void 0;
+exports.retryTransactionController = exports.getPendingTransactionsController = exports.updateTransactionStatusController = exports.transferBetweenWalletsController = exports.updateBankInfoController = exports.withdrawFromShopController = exports.getTransactionsController = exports.createDepositController = exports.getBalanceController = void 0;
 const wallet_service_1 = __importDefault(require("./wallet.service"));
 const response_util_1 = require("../../shared/utils/response.util");
 /**
@@ -124,3 +124,20 @@ const getPendingTransactionsController = async (req, res) => {
     });
 };
 exports.getPendingTransactionsController = getPendingTransactionsController;
+/**
+ * Retry a pending/failed transaction
+ */
+const retryTransactionController = async (req, res) => {
+    const { transactionId } = req.params;
+    const result = await wallet_service_1.default.retryTransaction(req, transactionId);
+    if (!result.ok) {
+        return response_util_1.ResponseUtil.error(res, result.message, result.status);
+    }
+    return response_util_1.ResponseUtil.success(res, {
+        transaction: result.transaction,
+        qrCode: result.qrCode,
+        bankAccount: result.bankAccount,
+        message: result.message,
+    }, "Transaction retry initiated successfully");
+};
+exports.retryTransactionController = retryTransactionController;

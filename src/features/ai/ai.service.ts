@@ -766,7 +766,7 @@ Yêu cầu (trả về JSON):
           _id: p._id.toString(),
           name: p.name,
           price: p.price,
-          finalPrice: p.price - (p.discount || 0),
+          finalPrice: p.price - (p.price * (p.discount || 0)) / 100,
           images: p.images?.slice(0, 1).map((img: any) => ({ url: img.url })) || [],
           shop: p.shopId ? {
             name: p.shopId.name || "",
@@ -1096,7 +1096,7 @@ Yêu cầu (trả về JSON):
       productContext = products
         .slice(0, 8)
         .map((p: any, idx: number) => {
-          const finalPrice = p.price - (p.discount || 0);
+          const finalPrice = p.price - (p.price * (p.discount || 0)) / 100;
           const priceStr = new Intl.NumberFormat("vi-VN").format(finalPrice);
           return `${idx + 1}. ${p.name} - ${priceStr}đ${p.description ? ` - ${p.description.substring(0, 100)}...` : ""}`;
         })
@@ -1323,14 +1323,14 @@ Please respond concisely (3-5 sentences), focusing on value:
     if (hasProducts && hasShops) {
       const topProduct = products[0];
       const topShop = shops[0];
-      const finalPrice = topProduct.price - (topProduct.discount || 0);
+      const finalPrice = topProduct.price - (topProduct.price * (topProduct.discount || 0)) / 100;
       const priceStr = new Intl.NumberFormat("vi-VN").format(finalPrice);
       response = isVietnamese
         ? `Chào bạn! Dựa trên yêu cầu của bạn, tôi thấy sản phẩm "${topProduct.name}" với giá ${priceStr}đ từ cửa hàng "${topShop.name}" có thể phù hợp. Bạn có muốn xem thêm chi tiết không?`
         : `Hello! Based on your request, I found "${topProduct.name}" priced at ${priceStr}đ from "${topShop.name}" that might suit you. Would you like to see more details?`;
     } else if (hasProducts) {
       const topProduct = products[0];
-      const finalPrice = topProduct.price - (topProduct.discount || 0);
+      const finalPrice = topProduct.price - (topProduct.price * (topProduct.discount || 0)) / 100;
       const priceStr = new Intl.NumberFormat("vi-VN").format(finalPrice);
       
       // Check if user asked for specific product
@@ -1375,7 +1375,7 @@ Please respond concisely (3-5 sentences), focusing on value:
         _id: p._id.toString(),
         name: p.name,
         price: p.price,
-        finalPrice: p.price - (p.discount || 0),
+        finalPrice: p.price - (p.price * (p.discount || 0)) / 100,
         images: p.images?.slice(0, 1) || [],
         shop: p.shopId ? {
           name: p.shopId.name || "",

@@ -8,6 +8,7 @@ import {
   transferBetweenWalletsController,
   updateTransactionStatusController,
   getPendingTransactionsController,
+  retryTransactionController,
 } from "./wallet.controller";
 import { webhookReceiverController, testWebhookController } from "./webhook.controller";
 import { authenticateToken, authorize } from "../../shared/middlewares/auth.middleware";
@@ -31,6 +32,9 @@ walletRouter.put("/bank-info", authenticateToken, updateBankInfoController);
 
 // Transfer between user and shop wallets (authenticated - shop owner only)
 walletRouter.post("/transfer", authenticateToken, transferBetweenWalletsController);
+
+// Retry a pending/failed transaction (authenticated)
+walletRouter.post("/transactions/:transactionId/retry", authenticateToken, retryTransactionController);
 
 // Webhook receiver for bank transfer (no auth required)
 // This route should be accessible at /api/webhook-receiver

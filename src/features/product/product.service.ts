@@ -68,7 +68,7 @@ const mapProduct = async (product: any) => {
           slug: product.subCategoryId.slug,
         }
       : undefined,
-    finalPrice: product.price - (product.discount || 0),
+    finalPrice: product.price - (product.price * (product.discount || 0)) / 100,
   };
 };
 

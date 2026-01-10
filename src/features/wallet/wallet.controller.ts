@@ -178,3 +178,27 @@ export const getPendingTransactionsController = async (req: Request, res: Respon
   );
 };
 
+/**
+ * Retry a pending/failed transaction
+ */
+export const retryTransactionController = async (req: Request, res: Response) => {
+  const { transactionId } = req.params;
+  const result = await WalletService.retryTransaction(
+    req as AuthenticatedRequest,
+    transactionId
+  );
+  if (!result.ok) {
+    return ResponseUtil.error(res, result.message, result.status);
+  }
+  return ResponseUtil.success(
+    res,
+    {
+      transaction: result.transaction,
+      qrCode: result.qrCode,
+      bankAccount: result.bankAccount,
+      message: result.message,
+    },
+    "Transaction retry initiated successfully"
+  );
+};
+

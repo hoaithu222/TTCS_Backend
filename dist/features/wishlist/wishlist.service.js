@@ -165,7 +165,7 @@ class WishlistService {
                 }
             }
             const discount = product.discount || 0;
-            const finalPrice = product.price - discount;
+            const finalPrice = product.price - (product.price * discount) / 100;
             return {
                 _id: item._id?.toString() || "",
                 productId: product._id.toString(),

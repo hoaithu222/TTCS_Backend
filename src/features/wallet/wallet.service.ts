@@ -690,6 +690,100 @@ export default class WalletService {
       };
     }
   }
+
+  /**
+   * Retry a pending transaction (usually deposit)
+   * Generates a new QR code for the user to try again
+   */
+  static async retryTransaction(
+    req: AuthenticatedRequest,
+    transactionId: string
+  ) {
+    try {
+      const userId = (req as any).user?.userId;
+
+      // Validate transaction ID
+      if (!mongoose.Types.ObjectId.isValid(transactionId)) {
+        return { ok: false as const, status: 400, message: "Invalid transaction ID" };
+      }
+
+      // Get transaction
+      const transaction = await WalletTransactionModel.findById(transactionId);
+      if (!transaction) {
+        return { ok: false as const, status: 404, message: "Transaction not found" };
+      }
+
+      // Verify ownership
+      if (transaction.userId?.toString() !== userId) {
+        return { ok: false as const, status: 403, message: "Unauthorized" };
+      }
+
+      // Check if transaction is in retry-able status (PENDING or FAILED)
+      if (transaction.status !== WalletTransactionStatus.PENDING && 
+          transaction.status !== WalletTransactionStatus.FAILED) {
+        return {
+          ok: false as const,
+          status: 400,
+          message: `Cannot retry transaction with status: ${transaction.status}`,
+        };
+      }
+
+      // Check if transaction is a deposit
+      if (transaction.type !== WalletTransactionType.DEPOSIT) {
+        return {
+          ok: false as const,
+          status: 400,
+          message: "Only deposit transactions can be retried",
+        };
+      }
+
+      // Reset to PENDING for retry
+      transaction.status = WalletTransactionStatus.PENDING;
+      transaction.metadata = {
+        ...transaction.metadata,
+        retryAttempts: ((transaction.metadata?.retryAttempts || 0) + 1) as number,
+        lastRetryAt: new Date().toISOString(),
+      };
+      await transaction.save();
+
+      // Generate new QR code
+      const amount = transaction.amount;
+      const bankName = process.env.BANK_NAME || "MBBank";
+      const accountNumber = process.env.BANK_ACCOUNT_NUMBER || "0982512466";
+      const accountHolder = process.env.BANK_ACCOUNT_HOLDER || "Công ty TNHH ABC";
+
+      const description = `Deposit ${transactionId.substring(0, 8)}`;
+      const QR_CODE_BASE_URL = "https://qr.sepay.vn/img";
+      
+      // Build QR code URL with proper encoding
+      const qrParams = new URLSearchParams({
+        bank: bankName,
+        account: accountNumber,
+        amount: amount.toString(),
+        description: description,
+      }).toString();
+      
+      const qrCode = `${QR_CODE_BASE_URL}?${qrParams}`;
+
+      return {
+        ok: true as const,
+        transaction: transaction.toObject(),
+        qrCode,
+        bankAccount: {
+          bankName,
+          accountNumber,
+          accountHolder,
+        },
+        message: "Transaction retry initiated. Please complete the payment again.",
+      };
+    } catch (error: any) {
+      return {
+        ok: false as const,
+        status: 500,
+        message: error.message || "Failed to retry transaction",
+      };
+    }
+  }
 }
 
 

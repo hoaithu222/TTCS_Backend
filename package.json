@@ -16,7 +16,8 @@
     "seed:products:extra": "ts-node scripts/seed-products-techzone-extra.ts",
     "cleanup:products": "ts-node scripts/cleanup-products-by-shop-status.ts",
     "cleanup:users": "ts-node scripts/cleanup-shops-by-user-status.ts",
-    "cleanup:chats": "ts-node scripts/cleanup-chat-conversations.ts"
+    "cleanup:chats": "ts-node scripts/cleanup-chat-conversations.ts",
+    "delete:conversation": "ts-node scripts/delete-conversation.ts"
   },
   "keywords": [],
   "author": "",
