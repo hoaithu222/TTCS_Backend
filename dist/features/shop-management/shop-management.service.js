@@ -596,7 +596,6 @@ class ShopManagementService {
             : 50;
         // Map status to orderStatus for frontend compatibility
         const orderStatus = orderDoc.status || orderDoc.orderStatus || "pending";
-        
         return {
             ...orderDoc,
             orderStatus, // Ensure orderStatus is always present
