@@ -2,6 +2,7 @@ import OrderModel, { OrderStatus } from "../../models/OrderModel";
 import OrderItemModel from "../../models/OrderItem";
 import ShopModel from "../../models/ShopModel";
 import ReviewModel from "../../models/ReviewModel";
+import WalletTransactionModel, { WalletTransactionType, WalletTransactionStatus } from "../../models/WalletModel";
 import PaymentModel, { PaymentMethod } from "../../models/PaymentModel";
 
 export default class AnalyticsService {
@@ -400,7 +401,10 @@ export default class AnalyticsService {
     granularity?: "day" | "month";
     shopId?: string;
   }) {
-    const match: any = { status: OrderStatus.DELIVERED };
+    const match: any = { 
+      status: OrderStatus.DELIVERED,
+      isPay: true, // Only count paid orders
+    };
     if (params.shopId) match.shopId = params.shopId as any;
     if (params.from || params.to) {
       match.createdAt = {} as any;
@@ -446,54 +450,74 @@ export default class AnalyticsService {
   }
 
   // New method for wallet transactions (Stacked Bar Chart)
+  // Lấy data từ WalletTransactionModel thực sự
   static async walletTransactionsTimeSeries(params: {
     from?: Date;
     to?: Date;
     shopId?: string;
   }) {
-    const match: any = { status: OrderStatus.DELIVERED };
-    if (params.shopId) match.shopId = params.shopId as any;
+    const match: any = { 
+      status: WalletTransactionStatus.COMPLETED, // Chỉ lấy giao dịch đã hoàn tất
+    };
+    
+    if (params.shopId) {
+      match.shopId = params.shopId as any;
+    }
+    
     if (params.from || params.to) {
       match.createdAt = {} as any;
       if (params.from) (match.createdAt as any).$gte = params.from;
       if (params.to) (match.createdAt as any).$lte = params.to;
     }
 
-    const items = await OrderModel.aggregate([
+    // Query wallet transactions
+    const items = await WalletTransactionModel.aggregate([
       { $match: match },
       {
         $project: {
           month: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-          totalAmount: 1,
-          shippingFee: 1,
-          discountAmount: 1,
+          type: 1,
+          amount: 1,
         },
       },
       {
         $group: {
           _id: "$month",
-          revenue: { $sum: "$totalAmount" },
-          shippingFees: { $sum: "$shippingFee" },
-          discounts: { $sum: "$discountAmount" },
+          // Income: REVENUE transactions (shop nhận tiền từ đơn hàng)
+          income: {
+            $sum: {
+              $cond: [
+                { $eq: ["$type", WalletTransactionType.REVENUE] },
+                "$amount",
+                0
+              ]
+            }
+          },
+          // Expense: WITHDRAW (rút tiền) + REFUND (hoàn tiền) transactions
+          expense: {
+            $sum: {
+              $cond: [
+                {
+                  $in: ["$type", [WalletTransactionType.WITHDRAW, WalletTransactionType.REFUND]]
+                },
+                "$amount",
+                0
+              ]
+            }
+          },
         },
       },
       {
         $project: {
           _id: 0,
           month: "$_id",
-          // Income: revenue + shipping
-          income: { $add: ["$revenue", "$shippingFees"] },
-          // Expense: discounts + platform fees (assuming 5% platform fee)
-          expense: {
-            $add: [
-              "$discounts",
-              { $multiply: [{ $add: ["$revenue", "$shippingFees"] }, 0.05] }
-            ]
-          },
+          income: { $ifNull: ["$income", 0] },
+          expense: { $ifNull: ["$expense", 0] },
         },
       },
       { $sort: { month: 1 } },
     ]);
+    
     return { ok: true as const, items };
   }
 

@@ -935,33 +935,46 @@ class ShopManagementService {
             }
             const shopId = shop._id.toString();
             // Calculate date range from period if startDate/endDate not provided
+            // Default to last 30 days if no period or date range specified
             let fromDate;
             let toDate;
             if (query.startDate && query.endDate) {
+                // Parse startDate as beginning of day
                 fromDate = new Date(query.startDate);
+                fromDate.setHours(0, 0, 0, 0);
+                // Parse endDate as end of day (include the entire day)
                 toDate = new Date(query.endDate);
+                toDate.setHours(23, 59, 59, 999);
             }
-            else if (query.period) {
+            else {
                 const now = new Date();
                 toDate = new Date(now);
+                toDate.setHours(23, 59, 59, 999); // End of today
                 fromDate = new Date(now);
-                switch (query.period) {
-                    case "day":
-                        fromDate.setDate(fromDate.getDate() - 1);
-                        break;
-                    case "week":
-                        fromDate.setDate(fromDate.getDate() - 7);
-                        break;
-                    case "month":
-                        fromDate.setDate(fromDate.getDate() - 30);
-                        break;
-                    case "year":
-                        fromDate.setFullYear(fromDate.getFullYear() - 1);
-                        break;
-                    default:
-                        // Default to 30 days if period is invalid
-                        fromDate.setDate(fromDate.getDate() - 30);
-                        break;
+                fromDate.setHours(0, 0, 0, 0); // Start of today
+                if (query.period) {
+                    switch (query.period) {
+                        case "day":
+                            fromDate.setDate(fromDate.getDate() - 1);
+                            break;
+                        case "week":
+                            fromDate.setDate(fromDate.getDate() - 7);
+                            break;
+                        case "month":
+                            fromDate.setDate(fromDate.getDate() - 30);
+                            break;
+                        case "year":
+                            fromDate.setFullYear(fromDate.getFullYear() - 1);
+                            break;
+                        default:
+                            // Default to 30 days if period is invalid
+                            fromDate.setDate(fromDate.getDate() - 30);
+                            break;
+                    }
+                }
+                else {
+                    // Default to 30 days if no period specified
+                    fromDate.setDate(fromDate.getDate() - 30);
                 }
             }
             const dateFilter = {};
@@ -969,11 +982,15 @@ class ShopManagementService {
                 dateFilter.$gte = fromDate;
             if (toDate)
                 dateFilter.$lte = toDate;
-            // Tổng doanh thu
-            const revenueMatch = {
+            // Tổng doanh thu - base match không có dateFilter (sẽ add sau nếu cần)
+            const revenueMatchBase = {
                 shopId: shop._id,
                 status: { $in: ["delivered"] },
                 isPay: true,
+            };
+            // Tổng doanh thu với dateFilter
+            const revenueMatch = {
+                ...revenueMatchBase,
             };
             if (Object.keys(dateFilter).length > 0) {
                 revenueMatch.createdAt = dateFilter;
@@ -1008,6 +1025,18 @@ class ShopManagementService {
                     },
                 },
             ]);
+            // Initialize ordersByStatus with all possible statuses
+            const defaultStatuses = {
+                pending: 0,
+                processing: 0,
+                shipped: 0,
+                delivered: 0,
+                cancelled: 0,
+            };
+            const ordersByStatusMap = ordersByStatus.reduce((acc, item) => {
+                acc[item._id] = item.count;
+                return acc;
+            }, { ...defaultStatuses });
             // Top sản phẩm bán chạy (cần populate orderItems và productId)
             const ordersWithItems = await OrderModel_1.default.find(revenueMatch)
                 .populate({
@@ -1121,15 +1150,16 @@ class ShopManagementService {
                     lastOrderDate: customer.lastOrderDate,
                 };
             }));
-            // Doanh thu theo thời gian (7 ngày gần nhất)
+            // Doanh thu theo thời gian - sử dụng cùng dateFilter với revenue
+            // Luôn sử dụng dateFilter đã được tính toán ở trên
+            const revenueByDateFilter = dateFilter;
+            const revenueByDateMatch = {
+                ...revenueMatchBase,
+                createdAt: revenueByDateFilter,
+            };
             const revenueByDate = await OrderModel_1.default.aggregate([
                 {
-                    $match: {
-                        ...revenueMatch,
-                        createdAt: {
-                            $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-                        },
-                    },
+                    $match: revenueByDateMatch,
                 },
                 {
                     $group: {
@@ -1142,15 +1172,16 @@ class ShopManagementService {
                 },
                 { $sort: { _id: 1 } },
             ]);
-            // Doanh thu theo tháng (6 tháng gần nhất)
+            // Doanh thu theo tháng - sử dụng cùng dateFilter với revenue
+            // Luôn sử dụng dateFilter đã được tính toán ở trên
+            const revenueByMonthFilter = dateFilter;
+            const revenueByMonthMatch = {
+                ...revenueMatchBase,
+                createdAt: revenueByMonthFilter,
+            };
             const revenueByMonth = await OrderModel_1.default.aggregate([
                 {
-                    $match: {
-                        ...revenueMatch,
-                        createdAt: {
-                            $gte: new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000),
-                        },
-                    },
+                    $match: revenueByMonthMatch,
                 },
                 {
                     $group: {
@@ -1204,13 +1235,10 @@ class ShopManagementService {
             });
             const analytics = {
                 revenue: revenueResult[0]?.totalRevenue || 0,
-                totalOrders,
-                productsCount,
-                ordersByStatus: ordersByStatus.reduce((acc, item) => {
-                    acc[item._id] = item.count;
-                    return acc;
-                }, {}),
-                topProducts,
+                totalOrders: totalOrders || 0,
+                productsCount: productsCount || 0,
+                ordersByStatus: ordersByStatusMap,
+                topProducts: topProducts || [],
                 inventory: {
                     totalStock: inventoryData.totalStock,
                     lowStockCount: inventoryData.lowStockCount,

@@ -16,7 +16,7 @@ export const addToWishlistController = async (req: Request, res: Response) => {
     productId
   );
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
-  return ResponseUtil.success(res, { wishlist: result.wishlist }, result.message);
+  return ResponseUtil.success(res, { wishlist: result.wishlist }, "Đã thêm sản phẩm vào danh sách yêu thích");
 };
 
 export const removeFromWishlistController = async (

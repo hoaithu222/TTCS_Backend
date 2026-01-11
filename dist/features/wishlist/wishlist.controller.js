@@ -18,7 +18,7 @@ const addToWishlistController = async (req, res) => {
     const result = await wishlist_service_1.default.addItem(req, productId);
     if (!result.ok)
         return response_util_1.ResponseUtil.error(res, result.message, result.status);
-    return response_util_1.ResponseUtil.success(res, { wishlist: result.wishlist }, result.message);
+    return response_util_1.ResponseUtil.success(res, { wishlist: result.wishlist }, "Đã thêm sản phẩm vào danh sách yêu thích");
 };
 exports.addToWishlistController = addToWishlistController;
 const removeFromWishlistController = async (req, res) => {

@@ -38,6 +38,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const OrderModel_1 = __importStar(require("../../models/OrderModel"));
 const OrderItem_1 = __importDefault(require("../../models/OrderItem"));
+const WalletModel_1 = __importStar(require("../../models/WalletModel"));
 const PaymentModel_1 = require("../../models/PaymentModel");
 class AnalyticsService {
     static async revenueByShop(params) {
@@ -401,7 +402,10 @@ class AnalyticsService {
     }
     // New method for revenue vs profit data (Area Chart)
     static async revenueVsProfitTimeSeries(params) {
-        const match = { status: OrderModel_1.OrderStatus.DELIVERED };
+        const match = {
+            status: OrderModel_1.OrderStatus.DELIVERED,
+            isPay: true, // Only count paid orders
+        };
         if (params.shopId)
             match.shopId = params.shopId;
         if (params.from || params.to) {
@@ -449,10 +453,14 @@ class AnalyticsService {
         return { ok: true, items };
     }
     // New method for wallet transactions (Stacked Bar Chart)
+    // Lấy data từ WalletTransactionModel thực sự
     static async walletTransactionsTimeSeries(params) {
-        const match = { status: OrderModel_1.OrderStatus.DELIVERED };
-        if (params.shopId)
+        const match = {
+            status: WalletModel_1.WalletTransactionStatus.COMPLETED, // Chỉ lấy giao dịch đã hoàn tất
+        };
+        if (params.shopId) {
             match.shopId = params.shopId;
+        }
         if (params.from || params.to) {
             match.createdAt = {};
             if (params.from)
@@ -460,37 +468,49 @@ class AnalyticsService {
             if (params.to)
                 match.createdAt.$lte = params.to;
         }
-        const items = await OrderModel_1.default.aggregate([
+        // Query wallet transactions
+        const items = await WalletModel_1.default.aggregate([
             { $match: match },
             {
                 $project: {
                     month: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-                    totalAmount: 1,
-                    shippingFee: 1,
-                    discountAmount: 1,
+                    type: 1,
+                    amount: 1,
                 },
             },
             {
                 $group: {
                     _id: "$month",
-                    revenue: { $sum: "$totalAmount" },
-                    shippingFees: { $sum: "$shippingFee" },
-                    discounts: { $sum: "$discountAmount" },
+                    // Income: REVENUE transactions (shop nhận tiền từ đơn hàng)
+                    income: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$type", WalletModel_1.WalletTransactionType.REVENUE] },
+                                "$amount",
+                                0
+                            ]
+                        }
+                    },
+                    // Expense: WITHDRAW (rút tiền) + REFUND (hoàn tiền) transactions
+                    expense: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $in: ["$type", [WalletModel_1.WalletTransactionType.WITHDRAW, WalletModel_1.WalletTransactionType.REFUND]]
+                                },
+                                "$amount",
+                                0
+                            ]
+                        }
+                    },
                 },
             },
             {
                 $project: {
                     _id: 0,
                     month: "$_id",
-                    // Income: revenue + shipping
-                    income: { $add: ["$revenue", "$shippingFees"] },
-                    // Expense: discounts + platform fees (assuming 5% platform fee)
-                    expense: {
-                        $add: [
-                            "$discounts",
-                            { $multiply: [{ $add: ["$revenue", "$shippingFees"] }, 0.05] }
-                        ]
-                    },
+                    income: { $ifNull: ["$income", 0] },
+                    expense: { $ifNull: ["$expense", 0] },
                 },
             },
             { $sort: { month: 1 } },
