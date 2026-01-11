@@ -87,7 +87,7 @@ export const notificationService = {
       title,
       content,
       type: "order:new",
-      actionUrl: `/profile?tab=orders`,
+      actionUrl: `/shop/orders`,
       metadata: {
         orderId: options.orderId,
         orderCode,
@@ -262,7 +262,7 @@ export const notificationService = {
         options.shopName
       }`,
       type: "shop:follower",
-      actionUrl: `/shop/${options.shopId}`,
+      actionUrl: `/shop/dashboard`,
       metadata: {
         shopId: options.shopId,
         shopName: options.shopName,

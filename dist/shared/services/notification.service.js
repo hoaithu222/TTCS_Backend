@@ -59,7 +59,7 @@ exports.notificationService = {
             title,
             content,
             type: "order:new",
-            actionUrl: `/profile?tab=orders`,
+            actionUrl: `/shop/orders`,
             metadata: {
                 orderId: options.orderId,
                 orderCode,
@@ -178,7 +178,7 @@ exports.notificationService = {
             title: "Có người theo dõi cửa hàng",
             content: `${options.followerName || "Một khách hàng"} vừa theo dõi ${options.shopName}`,
             type: "shop:follower",
-            actionUrl: `/shop/${options.shopId}`,
+            actionUrl: `/shop/dashboard`,
             metadata: {
                 shopId: options.shopId,
                 shopName: options.shopName,

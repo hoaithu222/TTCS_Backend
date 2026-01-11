@@ -13,7 +13,7 @@ dotenv.config();
 const MONGODB_URI = process.env.MONGODB_URI || "";
 
 // ID của conversation cần xóa
-const CONVERSATION_ID = "6961e81611a2eaa073cd85d4";
+const CONVERSATION_ID = "6961ec7611a2eaa073cd8b61";
 
 /**
  * Script để xóa một cuộc hội thoại cụ thể và tất cả tin nhắn liên quan
