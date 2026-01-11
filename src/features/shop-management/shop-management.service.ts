@@ -664,8 +664,13 @@ export default class ShopManagementService {
       ? await ShopManagementService.calculateTrustScore(user._id.toString(), shopId)
       : 50;
 
+    // Map status to orderStatus for frontend compatibility
+    const orderStatus = orderDoc.status || orderDoc.orderStatus || "pending";
+    
     return {
       ...orderDoc,
+      orderStatus, // Ensure orderStatus is always present
+      status: orderStatus, // Keep status for backward compatibility
       user: user
         ? {
             _id: user._id?.toString?.() || user._id,
