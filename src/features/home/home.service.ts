@@ -149,15 +149,38 @@ export default class HomeService {
 
       const filter: any = { isActive: true };
 
-      const [categories, total] = await Promise.all([
+      const [categoriesRaw, total] = await Promise.all([
         CategoryModel.find(filter)
-          .sort({ sortOrder: 1, createdAt: -1 })
+          .sort({ sortOrder: -1, createdAt: 1 })
           .skip(skip)
           .limit(limit)
           .lean(),
         CategoryModel.countDocuments(filter),
       ]);
 
+      // Prioritize "Điện thoại" category to appear first
+      const strip = (s?: string) => (s || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+      const includesPhone = (name?: string, slug?: string) => {
+        const n = strip(name);
+        const sl = strip(slug);
+        return n.includes("dien thoai") || sl.includes("dien-thoai");
+      };
+const categories = [...(categoriesRaw as any[])].sort((a, b) => {
+  const aPri = includesPhone(a?.name, a?.slug) ? 0 : 1;
+  const bPri = includesPhone(b?.name, b?.slug) ? 0 : 1;
+  if (aPri !== bPri) return aPri - bPri;
+
+  const ao = Number((a?.order_display ?? a?.sortOrder ?? 0));
+  const bo = Number((b?.order_display ?? b?.sortOrder ?? 0));
+  if (ao !== bo) return bo - ao; // 👈 đảo ngược
+
+  const aCreated = new Date(a?.createdAt || 0).getTime();
+  const bCreated = new Date(b?.createdAt || 0).getTime();
+  return aCreated - bCreated; // 👈 đảo ngược
+});
       return {
         ok: true as const,
         categories,
