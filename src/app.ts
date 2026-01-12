@@ -71,7 +71,7 @@ if (process.env.NODE_ENV === "development") {
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
 
 // Rate limiting
-app.use(rateLimit(500, 15 * 60 * 1000)); // 500 requests per 15 minutes
+app.use(rateLimit(5000, 15 * 60 * 1000)); // 500 requests per 15 minutes
 
 // Root route (hello world)
 app.get("/", (req, res) => {
