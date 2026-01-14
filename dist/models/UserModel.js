@@ -15,6 +15,7 @@ var UserStatus;
 (function (UserStatus) {
     UserStatus["ACTIVE"] = "active";
     UserStatus["INACTIVE"] = "inactive";
+    UserStatus["SUSPENDED"] = "suspended";
 })(UserStatus || (exports.UserStatus = UserStatus = {}));
 const userSchema = new mongoose_1.default.Schema({
     name: {

@@ -60,7 +60,7 @@ else {
 // Swagger Documentation (serve local swagger-ui-dist assets to satisfy CSP/MIME)
 app.use("/api-docs", swagger_1.swaggerUi.serve, swagger_1.swaggerUi.setup(swagger_1.specs, swagger_1.swaggerUiOptions));
 // Rate limiting
-app.use((0, rateLimit_middleware_1.rateLimit)(500, 15 * 60 * 1000)); // 500 requests per 15 minutes
+app.use((0, rateLimit_middleware_1.rateLimit)(5000, 15 * 60 * 1000)); // 500 requests per 15 minutes
 // Root route (hello world)
 app.get("/", (req, res) => {
     res.status(200).json({ message: "Hello world", success: true });

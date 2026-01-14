@@ -19,6 +19,7 @@ import {
 import {
   authenticateToken,
   authorize,
+  requireActiveUser,
 } from "../../shared/middlewares/auth.middleware";
 
 const shopRouter = Router();
@@ -30,6 +31,7 @@ shopRouter.get("/:id", getShopController);
 shopRouter.post(
   "/",
   authenticateToken,
+  requireActiveUser,
   authorize(["admin", "user"]),
   createShopController
 );

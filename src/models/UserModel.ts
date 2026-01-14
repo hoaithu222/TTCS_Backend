@@ -9,6 +9,7 @@ export enum OtpMethod {
 export enum UserStatus {
   ACTIVE = "active", // active
   INACTIVE = "inactive", // inactive
+  SUSPENDED = "suspended", // suspended (blocked by admin)
 }
 
 const userSchema = new mongoose.Schema(

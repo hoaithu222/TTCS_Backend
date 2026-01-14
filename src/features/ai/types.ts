@@ -38,6 +38,7 @@ export interface AiProductMetaResult {
 
 export interface GenerateChatResponseDto {
   message: string;
+  userId?: string; // Optional: for personalized responses with user data
   conversationHistory?: Array<{
     role: "user" | "assistant";
     content: string;
@@ -74,7 +75,11 @@ export interface AiChatResponse {
     productCount?: number;
     slug?: string;
   }>;
-  responseType?: "text" | "product" | "shop" | "category" | "mixed";
+  // System data
+  orders?: Array<any>;
+  cart?: Array<any>;
+  wallet?: any;
+  responseType?: "text" | "product" | "shop" | "category" | "mixed" | "order" | "cart" | "wallet" | "system";
   provider: "openai" | "gemini" | "fallback";
 }
 

@@ -104,8 +104,13 @@ const generateChatResponseController = async (req, res) => {
                 .filter((msg) => msg.content.length > 0)
                 .slice(-10); // Limit to last 10 messages
         }
+        // DEBUG: Log authentication info
+        const userId = req.currentUser?._id?.toString();
+        console.log("[AI Controller] currentUser:", req.currentUser ? "Found" : "Not found");
+        console.log("[AI Controller] userId:", userId);
         const result = await ai_service_1.aiService.generateChatResponse({
             message: message.trim(),
+            userId: userId, // Pass userId for personalized responses
             conversationHistory: normalizedHistory,
             language: language || "vi",
         });

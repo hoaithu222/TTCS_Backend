@@ -185,4 +185,37 @@ exports.notificationService = {
             },
         });
     },
+    async notifyUserSuspended(options) {
+        const title = "Tài khoản bị khóa";
+        const content = options.reason
+            ? `Tài khoản của bạn đã bị khóa. Lý do: ${options.reason}`
+            : "Tài khoản của bạn đã bị khóa bởi quản trị viên. Vui lòng liên hệ để biết thêm chi tiết.";
+        return this.createAndEmit({
+            userId: options.userId,
+            title,
+            content,
+            type: "user:suspended",
+            actionUrl: `/profile`,
+            metadata: {
+                userName: options.userName,
+                reason: options.reason,
+            },
+            priority: "high",
+        });
+    },
+    async notifyUserUnlocked(options) {
+        const title = "Tài khoản được mở khóa";
+        const content = "Tài khoản của bạn đã được mở khóa. Bạn có thể tiếp tục sử dụng dịch vụ.";
+        return this.createAndEmit({
+            userId: options.userId,
+            title,
+            content,
+            type: "user:unlocked",
+            actionUrl: `/profile`,
+            metadata: {
+                userName: options.userName,
+            },
+            priority: "high",
+        });
+    },
 };

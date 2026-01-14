@@ -165,7 +165,10 @@ export const suspendUserController = async (
       req.method
     );
   }
-  return ResponseUtil.success(res, result.user, "Đã khóa người dùng thành công");
+  return ResponseUtil.success(res, {
+    message: "Đã khóa người dùng thành công",
+    user: result.user,
+  });
 };
 
 export const unlockUserController = async (
@@ -184,5 +187,8 @@ export const unlockUserController = async (
       req.method
     );
   }
-  return ResponseUtil.success(res, result.user, "Đã mở khóa người dùng thành công");
+  return ResponseUtil.success(res, {
+    message: "Đã mở khóa người dùng thành công",
+    user: result.user,
+  });
 };

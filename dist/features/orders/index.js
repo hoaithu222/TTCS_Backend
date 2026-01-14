@@ -9,11 +9,11 @@ ordersRouter.get("/", auth_middleware_1.authenticateToken, orders_controller_1.l
 // Order tracking detail
 ordersRouter.get("/:id/track", auth_middleware_1.authenticateToken, orders_controller_1.trackOrderController);
 // Reorder: add order items back to cart
-ordersRouter.post("/:id/reorder", auth_middleware_1.authenticateToken, orders_controller_1.reorderOrderController);
+ordersRouter.post("/:id/reorder", auth_middleware_1.authenticateToken, auth_middleware_1.requireActiveUser, orders_controller_1.reorderOrderController);
 // Get order by id (owner or admin)
 ordersRouter.get("/:id", auth_middleware_1.authenticateToken, orders_controller_1.getOrderController);
 // Create new order (authenticated user)
-ordersRouter.post("/", auth_middleware_1.authenticateToken, orders_controller_1.createOrderController);
+ordersRouter.post("/", auth_middleware_1.authenticateToken, auth_middleware_1.requireActiveUser, orders_controller_1.createOrderController);
 // Update order (admin only or future: shop)
 ordersRouter.put("/:id", auth_middleware_1.authenticateToken, (0, auth_middleware_1.authorize)(["admin"]), orders_controller_1.updateOrderController);
 // Update order status (admin only or future: shop)

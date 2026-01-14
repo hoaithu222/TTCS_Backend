@@ -14,6 +14,7 @@ import {
 import {
   authenticateToken,
   authorize,
+  requireActiveUser,
 } from "../../shared/middlewares/auth.middleware";
 
 const ordersRouter = Router();
@@ -25,13 +26,13 @@ ordersRouter.get("/", authenticateToken, listOrdersController);
 ordersRouter.get("/:id/track", authenticateToken, trackOrderController);
 
 // Reorder: add order items back to cart
-ordersRouter.post("/:id/reorder", authenticateToken, reorderOrderController);
+ordersRouter.post("/:id/reorder", authenticateToken, requireActiveUser, reorderOrderController);
 
 // Get order by id (owner or admin)
 ordersRouter.get("/:id", authenticateToken, getOrderController);
 
 // Create new order (authenticated user)
-ordersRouter.post("/", authenticateToken, createOrderController);
+ordersRouter.post("/", authenticateToken, requireActiveUser, createOrderController);
 
 // Update order (admin only or future: shop)
 ordersRouter.put(

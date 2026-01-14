@@ -135,10 +135,10 @@ export const generateChatResponseController = async (
           { field: "conversationHistory", message: "Lịch sử hội thoại phải là mảng" },
         ]);
       }
-      
+
       normalizedHistory = conversationHistory
-        .filter((msg) => 
-          msg && 
+        .filter((msg) =>
+          msg &&
           typeof msg === "object" &&
           (msg.role === "user" || msg.role === "assistant") &&
           typeof msg.content === "string"
@@ -151,8 +151,14 @@ export const generateChatResponseController = async (
         .slice(-10); // Limit to last 10 messages
     }
 
+    // DEBUG: Log authentication info
+    const userId = (req as any).currentUser?._id?.toString();
+    console.log("[AI Controller] currentUser:", (req as any).currentUser ? "Found" : "Not found");
+    console.log("[AI Controller] userId:", userId);
+
     const result = await aiService.generateChatResponse({
       message: message.trim(),
+      userId: userId, // Pass userId for personalized responses
       conversationHistory: normalizedHistory,
       language: language || "vi",
     });

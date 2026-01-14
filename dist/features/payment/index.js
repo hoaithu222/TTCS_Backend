@@ -7,7 +7,7 @@ const paymentRouter = (0, express_1.Router)();
 // Get available payment methods (public or authenticated)
 paymentRouter.get("/methods", payment_controller_1.getPaymentMethodsController);
 // Create payment checkout (authenticated)
-paymentRouter.post("/checkout", auth_middleware_1.authenticateToken, payment_controller_1.createCheckoutController);
+paymentRouter.post("/checkout", auth_middleware_1.authenticateToken, auth_middleware_1.requireActiveUser, payment_controller_1.createCheckoutController);
 // Get payment status (authenticated)
 paymentRouter.get("/status/:orderId", auth_middleware_1.authenticateToken, payment_controller_1.getPaymentStatusController);
 // Get payment history (authenticated)
@@ -20,5 +20,5 @@ paymentRouter.post("/webhook", payment_controller_1.handleSepayWebhookController
 // Test payment endpoint (development only)
 paymentRouter.post("/test/:paymentId", payment_controller_1.processTestPaymentController);
 // Confirm bank transfer manually (authenticated)
-paymentRouter.post("/confirm/:paymentId", auth_middleware_1.authenticateToken, payment_controller_1.confirmBankTransferController);
+paymentRouter.post("/confirm/:paymentId", auth_middleware_1.authenticateToken, auth_middleware_1.requireActiveUser, payment_controller_1.confirmBankTransferController);
 exports.default = paymentRouter;

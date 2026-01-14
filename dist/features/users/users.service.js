@@ -42,6 +42,7 @@ const ProductModal_1 = __importDefault(require("../../models/ProductModal"));
 const ChatConversation_1 = __importDefault(require("../../models/ChatConversation"));
 const ChatMessage_1 = __importDefault(require("../../models/ChatMessage"));
 const shop_service_1 = __importDefault(require("../shop/shop.service"));
+const notification_service_1 = require("../../shared/services/notification.service");
 class UsersService {
     // lấy thông tin user
     static async getUser(id, includeShopStatus = false) {
@@ -81,17 +82,17 @@ class UsersService {
             try {
                 const shop = await ShopModel_1.default.findOne({ userId: id }).select("_id status").lean();
                 if (shop) {
-                    if (data.status === UserModel_1.UserStatus.INACTIVE) {
-                        // User bị khóa → khóa shop và ẩn sản phẩm
+                    if (data.status === UserModel_1.UserStatus.INACTIVE || data.status === UserModel_1.UserStatus.SUSPENDED) {
+                        // User bị khóa (INACTIVE hoặc SUSPENDED) → khóa shop và ẩn sản phẩm
                         await ShopModel_1.default.findByIdAndUpdate(shop._id, {
                             status: ShopModel_1.ShopStatus.BLOCKED,
                             isActive: false,
                         });
                         const hiddenProducts = await ProductModal_1.default.updateMany({ shopId: shop._id }, { $set: { isActive: false } });
-                        console.log(`[users] Blocked shop ${shop._id} and hidden ${hiddenProducts.modifiedCount} products for inactive user ${id}`);
+                        console.log(`[users] Blocked shop ${shop._id} and hidden ${hiddenProducts.modifiedCount} products for ${data.status} user ${id}`);
                     }
-                    else if (data.status === UserModel_1.UserStatus.ACTIVE && currentUser.status === UserModel_1.UserStatus.INACTIVE) {
-                        // User được mở khóa (từ INACTIVE sang ACTIVE) → mở khóa shop và hiện lại sản phẩm
+                    else if (data.status === UserModel_1.UserStatus.ACTIVE && (currentUser.status === UserModel_1.UserStatus.INACTIVE || currentUser.status === UserModel_1.UserStatus.SUSPENDED)) {
+                        // User được mở khóa (từ INACTIVE/SUSPENDED sang ACTIVE) → mở khóa shop và hiện lại sản phẩm
                         await ShopModel_1.default.findByIdAndUpdate(shop._id, {
                             status: ShopModel_1.ShopStatus.ACTIVE,
                             isActive: true,
@@ -173,14 +174,9 @@ class UsersService {
                     { email: { $regex: search.trim(), $options: "i" } },
                 ];
             }
-            // Add status filter - map "suspended" to "inactive" for compatibility
+            // Add status filter
             if (status) {
-                if (status === "suspended") {
-                    filterQuery.status = "inactive";
-                }
-                else {
-                    filterQuery.status = status;
-                }
+                filterQuery.status = status;
             }
             // Add role filter
             if (role) {
@@ -236,7 +232,7 @@ class UsersService {
     // Suspend user (admin only) - khóa người dùng
     static async suspendUser(id) {
         try {
-            const user = await UserModel_1.default.findByIdAndUpdate(id, { status: UserModel_1.UserStatus.INACTIVE }, { new: true });
+            const user = await UserModel_1.default.findByIdAndUpdate(id, { status: UserModel_1.UserStatus.SUSPENDED }, { new: true });
             if (!user) {
                 return {
                     ok: false,
@@ -259,6 +255,17 @@ class UsersService {
             catch (error) {
                 console.error("[users] Error blocking shop and products:", error);
                 // Không fail nếu xử lý shop lỗi
+            }
+            // Gửi thông báo cho user
+            try {
+                await notification_service_1.notificationService.notifyUserSuspended({
+                    userId: id,
+                    userName: user.name || user.email,
+                });
+            }
+            catch (error) {
+                console.error("[users] Error sending suspension notification:", error);
+                // Không fail nếu gửi notification lỗi
             }
             return { ok: true, user };
         }
@@ -296,6 +303,17 @@ class UsersService {
             catch (error) {
                 console.error("[users] Error activating shop and products:", error);
                 // Không fail nếu xử lý shop lỗi
+            }
+            // Gửi thông báo cho user
+            try {
+                await notification_service_1.notificationService.notifyUserUnlocked({
+                    userId: id,
+                    userName: user.name || user.email,
+                });
+            }
+            catch (error) {
+                console.error("[users] Error sending unlock notification:", error);
+                // Không fail nếu gửi notification lỗi
             }
             return { ok: true, user };
         }

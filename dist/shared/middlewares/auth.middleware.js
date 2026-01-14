@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.optionalAuth = exports.authenticateToken = exports.authorize = void 0;
+exports.requireActiveUser = exports.optionalAuth = exports.authenticateToken = exports.authorize = void 0;
 const jwt_1 = __importDefault(require("../utils/jwt"));
 const UserModel_1 = __importDefault(require("../../models/UserModel"));
 const authorize = (roles = []) => {
@@ -78,3 +78,6 @@ const optionalAuth = async (req, res, next) => {
     }
 };
 exports.optionalAuth = optionalAuth;
+// Export requireActiveUser middleware
+var requireActiveUser_middleware_1 = require("./requireActiveUser.middleware");
+Object.defineProperty(exports, "requireActiveUser", { enumerable: true, get: function () { return requireActiveUser_middleware_1.requireActiveUser; } });

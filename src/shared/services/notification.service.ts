@@ -8,7 +8,7 @@ import { getSocketServer } from "../config/socket-server";
 import { OrderStatus } from "../../models/OrderModel";
 import UserModel from "../../models/UserModel";
 
-const ORDER_STATUS_LABELS: Record<OrderStatus, string> = { 
+const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   [OrderStatus.PENDING]: "Đang chờ xác nhận",
   [OrderStatus.PROCESSING]: "Đang chuẩn bị",
   [OrderStatus.SHIPPED]: "Đang giao",
@@ -134,9 +134,8 @@ export const notificationService = {
   }) {
     const orderCode = `DH${options.orderId.slice(-6).toUpperCase()}`;
     const title = "Đặt hàng thành công";
-    const content = `Bạn đã đặt ${orderCode} tại ${
-      options.shopName || "cửa hàng"
-    }: ${formatCurrency(options.totalAmount)}`;
+    const content = `Bạn đã đặt ${orderCode} tại ${options.shopName || "cửa hàng"
+      }: ${formatCurrency(options.totalAmount)}`;
 
     return this.createAndEmit({
       userId: options.userId,
@@ -163,11 +162,9 @@ export const notificationService = {
     const orderCode = `DH${options.orderId.slice(-6).toUpperCase()}`;
     const title = "Cập nhật từ khách hàng";
     const statusLabel = ORDER_STATUS_LABELS[options.status] || options.status;
-    const content = `${
-      options.userName || "Khách hàng"
-    } vừa cập nhật ${orderCode}: ${statusLabel}${
-      options.note ? ` (${options.note})` : ""
-    }`;
+    const content = `${options.userName || "Khách hàng"
+      } vừa cập nhật ${orderCode}: ${statusLabel}${options.note ? ` (${options.note})` : ""
+      }`;
 
     return this.createAndEmit({
       userId: options.shopOwnerId,
@@ -258,15 +255,58 @@ export const notificationService = {
     return this.createAndEmit({
       userId: options.ownerId,
       title: "Có người theo dõi cửa hàng",
-      content: `${options.followerName || "Một khách hàng"} vừa theo dõi ${
-        options.shopName
-      }`,
+      content: `${options.followerName || "Một khách hàng"} vừa theo dõi ${options.shopName
+        }`,
       type: "shop:follower",
       actionUrl: `/shop/dashboard`,
       metadata: {
         shopId: options.shopId,
         shopName: options.shopName,
       },
+    });
+  },
+
+  async notifyUserSuspended(options: {
+    userId: string;
+    userName?: string;
+    reason?: string;
+  }) {
+    const title = "Tài khoản bị khóa";
+    const content = options.reason
+      ? `Tài khoản của bạn đã bị khóa. Lý do: ${options.reason}`
+      : "Tài khoản của bạn đã bị khóa bởi quản trị viên. Vui lòng liên hệ để biết thêm chi tiết.";
+
+    return this.createAndEmit({
+      userId: options.userId,
+      title,
+      content,
+      type: "user:suspended",
+      actionUrl: `/profile`,
+      metadata: {
+        userName: options.userName,
+        reason: options.reason,
+      },
+      priority: "high",
+    });
+  },
+
+  async notifyUserUnlocked(options: {
+    userId: string;
+    userName?: string;
+  }) {
+    const title = "Tài khoản được mở khóa";
+    const content = "Tài khoản của bạn đã được mở khóa. Bạn có thể tiếp tục sử dụng dịch vụ.";
+
+    return this.createAndEmit({
+      userId: options.userId,
+      title,
+      content,
+      type: "user:unlocked",
+      actionUrl: `/profile`,
+      metadata: {
+        userName: options.userName,
+      },
+      priority: "high",
     });
   },
 };

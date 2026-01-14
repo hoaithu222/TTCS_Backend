@@ -92,3 +92,7 @@ export const optionalAuth: RequestHandler = async (req, res, next) => {
     next();
   }
 };
+
+// Export requireActiveUser middleware
+export { requireActiveUser } from "./requireActiveUser.middleware";
+

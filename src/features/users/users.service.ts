@@ -5,6 +5,7 @@ import ChatConversationModel from "../../models/ChatConversation";
 import ChatMessageModel from "../../models/ChatMessage";
 import { UpdateUserRequest } from "./types";
 import ShopService from "../shop/shop.service";
+import { notificationService } from "../../shared/services/notification.service";
 
 export default class UsersService {
   // lấy thông tin user
@@ -14,7 +15,7 @@ export default class UsersService {
       return { ok: false as const, status: 400, message: "User không tồn tại" };
     }
     const userObj = user.toObject();
-    
+
     if (includeShopStatus) {
       const shopStatusResult = await ShopService.getShopStatusByUserId(id);
       if (shopStatusResult.ok) {
@@ -28,7 +29,7 @@ export default class UsersService {
         };
       }
     }
-    
+
     return { ok: true as const, user: userObj };
   }
   // cập nhật thông tin user
@@ -48,27 +49,27 @@ export default class UsersService {
     if (data.status && data.status !== currentUser.status) {
       try {
         const shop = await ShopModel.findOne({ userId: id }).select("_id status").lean();
-        
+
         if (shop) {
-          if (data.status === UserStatus.INACTIVE) {
-            // User bị khóa → khóa shop và ẩn sản phẩm
+          if (data.status === UserStatus.INACTIVE || data.status === UserStatus.SUSPENDED) {
+            // User bị khóa (INACTIVE hoặc SUSPENDED) → khóa shop và ẩn sản phẩm
             await ShopModel.findByIdAndUpdate(shop._id, {
               status: ShopStatus.BLOCKED,
               isActive: false,
             });
-            
+
             const hiddenProducts = await ProductModel.updateMany(
               { shopId: shop._id },
               { $set: { isActive: false } }
             );
-            console.log(`[users] Blocked shop ${shop._id} and hidden ${hiddenProducts.modifiedCount} products for inactive user ${id}`);
-          } else if (data.status === UserStatus.ACTIVE && currentUser.status === UserStatus.INACTIVE) {
-            // User được mở khóa (từ INACTIVE sang ACTIVE) → mở khóa shop và hiện lại sản phẩm
+            console.log(`[users] Blocked shop ${shop._id} and hidden ${hiddenProducts.modifiedCount} products for ${data.status} user ${id}`);
+          } else if (data.status === UserStatus.ACTIVE && (currentUser.status === UserStatus.INACTIVE || currentUser.status === UserStatus.SUSPENDED)) {
+            // User được mở khóa (từ INACTIVE/SUSPENDED sang ACTIVE) → mở khóa shop và hiện lại sản phẩm
             await ShopModel.findByIdAndUpdate(shop._id, {
               status: ShopStatus.ACTIVE,
               isActive: true,
             });
-            
+
             const shownProducts = await ProductModel.updateMany(
               { shopId: shop._id },
               { $set: { isActive: true } }
@@ -93,13 +94,13 @@ export default class UsersService {
 
     // Tìm shop của user
     const shop = await ShopModel.findOne({ userId: id }).select("_id").lean();
-    
+
     if (shop) {
       try {
         // Xóa tất cả sản phẩm của shop
         const deletedProducts = await ProductModel.deleteMany({ shopId: shop._id });
         console.log(`[users] Deleted ${deletedProducts.deletedCount} products for shop ${shop._id} (user ${id})`);
-        
+
         // Xóa shop
         await ShopModel.findByIdAndDelete(shop._id);
         console.log(`[users] Deleted shop ${shop._id} for user ${id}`);
@@ -167,13 +168,9 @@ export default class UsersService {
         ];
       }
 
-      // Add status filter - map "suspended" to "inactive" for compatibility
+      // Add status filter
       if (status) {
-        if (status === "suspended") {
-          filterQuery.status = "inactive";
-        } else {
-          filterQuery.status = status;
-        }
+        filterQuery.status = status;
       }
 
       // Add role filter
@@ -239,7 +236,7 @@ export default class UsersService {
     try {
       const user = await UserModel.findByIdAndUpdate(
         id,
-        { status: UserStatus.INACTIVE },
+        { status: UserStatus.SUSPENDED },
         { new: true }
       );
       if (!user) {
@@ -253,13 +250,13 @@ export default class UsersService {
       // Khóa shop và ẩn sản phẩm nếu user có shop
       try {
         const shop = await ShopModel.findOne({ userId: id }).select("_id status").lean();
-        
+
         if (shop) {
           await ShopModel.findByIdAndUpdate(shop._id, {
             status: ShopStatus.BLOCKED,
             isActive: false,
           });
-          
+
           const hiddenProducts = await ProductModel.updateMany(
             { shopId: shop._id },
             { $set: { isActive: false } }
@@ -269,6 +266,17 @@ export default class UsersService {
       } catch (error) {
         console.error("[users] Error blocking shop and products:", error);
         // Không fail nếu xử lý shop lỗi
+      }
+
+      // Gửi thông báo cho user
+      try {
+        await notificationService.notifyUserSuspended({
+          userId: id,
+          userName: user.name || user.email,
+        });
+      } catch (error) {
+        console.error("[users] Error sending suspension notification:", error);
+        // Không fail nếu gửi notification lỗi
       }
 
       return { ok: true as const, user };
@@ -300,13 +308,13 @@ export default class UsersService {
       // Mở khóa shop và hiện lại sản phẩm nếu user có shop
       try {
         const shop = await ShopModel.findOne({ userId: id }).select("_id status").lean();
-        
+
         if (shop) {
           await ShopModel.findByIdAndUpdate(shop._id, {
             status: ShopStatus.ACTIVE,
             isActive: true,
           });
-          
+
           const shownProducts = await ProductModel.updateMany(
             { shopId: shop._id },
             { $set: { isActive: true } }
@@ -316,6 +324,17 @@ export default class UsersService {
       } catch (error) {
         console.error("[users] Error activating shop and products:", error);
         // Không fail nếu xử lý shop lỗi
+      }
+
+      // Gửi thông báo cho user
+      try {
+        await notificationService.notifyUserUnlocked({
+          userId: id,
+          userName: user.name || user.email,
+        });
+      } catch (error) {
+        console.error("[users] Error sending unlock notification:", error);
+        // Không fail nếu gửi notification lỗi
       }
 
       return { ok: true as const, user };

@@ -3,6 +3,9 @@ import { GoogleGenAI } from "@google/genai";
 import ProductModel from "../../models/ProductModal";
 import ShopModel from "../../models/ShopModel";
 import CategoryModel from "../../models/CategoryModel";
+import OrderModel from "../../models/OrderModel";
+import Cart from "../../models/Cart";
+import WalletModel from "../../models/WalletModel";
 import type {
   AiProductDescriptionResult,
   AiProductMetaResult,
@@ -164,7 +167,7 @@ class AiService {
       // If model not found (404), try fallback models
       if (error?.status === 404 || error?.statusCode === 404) {
         const triedModels = [GEMINI_MODEL];
-        
+
         for (const fallbackModelName of GEMINI_FALLBACK_MODELS) {
           // Skip if already tried
           if (triedModels.includes(fallbackModelName)) {
@@ -174,7 +177,7 @@ class AiService {
           console.warn(
             `[AI] Model ${GEMINI_MODEL} not found, trying ${fallbackModelName} as fallback`
           );
-          
+
           try {
             const fullPrompt = `${systemPrompt}\n\n${prompt}`;
             const response = await this.geminiClient!.models.generateContent({
@@ -205,7 +208,7 @@ class AiService {
             // Continue to next fallback model
           }
         }
-        
+
         console.error(
           "[AI] All Gemini models failed. Falling back to rule-based generation."
         );
@@ -275,8 +278,8 @@ class AiService {
   private buildPrompt(dto: GenerateProductDescriptionDto): string {
     const specList: string = dto.specs
       ? Object.entries(dto.specs)
-          .map(([key, value]: [string, string]): string => `- ${key}: ${value}`)
-          .join("\n")
+        .map(([key, value]: [string, string]): string => `- ${key}: ${value}`)
+        .join("\n")
       : "Không có thông số bổ sung.";
 
     const tone: string =
@@ -349,8 +352,8 @@ LƯU Ý: Bắt đầu ngay với tiêu đề sản phẩm hoặc đoạn mô t�
   private buildFallbackCopy(dto: GenerateProductDescriptionDto): string {
     const specs: string = dto.specs
       ? Object.entries(dto.specs)
-          .map(([key, value]: [string, string]): string => `${key}: ${value}`)
-          .join(" • ")
+        .map(([key, value]: [string, string]): string => `${key}: ${value}`)
+        .join(" • ")
       : "Thông số đang được cập nhật.";
 
     return `
@@ -450,7 +453,7 @@ Bảo hành chính hãng, hỗ trợ đổi trả linh hoạt. An tâm tuyệt �
       // If model not found (404), try fallback models
       if (error?.status === 404 || error?.statusCode === 404) {
         const triedModels = [GEMINI_MODEL];
-        
+
         for (const fallbackModelName of GEMINI_FALLBACK_MODELS) {
           // Skip if already tried
           if (triedModels.includes(fallbackModelName)) {
@@ -460,7 +463,7 @@ Bảo hành chính hãng, hỗ trợ đổi trả linh hoạt. An tâm tuyệt �
           console.warn(
             `[AI] Model ${GEMINI_MODEL} not found for meta, trying ${fallbackModelName} as fallback`
           );
-          
+
           try {
             const fullPrompt = `${systemPrompt}\n\n${prompt}`;
             const response = await this.geminiClient!.models.generateContent({
@@ -490,7 +493,7 @@ Bảo hành chính hãng, hỗ trợ đổi trả linh hoạt. An tâm tuyệt �
             // Continue to next fallback model
           }
         }
-        
+
         console.error(
           "[AI] All Gemini models failed for meta. Falling back to rule-based generation."
         );
@@ -543,8 +546,8 @@ Bảo hành chính hãng, hỗ trợ đổi trả linh hoạt. An tâm tuyệt �
   private buildMetaPrompt(dto: GenerateProductMetaDto): string {
     const specList: string = dto.specs
       ? Object.entries(dto.specs)
-          .map(([key, value]: [string, string]): string => `${key}: ${value}`)
-          .join(", ")
+        .map(([key, value]: [string, string]): string => `${key}: ${value}`)
+        .join(", ")
       : "";
 
     return `
@@ -620,44 +623,72 @@ Yêu cầu (trả về JSON):
   /**
    * Detect what the user is specifically looking for (Products, Shops, or Categories)
    */
-  private detectSearchIntent(userMessage: string): { products: boolean, shops: boolean, categories: boolean } {
+  private detectSearchIntent(userMessage: string): { products: boolean, shops: boolean, categories: boolean, orders: boolean, cart: boolean, wallet: boolean } {
     const lowerMessage = userMessage.toLowerCase();
-    
+
     // Explicit keywords
     const shopKeywords = ["shop", "cửa hàng", "gian hàng", "người bán", "tiệm", "địa chỉ mua"];
     const categoryKeywords = ["danh mục", "loại sản phẩm", "nhóm sản phẩm", "thể loại", "ngành hàng", "phân loại"];
     const productKeywords = ["sản phẩm", "mẫu", "chiếc", "cái", "con", "máy", "thiết bị", "đồ", "mua"];
 
+    // System data keywords
+    const orderKeywords = ["đơn hàng", "đơn", "order", "mua hàng", "đã đặt", "đặt hàng", "giao hàng", "vận chuyển", "tracking"];
+    const cartKeywords = ["giỏ hàng", "cart", "giỏ", "trong giỏ", "đã thêm"];
+    const walletKeywords = ["ví", "wallet", "số dư", "balance", "tiền", "nạp tiền", "rút tiền"];
+
     const isAskingForShop = shopKeywords.some(kw => lowerMessage.includes(kw));
     const isAskingForCategory = categoryKeywords.some(kw => lowerMessage.includes(kw));
     const isAskingForProduct = productKeywords.some(kw => lowerMessage.includes(kw));
+
+    const isAskingForOrders = orderKeywords.some(kw => lowerMessage.includes(kw));
+    const isAskingForCart = cartKeywords.some(kw => lowerMessage.includes(kw));
+    const isAskingForWallet = walletKeywords.some(kw => lowerMessage.includes(kw));
 
     // Determine intent based on priority
     let products = false;
     let shops = false;
     let categories = false;
+    let orders = false;
+    let cart = false;
+    let wallet = false;
 
-    if (isAskingForShop) {
-      shops = true;
-    }
-    
-    if (isAskingForCategory) {
-      categories = true;
-    }
-
-    // If user explicitly asks for products, OR if they didn't ask for shop/category but used a brand/model
-    const brandModelPattern = /(iphone|samsung|xiaomi|oppo|vivo|realme|oneplus|huawei|nokia|sony|macbook|ipad|laptop|dell|hp|asus|acer|lenovo|msi)/i;
-    const hasBrandModel = brandModelPattern.test(lowerMessage);
-
-    if (isAskingForProduct || hasBrandModel || (!isAskingForShop && !isAskingForCategory)) {
-      products = true;
-      // If user specifically asked for "sản phẩm", we might want to suppress shops/categories 
-      // unless they also mentioned them
-      if (isAskingForProduct && !isAskingForShop) shops = false;
-      if (isAskingForProduct && !isAskingForCategory) categories = false;
+    // System data has higher priority
+    if (isAskingForOrders) {
+      orders = true;
     }
 
-    return { products, shops, categories };
+    if (isAskingForCart) {
+      cart = true;
+    }
+
+    if (isAskingForWallet) {
+      wallet = true;
+    }
+
+    // Only search products/shops/categories if not asking for system data
+    if (!orders && !cart && !wallet) {
+      if (isAskingForShop) {
+        shops = true;
+      }
+
+      if (isAskingForCategory) {
+        categories = true;
+      }
+
+      // If user explicitly asks for products, OR if they didn't ask for shop/category but used a brand/model
+      const brandModelPattern = /(iphone|samsung|xiaomi|oppo|vivo|realme|oneplus|huawei|nokia|sony|macbook|ipad|laptop|dell|hp|asus|acer|lenovo|msi)/i;
+      const hasBrandModel = brandModelPattern.test(lowerMessage);
+
+      if (isAskingForProduct || hasBrandModel || (!isAskingForShop && !isAskingForCategory)) {
+        products = true;
+        // If user specifically asked for "sản phẩm", we might want to suppress shops/categories 
+        // unless they also mentioned them
+        if (isAskingForProduct && !isAskingForShop) shops = false;
+        if (isAskingForProduct && !isAskingForCategory) categories = false;
+      }
+    }
+
+    return { products, shops, categories, orders, cart, wallet };
   }
 
   /**
@@ -665,7 +696,7 @@ Yêu cầu (trả về JSON):
    */
   private isRequestingSuggestions(userMessage: string): boolean {
     const suggestionKeywords = [
-      "gợi ý", "gợi ý cho", "cho tôi xem", "xem", "tìm", "tìm cho", 
+      "gợi ý", "gợi ý cho", "cho tôi xem", "xem", "tìm", "tìm cho",
       "hiển thị", "danh sách", "list", "show", "suggest", "recommend",
       "có gì", "có những", "những sản phẩm", "sản phẩm nào", "shop nào",
       "cửa hàng nào", "mua", "muốn mua", "cần mua", "đang tìm mua",
@@ -674,16 +705,16 @@ Yêu cầu (trả về JSON):
       "điện thoại", "tai nghe", "phụ kiện", "thời trang", "giày", "áo",
       "danh mục", "shop", "cửa hàng"
     ];
-    
+
     const lowerMessage = userMessage.toLowerCase();
-    
+
     // Check for explicit keywords
     const hasExplicitKeyword = suggestionKeywords.some(keyword => lowerMessage.includes(keyword));
-    
+
     // Check for implicit search (e.g., brand + model)
     const brandModelPattern = /(iphone|samsung|xiaomi|oppo|vivo|macbook|ipad|laptop)\s*(\d+[a-z]*|pro|air|ultra|plus|s|x|max)/i;
     const hasBrandModel = brandModelPattern.test(lowerMessage);
-    
+
     return hasExplicitKeyword || hasBrandModel;
   }
 
@@ -699,8 +730,8 @@ Yêu cầu (trả về JSON):
 
     if (!userMessage) {
       return {
-        response: language === "vi" 
-          ? "Xin chào! Tôi có thể giúp gì cho bạn?" 
+        response: language === "vi"
+          ? "Xin chào! Tôi có thể giúp gì cho bạn?"
           : "Hello! How can I help you?",
         provider: "fallback",
       };
@@ -710,38 +741,57 @@ Yêu cầu (trả về JSON):
     const isRequestingSuggestions = this.isRequestingSuggestions(userMessage);
     const intent = this.detectSearchIntent(userMessage);
 
-    // Step 1: Search products, shops, and categories based on user message
+    // DEBUG: Log intent detection
+    console.log("[AI DEBUG] User message:", userMessage);
+    console.log("[AI DEBUG] userId:", dto.userId);
+    console.log("[AI DEBUG] Intent detected:", intent);
+    console.log("[AI DEBUG] Is requesting suggestions:", isRequestingSuggestions);
+
+    // Step 1: Search products, shops, categories, and system data based on user message
     // Only search what the user actually asked for
-    const [products, shops, categories] = await Promise.all([
+    const userId = dto.userId;
+    const [products, shops, categories, orders, cart, wallet] = await Promise.all([
       (isRequestingSuggestions && intent.products) ? this.searchProductsForChat(userMessage) : Promise.resolve([]),
       (isRequestingSuggestions && intent.shops) ? this.searchShopsForChat(userMessage) : Promise.resolve([]),
       (isRequestingSuggestions && intent.categories) ? this.searchCategoriesForChat(userMessage) : Promise.resolve([]),
+      (userId && intent.orders) ? this.searchOrdersForChat(userId, userMessage) : Promise.resolve([]),
+      (userId && intent.cart) ? this.searchCartForChat(userId) : Promise.resolve([]),
+      (userId && intent.wallet) ? this.searchWalletForChat(userId) : Promise.resolve(null),
     ]);
 
-    // Step 2: Build prompt with product, shop, and category context
-    const prompt = this.buildChatPrompt(userMessage, products, shops, categories, dto.conversationHistory || [], language, isRequestingSuggestions, intent);
+    // DEBUG: Log search results
+    console.log("[AI DEBUG] Search results:");
+    console.log("  - Products:", products.length);
+    console.log("  - Shops:", shops.length);
+    console.log("  - Categories:", categories.length);
+    console.log("  - Orders:", orders?.length || 0);
+    console.log("  - Cart items:", cart?.length || 0);
+    console.log("  - Wallet:", wallet ? "Found" : "Not found");
+
+    // Step 2: Build prompt with product, shop, category, and system data context
+    const prompt = this.buildChatPrompt(userMessage, products, shops, categories, dto.conversationHistory || [], language, isRequestingSuggestions, intent, orders, cart, wallet);
 
     // Step 3: Generate response using AI
     if (this.provider === "fallback") {
-      return this.generateFallbackChatResponse(userMessage, products, shops, categories, language, isRequestingSuggestions);
+      return this.generateFallbackChatResponse(userMessage, products, shops, categories, language, isRequestingSuggestions, orders, cart, wallet);
     }
 
     try {
       let response: string;
-      
+
       if (this.provider === "gemini" && this.geminiClient) {
         response = await this.generateChatWithGemini(prompt, language);
       } else if (this.provider === "openai" && this.openaiClient) {
         response = await this.generateChatWithOpenAI(prompt, language);
       } else {
-        response = this.generateFallbackChatResponse(userMessage, products, shops, categories, language, isRequestingSuggestions).response;
+        response = this.generateFallbackChatResponse(userMessage, products, shops, categories, language, isRequestingSuggestions, orders, cart, wallet).response;
       }
 
       // Step 4: Determine final response type and filter suggestions
       let suggestedProducts: any[] = [];
       let suggestedShops: any[] = [];
       let suggestedCategories: any[] = [];
-      
+
       if (isRequestingSuggestions) {
         // Post-filter products based on AI's response if possible, 
         // or just use the highly ranked ones from searchProductsForChat
@@ -755,7 +805,7 @@ Yêu cầu (trả về JSON):
             const name = (p.name || "").toLowerCase();
             return name.includes(exactBrandModel) || name.includes(exactBrandModel.replace(/\s+/g, ""));
           });
-          
+
           // If filtering too much, fallback to original top results
           if (filteredProducts.length === 0 && products.length > 0) {
             filteredProducts = products.slice(0, 3);
@@ -797,13 +847,30 @@ Yêu cầu (trả về JSON):
       }
 
       // Determine response type based on what we actually have
-      let finalResponseType: "text" | "product" | "shop" | "category" | "mixed" = "text";
-      if (isRequestingSuggestions) {
+      let finalResponseType: "text" | "product" | "shop" | "category" | "mixed" | "order" | "cart" | "wallet" | "system" = "text";
+
+      // Check for system data
+      const hasOrders = orders && orders.length > 0;
+      const hasCart = cart && cart.length > 0;
+      const hasWallet = wallet !== null;
+
+      if (hasOrders || hasCart || hasWallet) {
+        const systemDataCount = [hasOrders, hasCart, hasWallet].filter(Boolean).length;
+        if (systemDataCount > 1) {
+          finalResponseType = "system";
+        } else if (hasOrders) {
+          finalResponseType = "order";
+        } else if (hasCart) {
+          finalResponseType = "cart";
+        } else if (hasWallet) {
+          finalResponseType = "wallet";
+        }
+      } else if (isRequestingSuggestions) {
         const hasProducts = suggestedProducts.length > 0;
         const hasShops = suggestedShops.length > 0;
         const hasCategories = suggestedCategories.length > 0;
         const typeCount = [hasProducts, hasShops, hasCategories].filter(Boolean).length;
-        
+
         if (typeCount > 1) {
           finalResponseType = "mixed";
         } else if (hasProducts) {
@@ -820,12 +887,15 @@ Yêu cầu (trả về JSON):
         suggestedProducts: suggestedProducts.length > 0 ? suggestedProducts : undefined,
         suggestedShops: suggestedShops.length > 0 ? suggestedShops : undefined,
         suggestedCategories: suggestedCategories.length > 0 ? suggestedCategories : undefined,
+        orders: hasOrders ? orders : undefined,
+        cart: hasCart ? cart : undefined,
+        wallet: hasWallet ? wallet : undefined,
         responseType: finalResponseType,
         provider: this.provider,
       };
     } catch (error) {
       console.error("[AI] Chat generation failed. Using fallback.", error);
-      return this.generateFallbackChatResponse(userMessage, products, shops, categories, language, isRequestingSuggestions);
+      return this.generateFallbackChatResponse(userMessage, products, shops, categories, language, isRequestingSuggestions, orders, cart, wallet);
     }
   }
 
@@ -855,18 +925,18 @@ Yêu cầu (trả về JSON):
 
       // Extract price range from message
       // Matches "15 triệu", "15tr", "dưới 10tr", "tầm 20 triệu", "khoảng 5tr"
-      const priceMatch = userMessage.match(/(dưới|trên|tầm|khoảng|đến|-)\s*(\d+)\s*(triệu|tr|trđ|m|k)/i) || 
-                         userMessage.match(/(\d+)\s*(triệu|tr|trđ|m|k)/i);
-      
+      const priceMatch = userMessage.match(/(dưới|trên|tầm|khoảng|đến|-)\s*(\d+)\s*(triệu|tr|trđ|m|k)/i) ||
+        userMessage.match(/(\d+)\s*(triệu|tr|trđ|m|k)/i);
+
       let minPrice = 0;
       let maxPrice = Number.MAX_SAFE_INTEGER;
-      
+
       if (priceMatch) {
         const value = parseInt(priceMatch[2] || priceMatch[1]);
         const unit = (priceMatch[3] || priceMatch[2]).toLowerCase();
         const multiplier = ["triệu", "tr", "trđ", "m"].some(u => unit.includes(u)) ? 1000000 : 1000;
         const totalValue = value * multiplier;
-        
+
         const prefix = priceMatch[1] ? priceMatch[1].toLowerCase() : "";
         if (prefix === "dưới") {
           maxPrice = totalValue;
@@ -881,7 +951,7 @@ Yêu cầu (trả về JSON):
 
       // Step 1: Build filter
       const filter: any = { isActive: true };
-      
+
       if (minPrice > 0 || maxPrice < Number.MAX_SAFE_INTEGER) {
         filter.price = { $gte: minPrice };
         if (maxPrice < Number.MAX_SAFE_INTEGER) {
@@ -895,7 +965,7 @@ Yêu cầu (trả về JSON):
           { name: { $regex: exactBrand, $options: "i" } },
           { brand: { $regex: exactBrand, $options: "i" } }
         ];
-        
+
         if (exactModel) {
           // If we have a model, make it more specific
           const modelRegex = new RegExp(`(?=.*${exactBrand})(?=.*${exactModel})`, "i");
@@ -925,33 +995,33 @@ Yêu cầu (trả về JSON):
       // Step 4: Better ranking
       if (products.length > 0) {
         const searchTerms = (exactProductName || keywords).toLowerCase().split(/\s+/);
-        
+
         products.sort((a: any, b: any) => {
           const aName = (a.name || "").toLowerCase();
           const bName = (b.name || "").toLowerCase();
-          
+
           // 1. Priority: Exact product name match
           if (exactProductName) {
             const aHasExact = aName.includes(exactProductName);
             const bHasExact = bName.includes(exactProductName);
             if (aHasExact !== bHasExact) return bHasExact ? 1 : -1;
           }
-          
+
           // 2. Priority: Starts with search terms
           const aStartsWith = searchTerms.some(term => aName.startsWith(term)) ? 1 : 0;
           const bStartsWith = searchTerms.some(term => bName.startsWith(term)) ? 1 : 0;
           if (aStartsWith !== bStartsWith) return bStartsWith - aStartsWith;
-          
+
           // 3. Priority: Number of matching terms
           const aMatches = searchTerms.filter(term => aName.includes(term)).length;
           const bMatches = searchTerms.filter(term => bName.includes(term)).length;
           if (aMatches !== bMatches) return bMatches - aMatches;
-          
+
           // 4. Priority: Shop rating
           const aRating = a.shopId?.rating || 0;
           const bRating = b.shopId?.rating || 0;
           if (aRating !== bRating) return bRating - aRating;
-          
+
           // 5. Priority: Discount
           const aDiscount = a.discount || 0;
           const bDiscount = b.discount || 0;
@@ -974,11 +1044,11 @@ Yêu cầu (trả về JSON):
    */
   private async searchShopsForChat(userMessage: string): Promise<any[]> {
     try {
-      const filter: any = { 
+      const filter: any = {
         isActive: true,
         status: "active",
       };
-      
+
       // Extract keywords for text search
       const keywords = userMessage
         .toLowerCase()
@@ -1014,10 +1084,10 @@ Yêu cầu (trả về JSON):
    */
   private async searchCategoriesForChat(userMessage: string): Promise<any[]> {
     try {
-      const filter: any = { 
+      const filter: any = {
         isActive: true,
       };
-      
+
       // Extract keywords for text search
       const keywords = userMessage
         .toLowerCase()
@@ -1049,6 +1119,106 @@ Yêu cầu (trả về JSON):
   }
 
   /**
+   * Search user's orders based on user message and userId
+   * Returns recent orders with status information
+   */
+  private async searchOrdersForChat(userId: string, userMessage?: string): Promise<any[]> {
+    try {
+      console.log("[AI] searchOrdersForChat called with userId:", userId);
+      const filter: any = { userId };
+
+      // Check if user is asking about specific order status
+      const lowerMessage = (userMessage || "").toLowerCase();
+      const statusKeywords = {
+        "chờ xác nhận": "pending",
+        "đang xử lý": "processing",
+        "đang giao": "shipping",
+        "đã giao": "delivered",
+        "đã hủy": "cancelled",
+        "hoàn thành": "completed",
+      };
+
+      for (const [keyword, status] of Object.entries(statusKeywords)) {
+        if (lowerMessage.includes(keyword)) {
+          filter.status = status;
+          break;
+        }
+      }
+
+      console.log("[AI] Order filter:", filter);
+
+      // Get orders - populate orderItems instead of items.productId
+      const orders = await OrderModel.find(filter)
+        .populate({
+          path: "orderItems",
+          populate: {
+            path: "productId",
+            select: "name images price"
+          }
+        })
+        .populate({ path: "shopId", select: "name logo" })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean();
+
+      console.log("[AI] Found orders:", orders.length);
+      return orders || [];
+    } catch (error) {
+      console.error("[AI] Order search failed:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user's cart items
+   */
+  private async searchCartForChat(userId: string): Promise<any[]> {
+    try {
+      console.log("[AI] searchCartForChat called with userId:", userId);
+      const cart = await Cart.findOne({ userId })
+        .populate({
+          path: "cartItems",
+          populate: {
+            path: "productId",
+            select: "name images price discount stock"
+          }
+        })
+        .populate({
+          path: "cartItems",
+          populate: {
+            path: "shopId",
+            select: "name logo"
+          }
+        })
+        .lean();
+
+      console.log("[AI] Found cart items:", cart?.cartItems?.length || 0);
+      return cart?.cartItems || [];
+    } catch (error) {
+      console.error("[AI] Cart search failed:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user's wallet balance
+   */
+  private async searchWalletForChat(userId: string): Promise<any> {
+    try {
+      console.log("[AI] searchWalletForChat called with userId:", userId);
+      const wallet = await WalletModel.findOne({ userId })
+        .select("balance currency")
+        .lean();
+
+      console.log("[AI] Found wallet:", wallet ? "Yes" : "No");
+      return wallet || null;
+    } catch (error) {
+      console.error("[AI] Wallet search failed:", error);
+      return null;
+    }
+  }
+
+  /**
    * Get current date in Vietnamese format
    */
   private getCurrentDateVietnamese(): string {
@@ -1058,7 +1228,7 @@ Yêu cầu (trả về JSON):
     const year = now.getFullYear();
     const dayNames = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
     const dayName = dayNames[now.getDay()];
-    
+
     return `${dayName}, ngày ${day} tháng ${month} năm ${year}`;
   }
 
@@ -1071,12 +1241,12 @@ Yêu cầu (trả về JSON):
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const dayName = dayNames[now.getDay()];
     const monthName = monthNames[now.getMonth()];
-    
+
     return `${dayName}, ${monthName} ${now.getDate()}, ${now.getFullYear()}`;
   }
 
   /**
-   * Build chat prompt with product, shop, and category context
+   * Build chat prompt with product, shop, category, and system data context
    */
   private buildChatPrompt(
     userMessage: string,
@@ -1086,11 +1256,14 @@ Yêu cầu (trả về JSON):
     conversationHistory: Array<{ role: "user" | "assistant"; content: string }>,
     language: string,
     isRequestingSuggestions: boolean = false,
-    intent?: { products: boolean, shops: boolean, categories: boolean }
+    intent?: { products: boolean, shops: boolean, categories: boolean, orders: boolean, cart: boolean, wallet: boolean },
+    orders?: any[],
+    cart?: any[],
+    wallet?: any
   ): string {
     const isVietnamese = language === "vi";
     const currentDate = isVietnamese ? this.getCurrentDateVietnamese() : this.getCurrentDateEnglish();
-    
+
     let productContext = "";
     if (products.length > 0) {
       productContext = products
@@ -1125,6 +1298,42 @@ Yêu cầu (trả về JSON):
         .join("\n");
     }
 
+    // System data context
+    let systemDataContext = "";
+    if (orders && orders.length > 0) {
+      const orderSummary = orders.slice(0, 5).map((o: any, idx: number) => {
+        const statusMap: any = {
+          pending: "Chờ xác nhận",
+          processing: "Đang xử lý",
+          shipping: "Đang giao",
+          shipped: "Đang giao", // Map shipped to "Đang giao"
+          delivered: "Đã giao",
+          cancelled: "Đã hủy",
+          completed: "Hoàn thành"
+        };
+        const status = statusMap[o.status] || o.status;
+        const totalStr = new Intl.NumberFormat("vi-VN").format(o.totalAmount || 0);
+        const itemCount = o.orderItems?.length || 0; // Use orderItems instead of items
+        return `${idx + 1}. Đơn hàng #${o._id.toString().slice(-6)} - ${status} - ${totalStr}đ - ${itemCount} sản phẩm`;
+      }).join("\n");
+      systemDataContext += `\n\nĐơn hàng của khách:\n${orderSummary}`;
+    }
+
+    if (cart && cart.length > 0) {
+      const cartSummary = cart.slice(0, 5).map((item: any, idx: number) => {
+        // item is a CartItem with populated productId and shopId
+        const product = item.productId;
+        const priceStr = product?.price ? new Intl.NumberFormat("vi-VN").format(product.price) : "N/A";
+        return `${idx + 1}. ${product?.name || "Sản phẩm"} - SL: ${item.quantity} - ${priceStr}đ`;
+      }).join("\n");
+      systemDataContext += `\n\nGiỏ hàng hiện tại:\n${cartSummary}`;
+    }
+
+    if (wallet) {
+      const balanceStr = new Intl.NumberFormat("vi-VN").format(wallet.balance || 0);
+      systemDataContext += `\n\nSố dư ví: ${balanceStr}đ`;
+    }
+
     const historyContext = conversationHistory
       .slice(-6) // Last 6 messages for better context
       .map((msg) => `${msg.role === "user" ? "Khách hàng" : "Bạn"}: ${msg.content}`)
@@ -1138,9 +1347,12 @@ Yêu cầu (trả về JSON):
         if (intent.products) parts.push("sản phẩm");
         if (intent.shops) parts.push("cửa hàng");
         if (intent.categories) parts.push("danh mục");
+        if (intent.orders) parts.push("đơn hàng");
+        if (intent.cart) parts.push("giỏ hàng");
+        if (intent.wallet) parts.push("ví tiền");
         if (parts.length > 0) focus = parts.join("/");
       }
-      
+
       suggestionInstruction = isVietnamese
         ? `\n\n**QUAN TRỌNG**: Khách hàng đang YÊU CẦU gợi ý hoặc tìm kiếm tập trung vào **${focus}**. Hãy xem xét danh sách đã tìm thấy ở trên và đưa ra lời khuyên phù hợp nhất. TUYỆT ĐỐI KHÔNG giới thiệu loại khác nếu khách đã chỉ định rõ (ví dụ khách hỏi sản phẩm thì đừng giới thiệu shop).`
         : `\n\n**IMPORTANT**: Customer is REQUESTING suggestions/search focusing on **${focus}**. Review the list above and provide the best advice. DO NOT recommend other types if the customer specified clearly (e.g., if they asked for products, don't recommend shops).`;
@@ -1158,7 +1370,7 @@ Nhiệm vụ của bạn là giúp khách hàng tìm được sản phẩm ưng 
 Hôm nay là: ${currentDate}
 
 **DỮ LIỆU TÌM KIẾM THỰC TẾ (RAG):**
-${productContext ? `Sản phẩm phù hợp tìm thấy:\n${productContext}\n` : "Không tìm thấy sản phẩm cụ thể.\n"}${shopContext ? `Cửa hàng uy tín:\n${shopContext}\n` : ""}${categoryContext ? `Danh mục liên quan:\n${categoryContext}\n` : ""}
+${productContext ? `Sản phẩm phù hợp tìm thấy:\n${productContext}\n` : ""}${shopContext ? `Cửa hàng uy tín:\n${shopContext}\n` : ""}${categoryContext ? `Danh mục liên quan:\n${categoryContext}\n` : ""}${systemDataContext || ""}
 
 **LỊCH SỬ HỘI THOẠI:**
 ${historyContext || "Mới bắt đầu cuộc hội thoại."}
@@ -1230,13 +1442,13 @@ Please respond concisely (3-5 sentences), focusing on value:
       if (error?.status === 404 || error?.statusCode === 404) {
         for (const fallbackModel of GEMINI_FALLBACK_MODELS) {
           if (fallbackModel === GEMINI_MODEL) continue;
-          
+
           try {
             const currentDate = language === "vi" ? this.getCurrentDateVietnamese() : this.getCurrentDateEnglish();
             const systemPrompt = language === "vi"
               ? `Bạn là nhân viên tư vấn bán hàng thân thiện, chuyên nghiệp.\n\n**LƯU Ý:** Hôm nay là ${currentDate}.`
               : `You are a friendly, professional sales consultant.\n\n**NOTE:** Today is ${currentDate}.`;
-            
+
             const fullPrompt = `${systemPrompt}\n\n${prompt}`;
             const response = await this.geminiClient!.models.generateContent({
               model: fallbackModel,
@@ -1289,26 +1501,78 @@ Please respond concisely (3-5 sentences), focusing on value:
     shops: any[],
     categories: any[],
     language: string,
-    isRequestingSuggestions: boolean = false
+    isRequestingSuggestions: boolean = false,
+    orders?: any[],
+    cart?: any[],
+    wallet?: any
   ): AiChatResponse {
     const isVietnamese = language === "vi";
-    
+
     // Determine response type
     const hasProducts = products.length > 0;
     const hasShops = shops.length > 0;
     const hasCategories = categories.length > 0;
-    let responseType: "text" | "product" | "shop" | "category" | "mixed" = "text";
-    const typeCount = [hasProducts, hasShops, hasCategories].filter(Boolean).length;
-    if (typeCount > 1) {
-      responseType = "mixed";
-    } else if (hasProducts) {
-      responseType = "product";
-    } else if (hasShops) {
-      responseType = "shop";
-    } else if (hasCategories) {
-      responseType = "category";
+    const hasOrders = orders && orders.length > 0;
+    const hasCart = cart && cart.length > 0;
+    const hasWallet = wallet !== null && wallet !== undefined;
+
+    let responseType: "text" | "product" | "shop" | "category" | "mixed" | "order" | "cart" | "wallet" | "system" = "text";
+
+    // System data has priority
+    if (hasOrders || hasCart || hasWallet) {
+      const systemDataCount = [hasOrders, hasCart, hasWallet].filter(Boolean).length;
+      if (systemDataCount > 1) {
+        responseType = "system";
+      } else if (hasOrders) {
+        responseType = "order";
+      } else if (hasCart) {
+        responseType = "cart";
+      } else if (hasWallet) {
+        responseType = "wallet";
+      }
+    } else {
+      const typeCount = [hasProducts, hasShops, hasCategories].filter(Boolean).length;
+      if (typeCount > 1) {
+        responseType = "mixed";
+      } else if (hasProducts) {
+        responseType = "product";
+      } else if (hasShops) {
+        responseType = "shop";
+      } else if (hasCategories) {
+        responseType = "category";
+      }
     }
-    
+
+    // Handle system data responses first
+    if (hasOrders || hasCart || hasWallet) {
+      let response = "";
+      if (hasOrders) {
+        const orderCount = orders!.length;
+        response = isVietnamese
+          ? `Dạ, hiện tại bạn có ${orderCount} đơn hàng. Mình đã liệt kê chi tiết bên dưới để bạn xem nhé!`
+          : `You currently have ${orderCount} order(s). I've listed the details below for you!`;
+      } else if (hasCart) {
+        const cartCount = cart!.length;
+        response = isVietnamese
+          ? `Giỏ hàng của bạn hiện có ${cartCount} sản phẩm. Mình đã hiển thị chi tiết bên dưới ạ!`
+          : `Your cart currently has ${cartCount} item(s). I've displayed the details below!`;
+      } else if (hasWallet) {
+        const balanceStr = new Intl.NumberFormat("vi-VN").format(wallet!.balance || 0);
+        response = isVietnamese
+          ? `Số dư ví của bạn hiện tại là ${balanceStr}đ ạ.`
+          : `Your current wallet balance is ${balanceStr}đ.`;
+      }
+
+      return {
+        response,
+        orders: hasOrders ? orders : undefined,
+        cart: hasCart ? cart : undefined,
+        wallet: hasWallet ? wallet : undefined,
+        responseType,
+        provider: "fallback",
+      };
+    }
+
     if (products.length === 0 && shops.length === 0 && categories.length === 0) {
       return {
         response: isVietnamese
@@ -1332,13 +1596,13 @@ Please respond concisely (3-5 sentences), focusing on value:
       const topProduct = products[0];
       const finalPrice = topProduct.price - (topProduct.price * (topProduct.discount || 0)) / 100;
       const priceStr = new Intl.NumberFormat("vi-VN").format(finalPrice);
-      
+
       // Check if user asked for specific product
       const productNamePattern = userMessage.match(/(iphone|samsung|xiaomi|oppo|vivo|realme|oneplus|huawei|nokia|sony)\s*(\d+[a-z]*)/i);
       if (productNamePattern) {
         const requestedProduct = `${productNamePattern[1]} ${productNamePattern[2]}`.toLowerCase();
         const productName = (topProduct.name || "").toLowerCase();
-        
+
         // Check if it's an exact match
         if (productName.includes(requestedProduct) || productName.includes(requestedProduct.replace(/\s+/g, ""))) {
           // Exact match
@@ -1480,29 +1744,29 @@ Please respond concisely (3-5 sentences), focusing on value:
                 : undefined,
           highlights: Array.isArray(product.highlights)
             ? product.highlights
-                .filter((item): item is string => typeof item === "string")
-                .slice(0, 8)
+              .filter((item): item is string => typeof item === "string")
+              .slice(0, 8)
             : [],
           specs: product.specs
             ? Object.entries(product.specs).reduce<Record<string, string>>((acc, [key, value]) => {
-                if (value !== undefined && value !== null && value !== "") {
-                  acc[key] = String(value);
-                }
-                return acc;
-              }, {})
+              if (value !== undefined && value !== null && value !== "") {
+                acc[key] = String(value);
+              }
+              return acc;
+            }, {})
             : undefined,
           meta: product.meta
             ? Object.entries(product.meta).reduce<Record<string, string>>((acc, [key, value]) => {
-                if (value !== undefined && value !== null && value !== "") {
-                  acc[key] = String(value);
-                }
-                return acc;
-              }, {})
+              if (value !== undefined && value !== null && value !== "") {
+                acc[key] = String(value);
+              }
+              return acc;
+            }, {})
             : undefined,
           images: Array.isArray(product.images)
             ? product.images
-                .filter((img): img is string => typeof img === "string")
-                .slice(0, 3)
+              .filter((img): img is string => typeof img === "string")
+              .slice(0, 3)
             : undefined,
           extra: product.extra,
         })
@@ -1635,19 +1899,19 @@ Instructions:
       const source = parsed?.prosCons?.[product.id];
       const pros = Array.isArray(source?.pros)
         ? source.pros
-            .filter(
-              (item: unknown): item is string =>
-                typeof item === "string" && item.trim().length > 0
-            )
-            .map((item :any) => item.trim())
+          .filter(
+            (item: unknown): item is string =>
+              typeof item === "string" && item.trim().length > 0
+          )
+          .map((item: any) => item.trim())
         : [];
       const cons = Array.isArray(source?.cons)
         ? source.cons
-            .filter(
-              (item: unknown): item is string =>
-                typeof item === "string" && item.trim().length > 0
-            )
-            .map((item :any) => item.trim())
+          .filter(
+            (item: unknown): item is string =>
+              typeof item === "string" && item.trim().length > 0
+          )
+          .map((item: any) => item.trim())
         : [];
       prosCons[product.id] = {
         pros:
@@ -1701,17 +1965,17 @@ Instructions:
     const tips =
       Array.isArray(parsed?.tips) && parsed.tips.length > 0
         ? parsed.tips
-            .filter(
-              (tip: unknown): tip is string =>
-                typeof tip === "string" && tip.trim().length > 0
-            )
-            .map((tip :any) => tip.trim())
-            .slice(0, 6)
+          .filter(
+            (tip: unknown): tip is string =>
+              typeof tip === "string" && tip.trim().length > 0
+          )
+          .map((tip: any) => tip.trim())
+          .slice(0, 6)
         : [
-            payload.language === "en"
-              ? "Decide whether battery endurance or camera performance matters more to you."
-              : "Hãy xác định ưu tiên giữa pin bền hay camera trước khi chốt lựa chọn.",
-          ];
+          payload.language === "en"
+            ? "Decide whether battery endurance or camera performance matters more to you."
+            : "Hãy xác định ưu tiên giữa pin bền hay camera trước khi chốt lựa chọn.",
+        ];
 
     return {
       summary,

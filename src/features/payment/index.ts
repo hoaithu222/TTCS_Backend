@@ -9,7 +9,7 @@ import {
   confirmBankTransferController,
   handleSepayWebhookController,
 } from "./payment.controller";
-import { authenticateToken } from "../../shared/middlewares/auth.middleware";
+import { authenticateToken, requireActiveUser } from "../../shared/middlewares/auth.middleware";
 
 const paymentRouter = Router();
 
@@ -17,7 +17,7 @@ const paymentRouter = Router();
 paymentRouter.get("/methods", getPaymentMethodsController);
 
 // Create payment checkout (authenticated)
-paymentRouter.post("/checkout", authenticateToken, createCheckoutController);
+paymentRouter.post("/checkout", authenticateToken, requireActiveUser, createCheckoutController);
 
 // Get payment status (authenticated)
 paymentRouter.get("/status/:orderId", authenticateToken, getPaymentStatusController);
@@ -35,7 +35,7 @@ paymentRouter.post("/webhook", handleSepayWebhookController);
 paymentRouter.post("/test/:paymentId", processTestPaymentController);
 
 // Confirm bank transfer manually (authenticated)
-paymentRouter.post("/confirm/:paymentId", authenticateToken, confirmBankTransferController);
+paymentRouter.post("/confirm/:paymentId", authenticateToken, requireActiveUser, confirmBankTransferController);
 
 export default paymentRouter;
 

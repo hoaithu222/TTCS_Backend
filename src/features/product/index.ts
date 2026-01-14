@@ -17,6 +17,7 @@ import {
 import {
   authenticateToken,
   authorize,
+  requireActiveUser,
 } from "../../shared/middlewares/auth.middleware";
 
 const productRouter = Router();
@@ -40,18 +41,21 @@ productRouter.get("/:id", getProductController);
 productRouter.post(
   "/",
   authenticateToken,
+  requireActiveUser,
   authorize(["admin", "shop"]),
   createProductController
 );
 productRouter.put(
   "/:id",
   authenticateToken,
+  requireActiveUser,
   authorize(["admin", "shop"]),
   updateProductController
 );
 productRouter.delete(
   "/:id",
   authenticateToken,
+  requireActiveUser,
   authorize(["admin", "shop"]),
   deleteProductController
 );

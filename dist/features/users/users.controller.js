@@ -83,7 +83,10 @@ const suspendUserController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status, undefined, req.path, req.method);
     }
-    return response_util_1.ResponseUtil.success(res, result.user, "Đã khóa người dùng thành công");
+    return response_util_1.ResponseUtil.success(res, {
+        message: "Đã khóa người dùng thành công",
+        user: result.user,
+    });
 };
 exports.suspendUserController = suspendUserController;
 const unlockUserController = async (req, res) => {
@@ -92,6 +95,9 @@ const unlockUserController = async (req, res) => {
     if (!result.ok) {
         return response_util_1.ResponseUtil.error(res, result.message, result.status, undefined, req.path, req.method);
     }
-    return response_util_1.ResponseUtil.success(res, result.user, "Đã mở khóa người dùng thành công");
+    return response_util_1.ResponseUtil.success(res, {
+        message: "Đã mở khóa người dùng thành công",
+        user: result.user,
+    });
 };
 exports.unlockUserController = unlockUserController;
