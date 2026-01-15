@@ -1,9 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_controller_1 = require("./auth.controller");
 const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
 const profile_controller_1 = require("./profile.controller");
+const social_1 = __importDefault(require("./social"));
 const router = (0, express_1.Router)();
 router.post("/auth/register", auth_controller_1.registerUserController);
 router.get("/auth/verify-email", auth_controller_1.verifyEmailController);
@@ -16,4 +20,6 @@ router.post("/auth/logout", auth_middleware_1.authenticateToken, auth_controller
 router.get("/auth/profile", auth_middleware_1.authenticateToken, profile_controller_1.getProfileController);
 router.put("/auth/profile", auth_middleware_1.authenticateToken, profile_controller_1.updateProfileController);
 router.post("/auth/change-password", auth_middleware_1.authenticateToken, profile_controller_1.changePasswordController);
+// Mount social login routes
+router.use("/auth/social", social_1.default);
 exports.default = router;

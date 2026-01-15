@@ -11,6 +11,7 @@ import {
 } from "./auth.controller";
 import { authenticateToken } from "../../shared/middlewares/auth.middleware";
 import { getProfileController, updateProfileController, changePasswordController } from "./profile.controller";
+import socialRouter from "./social";
 
 const router = Router();
 
@@ -25,5 +26,8 @@ router.post("/auth/logout", authenticateToken, logoutController);
 router.get("/auth/profile", authenticateToken, getProfileController);
 router.put("/auth/profile", authenticateToken, updateProfileController);
 router.post("/auth/change-password", authenticateToken, changePasswordController);
+
+// Mount social login routes
+router.use("/auth/social", socialRouter);
 
 export default router;

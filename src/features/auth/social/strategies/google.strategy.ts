@@ -1,9 +1,8 @@
 import { Strategy, VerifyCallback } from "passport-google-oauth20";
 import passport from "passport";
 
-const callbackURL = `${
-  process.env.PORT_URL || "http://localhost:5000"
-}/auth/social/google/callback`;
+const callbackURL = `${process.env.PORT_URL || "http://localhost:5000"
+  }/api/v1/auth/social/google/callback`;
 
 const googleClientID = process.env.GOOGLE_CLIENT_ID as string | undefined;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET as

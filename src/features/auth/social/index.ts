@@ -5,7 +5,6 @@ import { facebookEnabled } from "./strategies/facebook.strategy";
 import { githubEnabled } from "./strategies/github.strategy";
 import UserModel, { OtpMethod } from "../../../models/UserModel";
 import Jwt from "../../../shared/utils/jwt";
-import { ResponseUtil } from "../../../shared/utils/response.util";
 
 const router = Router();
 
@@ -25,32 +24,41 @@ if (googleEnabled) {
       session: false,
     }),
     async (req: Request, res: Response) => {
-      const socialUser = (req as any).user as any;
-      if (!socialUser?.email) {
-        return ResponseUtil.badRequest(res, "Không lấy được email từ Google");
-      }
+      try {
+        const socialUser = (req as any).user as any;
+        if (!socialUser?.email) {
+          const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+          return res.redirect(`${frontendURL}/auth/callback?error=no_email`);
+        }
 
-      let user = await UserModel.findOne({ email: socialUser.email });
-      if (!user) {
-        user = await UserModel.create({
-          email: socialUser.email,
-          name: socialUser.firstName || socialUser.email.split("@")[0],
-          avatar: socialUser.picture,
-          password: Jwt.generateRefreshToken(),
-          verifyToken: undefined,
-          status: "active",
-          otpMethod: OtpMethod.EMAIL,
+        let user = await UserModel.findOne({ email: socialUser.email });
+        if (!user) {
+          user = await UserModel.create({
+            email: socialUser.email,
+            name: socialUser.firstName || socialUser.email.split("@")[0],
+            avatar: socialUser.picture,
+            password: Jwt.generateRefreshToken(),
+            verifyToken: undefined,
+            status: "active",
+            otpMethod: OtpMethod.EMAIL,
+          });
+        }
+
+        const accessToken = Jwt.generateAccessToken({
+          userId: user.id.toString(),
+          email: user.email,
         });
+        user.accessToken = accessToken;
+        await user.save();
+
+        // Redirect to frontend with token
+        const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+        return res.redirect(`${frontendURL}/auth/callback?token=${accessToken}`);
+      } catch (error) {
+        console.error("[Social Login] Google callback error:", error);
+        const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+        return res.redirect(`${frontendURL}/auth/callback?error=server_error`);
       }
-
-      const accessToken = Jwt.generateAccessToken({
-        userId: user.id.toString(),
-        email: user.email,
-      });
-      user.accessToken = accessToken;
-      await user.save();
-
-      return ResponseUtil.success(res, { token: accessToken, user });
     }
   );
 }
@@ -68,32 +76,41 @@ if (facebookEnabled) {
       session: false,
     }),
     async (req: Request, res: Response) => {
-      const socialUser = (req as any).user as any;
-      if (!socialUser?.email) {
-        return ResponseUtil.badRequest(res, "Không lấy được email từ Facebook");
-      }
+      try {
+        const socialUser = (req as any).user as any;
+        if (!socialUser?.email) {
+          const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+          return res.redirect(`${frontendURL}/auth/callback?error=no_email`);
+        }
 
-      let user = await UserModel.findOne({ email: socialUser.email });
-      if (!user) {
-        user = await UserModel.create({
-          email: socialUser.email,
-          name: socialUser.firstName || socialUser.email.split("@")[0],
-          avatar: socialUser.picture,
-          password: Jwt.generateRefreshToken(),
-          verifyToken: undefined,
-          status: "active",
-          otpMethod: OtpMethod.EMAIL,
+        let user = await UserModel.findOne({ email: socialUser.email });
+        if (!user) {
+          user = await UserModel.create({
+            email: socialUser.email,
+            name: socialUser.firstName || socialUser.email.split("@")[0],
+            avatar: socialUser.picture,
+            password: Jwt.generateRefreshToken(),
+            verifyToken: undefined,
+            status: "active",
+            otpMethod: OtpMethod.EMAIL,
+          });
+        }
+
+        const accessToken = Jwt.generateAccessToken({
+          userId: user.id.toString(),
+          email: user.email,
         });
+        user.accessToken = accessToken;
+        await user.save();
+
+        // Redirect to frontend with token
+        const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+        return res.redirect(`${frontendURL}/auth/callback?token=${accessToken}`);
+      } catch (error) {
+        console.error("[Social Login] Facebook callback error:", error);
+        const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+        return res.redirect(`${frontendURL}/auth/callback?error=server_error`);
       }
-
-      const accessToken = Jwt.generateAccessToken({
-        userId: user.id.toString(),
-        email: user.email,
-      });
-      user.accessToken = accessToken;
-      await user.save();
-
-      return ResponseUtil.success(res, { token: accessToken, user });
     }
   );
 }
@@ -111,32 +128,41 @@ if (githubEnabled) {
       session: false,
     }),
     async (req: Request, res: Response) => {
-      const socialUser = (req as any).user as any;
-      if (!socialUser?.email) {
-        return ResponseUtil.badRequest(res, "Không lấy được email từ GitHub");
-      }
+      try {
+        const socialUser = (req as any).user as any;
+        if (!socialUser?.email) {
+          const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+          return res.redirect(`${frontendURL}/auth/callback?error=no_email`);
+        }
 
-      let user = await UserModel.findOne({ email: socialUser.email });
-      if (!user) {
-        user = await UserModel.create({
-          email: socialUser.email,
-          name: socialUser.firstName || socialUser.email.split("@")[0],
-          avatar: socialUser.picture,
-          password: Jwt.generateRefreshToken(),
-          verifyToken: undefined,
-          status: "active",
-          otpMethod: OtpMethod.EMAIL,
+        let user = await UserModel.findOne({ email: socialUser.email });
+        if (!user) {
+          user = await UserModel.create({
+            email: socialUser.email,
+            name: socialUser.firstName || socialUser.email.split("@")[0],
+            avatar: socialUser.picture,
+            password: Jwt.generateRefreshToken(),
+            verifyToken: undefined,
+            status: "active",
+            otpMethod: OtpMethod.EMAIL,
+          });
+        }
+
+        const accessToken = Jwt.generateAccessToken({
+          userId: user.id.toString(),
+          email: user.email,
         });
+        user.accessToken = accessToken;
+        await user.save();
+
+        // Redirect to frontend with token
+        const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+        return res.redirect(`${frontendURL}/auth/callback?token=${accessToken}`);
+      } catch (error) {
+        console.error("[Social Login] GitHub callback error:", error);
+        const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+        return res.redirect(`${frontendURL}/auth/callback?error=server_error`);
       }
-
-      const accessToken = Jwt.generateAccessToken({
-        userId: user.id.toString(),
-        email: user.email,
-      });
-      user.accessToken = accessToken;
-      await user.save();
-
-      return ResponseUtil.success(res, { token: accessToken, user });
     }
   );
 }

@@ -15,6 +15,10 @@ const swagger_1 = require("./shared/config/swagger");
 const passport_1 = __importDefault(require("passport"));
 const error_middleware_1 = require("./shared/middlewares/error.middleware");
 const rateLimit_middleware_1 = require("./shared/middlewares/rateLimit.middleware");
+// Import passport strategies (must be imported to register them)
+require("./features/auth/social/strategies/google.strategy");
+require("./features/auth/social/strategies/facebook.strategy");
+require("./features/auth/social/strategies/github.strategy");
 // Load environment variables
 dotenv_1.default.config();
 const app = (0, express_1.default)();

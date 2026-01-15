@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.googleEnabled = void 0;
 const passport_google_oauth20_1 = require("passport-google-oauth20");
 const passport_1 = __importDefault(require("passport"));
-const callbackURL = `${process.env.PORT_URL || "http://localhost:5000"}/auth/social/google/callback`;
+const callbackURL = `${process.env.PORT_URL || "http://localhost:5000"}/api/v1/auth/social/google/callback`;
 const googleClientID = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 exports.googleEnabled = Boolean(googleClientID && googleClientSecret);

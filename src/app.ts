@@ -16,6 +16,11 @@ import {
 } from "./shared/middlewares/error.middleware";
 import { rateLimit } from "./shared/middlewares/rateLimit.middleware";
 
+// Import passport strategies (must be imported to register them)
+import "./features/auth/social/strategies/google.strategy";
+import "./features/auth/social/strategies/facebook.strategy";
+import "./features/auth/social/strategies/github.strategy";
+
 // Load environment variables
 dotenv.config();
 

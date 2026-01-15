@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.githubEnabled = void 0;
 const passport_1 = __importDefault(require("passport"));
 const passport_github2_1 = require("passport-github2");
-const callbackURL = `${process.env.PORT_URL || "http://localhost:5000"}/auth/social/github/callback`;
+const callbackURL = `${process.env.PORT_URL || "http://localhost:5000"}/api/v1/auth/social/github/callback`;
 const ghClientID = process.env.GITHUB_CLIENT_ID;
 const ghClientSecret = process.env.GITHUB_CLIENT_SECRET;
 exports.githubEnabled = Boolean(ghClientID && ghClientSecret);

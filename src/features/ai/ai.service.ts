@@ -623,7 +623,7 @@ Yêu cầu (trả về JSON):
   /**
    * Detect what the user is specifically looking for (Products, Shops, or Categories)
    */
-  private detectSearchIntent(userMessage: string): { products: boolean, shops: boolean, categories: boolean, orders: boolean, cart: boolean, wallet: boolean } {
+  private detectSearchIntent(userMessage: string): { products: boolean, shops: boolean, categories: boolean, orders: boolean, cart: boolean, wallet: boolean, recommend: boolean, deals: boolean, stockCheck: boolean, faq: boolean, support: boolean } {
     const lowerMessage = userMessage.toLowerCase();
 
     // Explicit keywords
@@ -636,6 +636,13 @@ Yêu cầu (trả về JSON):
     const cartKeywords = ["giỏ hàng", "cart", "giỏ", "trong giỏ", "đã thêm"];
     const walletKeywords = ["ví", "wallet", "số dư", "balance", "tiền", "nạp tiền", "rút tiền"];
 
+    // Advanced feature keywords
+    const recommendKeywords = ["gợi ý", "recommend", "đề xuất", "nên mua", "phù hợp với tôi", "cho tôi", "dành cho tôi"];
+    const dealKeywords = ["giá rẻ", "rẻ nhất", "deal", "khuyến mãi", "giảm giá", "sale", "ưu đãi", "tốt nhất"];
+    const stockKeywords = ["còn hàng", "hết hàng", "stock", "available", "sẵn hàng", "tồn kho"];
+    const faqKeywords = ["làm sao", "how to", "cách", "hướng dẫn", "đổi trả", "hoàn tiền", "thanh toán", "vận chuyển"];
+    const supportKeywords = ["hỗ trợ", "support", "help", "liên hệ", "cskh", "customer service", "báo lỗi", "khiếu nại"];
+
     const isAskingForShop = shopKeywords.some(kw => lowerMessage.includes(kw));
     const isAskingForCategory = categoryKeywords.some(kw => lowerMessage.includes(kw));
     const isAskingForProduct = productKeywords.some(kw => lowerMessage.includes(kw));
@@ -644,6 +651,12 @@ Yêu cầu (trả về JSON):
     const isAskingForCart = cartKeywords.some(kw => lowerMessage.includes(kw));
     const isAskingForWallet = walletKeywords.some(kw => lowerMessage.includes(kw));
 
+    const isAskingForRecommend = recommendKeywords.some(kw => lowerMessage.includes(kw));
+    const isAskingForDeals = dealKeywords.some(kw => lowerMessage.includes(kw));
+    const isAskingForStock = stockKeywords.some(kw => lowerMessage.includes(kw));
+    const isAskingForFAQ = faqKeywords.some(kw => lowerMessage.includes(kw));
+    const isAskingForSupport = supportKeywords.some(kw => lowerMessage.includes(kw));
+
     // Determine intent based on priority
     let products = false;
     let shops = false;
@@ -651,6 +664,22 @@ Yêu cầu (trả về JSON):
     let orders = false;
     let cart = false;
     let wallet = false;
+    let recommend = false;
+    let deals = false;
+    let stockCheck = false;
+    let faq = false;
+    let support = false;
+
+    // FAQ and Support have highest priority (instant response)
+    if (isAskingForFAQ) {
+      faq = true;
+      return { products, shops, categories, orders, cart, wallet, recommend, deals, stockCheck, faq, support };
+    }
+
+    if (isAskingForSupport) {
+      support = true;
+      return { products, shops, categories, orders, cart, wallet, recommend, deals, stockCheck, faq, support };
+    }
 
     // System data has higher priority
     if (isAskingForOrders) {
@@ -665,8 +694,21 @@ Yêu cầu (trả về JSON):
       wallet = true;
     }
 
-    // Only search products/shops/categories if not asking for system data
-    if (!orders && !cart && !wallet) {
+    // Advanced features
+    if (isAskingForRecommend) {
+      recommend = true;
+    }
+
+    if (isAskingForDeals) {
+      deals = true;
+    }
+
+    if (isAskingForStock) {
+      stockCheck = true;
+    }
+
+    // Only search products/shops/categories if not asking for system data or advanced features
+    if (!orders && !cart && !wallet && !recommend && !deals && !stockCheck) {
       if (isAskingForShop) {
         shops = true;
       }
@@ -688,7 +730,7 @@ Yêu cầu (trả về JSON):
       }
     }
 
-    return { products, shops, categories, orders, cart, wallet };
+    return { products, shops, categories, orders, cart, wallet, recommend, deals, stockCheck, faq, support };
   }
 
   /**
@@ -923,6 +965,10 @@ Yêu cầu (trả về JSON):
         .slice(0, 7)
         .join(" ");
 
+      console.log("[AI] Product search - exactBrand:", exactBrand);
+      console.log("[AI] Product search - exactModel:", exactModel);
+      console.log("[AI] Product search - keywords:", keywords);
+
       // Extract price range from message
       // Matches "15 triệu", "15tr", "dưới 10tr", "tầm 20 triệu", "khoảng 5tr"
       const priceMatch = userMessage.match(/(dưới|trên|tầm|khoảng|đến|-)\s*(\d+)\s*(triệu|tr|trđ|m|k)/i) ||
@@ -974,15 +1020,20 @@ Yêu cầu (trả về JSON):
       } else if (keywords) {
         // Fallback to keyword search
         const searchTerms = keywords.split(/\s+/).filter(t => t.length > 1);
+        console.log("[AI] Product search - searchTerms:", searchTerms);
+
         if (searchTerms.length > 0) {
-          const regexPattern = searchTerms.map(term => `(?=.*${term})`).join('') + '.*';
-          filter.$or = [
-            { name: { $regex: regexPattern, $options: "i" } },
-            { name: { $regex: keywords, $options: "i" } },
-            { description: { $regex: keywords, $options: "i" } }
-          ];
+          // Simple OR search for each term
+          filter.$or = searchTerms.flatMap(term => [
+            { name: { $regex: term, $options: "i" } },
+            { description: { $regex: term, $options: "i" } },
+            { brand: { $regex: term, $options: "i" } },
+            { category: { $regex: term, $options: "i" } }
+          ]);
         }
       }
+
+      console.log("[AI] Product search filter:", JSON.stringify(filter));
 
       // Step 3: Execute search
       let products = await ProductModel.find(filter)
@@ -991,6 +1042,11 @@ Yêu cầu (trả về JSON):
         .populate({ path: "categoryId", select: "name slug" })
         .limit(20)
         .lean();
+
+      console.log("[AI] Product search - Found products:", products.length);
+      if (products.length > 0) {
+        console.log("[AI] Product search - First product:", products[0].name);
+      }
 
       // Step 4: Better ranking
       if (products.length > 0) {

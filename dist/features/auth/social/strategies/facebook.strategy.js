@@ -6,9 +6,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.facebookEnabled = void 0;
 const passport_1 = __importDefault(require("passport"));
 const passport_facebook_1 = require("passport-facebook");
-const callbackURL = `${process.env.PORT_URL || "http://localhost:5000"}/auth/social/facebook/callback`;
-const fbClientID = process.env.FACEBOOK_CLIENT_ID;
-const fbClientSecret = process.env.FACEBOOK_CLIENT_SECRET;
+const callbackURL = `${process.env.PORT_URL || "http://localhost:5000"}/api/v1/auth/social/facebook/callback`;
+const fbClientID = process.env.FACEBOOK_APP_ID;
+const fbClientSecret = process.env.FACEBOOK_APP_SECRET;
 exports.facebookEnabled = Boolean(fbClientID && fbClientSecret);
 if (exports.facebookEnabled) {
     passport_1.default.use(new passport_facebook_1.Strategy({

@@ -1,7 +1,6 @@
 import { Router } from "express";
 import healthRoutes from "./health";
 import authRoutes from "./auth";
-import socialRoutes from "./auth/social";
 import otpRoutes from "./otp";
 import usersRoutes from "./users";
 import categoryRoutes from "./category";
@@ -67,7 +66,6 @@ const router = Router();
 // Mount feature routes
 router.use("/health", healthRoutes);
 router.use("/", authRoutes);
-router.use("/auth/social", socialRoutes);
 router.use("/otp", otpRoutes);
 router.use("/users", usersRoutes);
 router.use("/category", categoryRoutes);

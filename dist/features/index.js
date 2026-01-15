@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const health_1 = __importDefault(require("./health"));
 const auth_1 = __importDefault(require("./auth"));
-const social_1 = __importDefault(require("./auth/social"));
 const otp_1 = __importDefault(require("./otp"));
 const users_1 = __importDefault(require("./users"));
 const category_1 = __importDefault(require("./category"));
@@ -69,7 +68,6 @@ const router = (0, express_1.Router)();
 // Mount feature routes
 router.use("/health", health_1.default);
 router.use("/", auth_1.default);
-router.use("/auth/social", social_1.default);
 router.use("/otp", otp_1.default);
 router.use("/users", users_1.default);
 router.use("/category", category_1.default);

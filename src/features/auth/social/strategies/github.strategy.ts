@@ -1,9 +1,8 @@
 import passport from "passport";
 import { Strategy, Profile } from "passport-github2";
 
-const callbackURL = `${
-  process.env.PORT_URL || "http://localhost:5000"
-}/auth/social/github/callback`;
+const callbackURL = `${process.env.PORT_URL || "http://localhost:5000"
+  }/api/v1/auth/social/github/callback`;
 
 const ghClientID = process.env.GITHUB_CLIENT_ID as string | undefined;
 const ghClientSecret = process.env.GITHUB_CLIENT_SECRET as string | undefined;

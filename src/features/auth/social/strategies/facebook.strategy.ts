@@ -1,12 +1,11 @@
 import passport from "passport";
 import { Strategy, Profile } from "passport-facebook";
 
-const callbackURL = `${
-  process.env.PORT_URL || "http://localhost:5000"
-}/auth/social/facebook/callback`;
+const callbackURL = `${process.env.PORT_URL || "http://localhost:5000"
+  }/api/v1/auth/social/facebook/callback`;
 
-const fbClientID = process.env.FACEBOOK_CLIENT_ID as string | undefined;
-const fbClientSecret = process.env.FACEBOOK_CLIENT_SECRET as string | undefined;
+const fbClientID = process.env.FACEBOOK_APP_ID as string | undefined;
+const fbClientSecret = process.env.FACEBOOK_APP_SECRET as string | undefined;
 export const facebookEnabled = Boolean(fbClientID && fbClientSecret);
 
 if (facebookEnabled) {
