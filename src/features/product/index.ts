@@ -18,6 +18,7 @@ import {
   authenticateToken,
   authorize,
   requireActiveUser,
+  optionalAuth,
 } from "../../shared/middlewares/auth.middleware";
 
 const productRouter = Router();
@@ -26,7 +27,7 @@ const productRouter = Router();
 productRouter.get("/search", searchProductController);
 productRouter.get("/featured", getFeaturedProductsController);
 productRouter.get("/recommended", getRecommendedProductsController);
-productRouter.get("/", listProductController);
+productRouter.get("/", optionalAuth, listProductController);
 productRouter.get("/:id/related", getRelatedProductsController);
 productRouter.get("/:id/reviews", getProductReviewsController);
 productRouter.post(

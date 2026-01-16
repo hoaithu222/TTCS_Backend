@@ -48,25 +48,25 @@ const mapProduct = async (product: any) => {
     variants: mappedVariants,
     shop: product.shopId
       ? {
-          _id: product.shopId._id || product.shopId,
-          name: product.shopId.name || "",
-          logo: product.shopId.logo,
-          rating: product.shopId.rating,
-        }
+        _id: product.shopId._id || product.shopId,
+        name: product.shopId.name || "",
+        logo: product.shopId.logo,
+        rating: product.shopId.rating,
+      }
       : undefined,
     category: product.categoryId
       ? {
-          _id: product.categoryId._id || product.categoryId,
-          name: product.categoryId.name || "",
-          slug: product.categoryId.slug,
-        }
+        _id: product.categoryId._id || product.categoryId,
+        name: product.categoryId.name || "",
+        slug: product.categoryId.slug,
+      }
       : undefined,
     subCategory: product.subCategoryId
       ? {
-          _id: product.subCategoryId._id || product.subCategoryId,
-          name: product.subCategoryId.name || "",
-          slug: product.subCategoryId.slug,
-        }
+        _id: product.subCategoryId._id || product.subCategoryId,
+        name: product.subCategoryId.name || "",
+        slug: product.subCategoryId.slug,
+      }
       : undefined,
     finalPrice: product.price - (product.price * (product.discount || 0)) / 100,
   };
@@ -101,7 +101,7 @@ export default class ProductService {
 
     // Increment view count (don't await to avoid blocking response)
     ProductModel.findByIdAndUpdate(id, { $inc: { viewCount: 1 } }).catch(
-      () => {}
+      () => { }
     );
 
     return { ok: true as const, product: await mapProduct(product) };
@@ -162,7 +162,7 @@ export default class ProductService {
           : 50;
       const skip = (page - 1) * limit;
       const filter: any = {};
-      
+
       // Handle status filter
       if (query.status) {
         filter.status = query.status;
@@ -170,38 +170,49 @@ export default class ProductService {
         if (query.status === "approved") {
           filter.isActive = true;
         }
+      } else {
+        // Only exclude violated products if user is NOT admin or shop
+        // Admin and shop can see all products for management purposes
+        const isAdminOrShop = query.userRole === "admin" || query.userRole === "shop";
+        console.log(`[ProductService.list] userRole: ${query.userRole}, isAdminOrShop: ${isAdminOrShop}`);
+        if (!isAdminOrShop) {
+          // Regular users should not see violated products
+          filter.status = { $ne: ProductStatus.VIOLATED };
+          console.log("[ProductService.list] Excluding violated products for regular users");
+        } else {
+          console.log("[ProductService.list] Admin/Shop user - showing all products including violated");
+        }
+        // If admin/shop and no status filter, show ALL products (including violated)
       }
-      // If no status filter, show all products (admin can see all including violated)
-      // Violated products will be excluded in search/featured/recommended (public APIs)
-      
+
       // Handle isActive filter (only apply if explicitly provided)
       if (typeof query.isActive === "boolean") {
         filter.isActive = query.isActive;
       }
-      
+
       // If no status and no isActive filter provided, show all products (for admin panel)
-      
+
       if (query.categoryId) filter.categoryId = query.categoryId;
       if (query.subCategoryId) filter.subCategoryId = query.subCategoryId;
       if (query.shopId) filter.shopId = query.shopId;
-      
+
       // Price range filter
       if (query.minPrice != null || query.maxPrice != null) {
         filter.price = {};
         if (query.minPrice != null) filter.price.$gte = query.minPrice;
         if (query.maxPrice != null) filter.price.$lte = query.maxPrice;
       }
-      
+
       // Rating filter
       if (query.rating != null) {
         filter.rating = { $gte: query.rating };
       }
-      
+
       // In stock filter
       if (query.inStock) {
         filter.stock = { $gt: 0 };
       }
-      
+
       // Search by text
       if (query.search) {
         filter.$or = [
@@ -265,7 +276,7 @@ export default class ProductService {
           ? Math.min(query.limit as number, 500)
           : 20;
       const skip = (page - 1) * limit;
-      const filter: any = { 
+      const filter: any = {
         isActive: true,
         status: { $ne: ProductStatus.VIOLATED }, // Exclude violated products
       };
@@ -273,24 +284,24 @@ export default class ProductService {
       if (query.categoryId) filter.categoryId = query.categoryId;
       if (query.subCategoryId) filter.subCategoryId = query.subCategoryId;
       if (query.shopId) filter.shopId = query.shopId;
-      
+
       // Price range filter
       if (query.minPrice != null || query.maxPrice != null) {
         filter.price = {};
         if (query.minPrice != null) filter.price.$gte = query.minPrice;
         if (query.maxPrice != null) filter.price.$lte = query.maxPrice;
       }
-      
+
       // Rating filter
       if (query.rating != null) {
         filter.rating = { $gte: query.rating };
       }
-      
+
       // In stock filter
       if (query.inStock) {
         filter.stock = { $gt: 0 };
       }
-      
+
       // Search by text
       if (query.search) {
         filter.$or = [
@@ -354,8 +365,8 @@ export default class ProductService {
           ? Math.min(query.limit as number, 500)
           : 20;
       const skip = (page - 1) * limit;
-      const filter: any = { 
-        isActive: true, 
+      const filter: any = {
+        isActive: true,
         rating: { $gte: 4 },
         status: { $ne: ProductStatus.VIOLATED }, // Exclude violated products
       };
@@ -414,7 +425,7 @@ export default class ProductService {
           ? Math.min(query.limit as number, 500)
           : 20;
       const skip = (page - 1) * limit;
-      const filter: any = { 
+      const filter: any = {
         isActive: true,
         status: { $ne: ProductStatus.VIOLATED }, // Exclude violated products
       };
@@ -599,10 +610,10 @@ export default class ProductService {
         userId: review.userId?._id || review.userId,
         user: review.userId
           ? {
-              _id: review.userId._id || review.userId,
-              name: review.userId.name || "",
-              avatar: review.userId.avatar,
-            }
+            _id: review.userId._id || review.userId,
+            name: review.userId.name || "",
+            avatar: review.userId.avatar,
+          }
           : undefined,
         rating: review.rating,
         title: review.title || undefined,
@@ -642,7 +653,7 @@ export default class ProductService {
       const product = await ProductModel.findById(id)
         .populate("shopId", "userId name")
         .lean();
-      
+
       if (!product) {
         return {
           ok: false as const,
@@ -735,7 +746,7 @@ export default class ProductService {
             } else {
               const adminUserIdObj = new Types.ObjectId(adminUserId);
               const shopOwnerIdObj = new Types.ObjectId(shopOwnerId);
-              
+
               const existingConversation = await ChatConversationModel.findOne({
                 $or: [
                   {
@@ -837,7 +848,7 @@ export default class ProductService {
               // Convert to ObjectId for proper comparison
               const adminUserIdObj = new Types.ObjectId(adminUserId);
               const shopOwnerIdObj = new Types.ObjectId(shopOwnerId);
-              
+
               const existingConversation = await ChatConversationModel.findOne({
                 $or: [
                   // Conversation with type "admin" (created by shop owner)

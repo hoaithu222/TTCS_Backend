@@ -49,9 +49,13 @@ export const listProductController = async (req: Request, res: Response) => {
     rating,
     inStock,
   } = req.query as any;
-  
+
   console.log("[listProductController] Query params:", req.query);
-  
+
+  // Get user role if authenticated
+  const currentUser = (req as any).currentUser as any;
+  const userRole = currentUser?.role;
+
   const result = await ProductService.list({
     page: Number(page) || 1,
     limit: Number(limit) || 50,
@@ -65,6 +69,7 @@ export const listProductController = async (req: Request, res: Response) => {
     status: status as "approved" | "hidden" | "violated" | undefined,
     sortBy,
     sortOrder,
+    userRole, // Pass user role to service
   });
   if (!result.ok) return ResponseUtil.error(res, result.message, result.status);
   return ResponseUtil.success(res, result.items, "Success", 200, 1, {
@@ -90,9 +95,9 @@ export const searchProductController = async (req: Request, res: Response) => {
     sortBy,
     sortOrder,
   } = req.query as any;
-  
+
   console.log("[searchProductController] Query params:", req.query);
-  
+
   const result = await ProductService.search({
     page: Number(page) || 1,
     limit: Number(limit) || 20,

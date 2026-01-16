@@ -54,13 +54,18 @@ if (google_strategy_1.googleEnabled) {
         session: false,
     }), async (req, res) => {
         try {
+            console.log("[Social Login] Google callback triggered");
             const socialUser = req.user;
+            console.log("[Social Login] Social user data:", socialUser);
             if (!socialUser?.email) {
+                console.error("[Social Login] No email from Google");
                 const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
                 return res.redirect(`${frontendURL}/auth/callback?error=no_email`);
             }
+            console.log("[Social Login] Looking for user with email:", socialUser.email);
             let user = await UserModel_1.default.findOne({ email: socialUser.email });
             if (!user) {
+                console.log("[Social Login] User not found, creating new user");
                 user = await UserModel_1.default.create({
                     email: socialUser.email,
                     name: socialUser.firstName || socialUser.email.split("@")[0],
@@ -70,19 +75,28 @@ if (google_strategy_1.googleEnabled) {
                     status: "active",
                     otpMethod: UserModel_1.OtpMethod.EMAIL,
                 });
+                console.log("[Social Login] New user created:", user._id);
             }
+            else {
+                console.log("[Social Login] Existing user found:", user._id);
+            }
+            console.log("[Social Login] Generating access token");
             const accessToken = jwt_1.default.generateAccessToken({
                 userId: user.id.toString(),
                 email: user.email,
             });
             user.accessToken = accessToken;
             await user.save();
+            console.log("[Social Login] User saved with token");
             // Redirect to frontend with token
             const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
+            console.log("[Social Login] Redirecting to:", `${frontendURL}/auth/callback`);
             return res.redirect(`${frontendURL}/auth/callback?token=${accessToken}`);
         }
         catch (error) {
             console.error("[Social Login] Google callback error:", error);
+            console.error("[Social Login] Error stack:", error.stack);
+            console.error("[Social Login] Error message:", error.message);
             const frontendURL = process.env.USER_CLIENT_URL || "http://localhost:3000";
             return res.redirect(`${frontendURL}/auth/callback?error=server_error`);
         }

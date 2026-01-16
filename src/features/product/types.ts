@@ -18,7 +18,7 @@ export interface CreateProductRequest {
   isActive?: boolean;
 }
 
-export interface UpdateProductRequest extends Partial<CreateProductRequest> {}
+export interface UpdateProductRequest extends Partial<CreateProductRequest> { }
 
 export interface ListProductQuery {
   page?: number;
@@ -35,6 +35,7 @@ export interface ListProductQuery {
   status?: "approved" | "hidden" | "violated";
   sortBy?: "createdAt" | "price" | "rating" | "salesCount" | "viewCount";
   sortOrder?: "asc" | "desc";
+  userRole?: string; // User role for filtering (admin/shop can see all products)
 }
 
 export interface UpdateProductStatusRequest {
